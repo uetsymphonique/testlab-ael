@@ -1,0 +1,6 @@
+[submodule "atomic-red-team"]
+	path = atomic-red-team
+	url = https://github.com/uetsymphonique/atomic-red-team
+[submodule "mitre-knowledge-base"]
+	path = mitre-knowledge-base
+	url = https://github.com/uetsymphonique/mitre-knowledge-base
