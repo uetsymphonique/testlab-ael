@@ -1,0 +1,1 @@
+> Lateral Movement/Privilege Escalation -> Execution (-> Persistence) (can be combined with Defense Evasion)

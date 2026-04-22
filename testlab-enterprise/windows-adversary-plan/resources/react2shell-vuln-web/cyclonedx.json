@@ -1,0 +1,1737 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "serialNumber": "urn:uuid:9dd82ebc-ea7e-4fed-81e5-9f68556e0ac8",
+  "metadata": {
+    "timestamp": "2025-12-09T10:47:26.412Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "npm",
+          "version": "10.8.2"
+        },
+        {
+          "type": "application",
+          "name": "cyclonedx-npm",
+          "group": "@cyclonedx",
+          "version": "2.1.0",
+          "author": "Jan Kowalleck",
+          "description": "Create CycloneDX Software Bill of Materials (SBOM) from NPM projects.",
+          "licenses": [
+            {
+              "license": {
+                "id": "Apache-2.0"
+              }
+            }
+          ],
+          "externalReferences": [
+            {
+              "url": "git+https://github.com/CycloneDX/cyclonedx-node-npm.git",
+              "type": "vcs",
+              "comment": "as detected from PackageJson property \"repository.url\""
+            },
+            {
+              "url": "https://github.com/CycloneDX/cyclonedx-node-npm#readme",
+              "type": "website",
+              "comment": "as detected from PackageJson property \"homepage\""
+            },
+            {
+              "url": "https://github.com/CycloneDX/cyclonedx-node-npm/issues",
+              "type": "issue-tracker",
+              "comment": "as detected from PackageJson property \"bugs.url\""
+            }
+          ]
+        },
+        {
+          "type": "library",
+          "name": "cyclonedx-library",
+          "group": "@cyclonedx",
+          "version": "7.1.0",
+          "author": "Jan Kowalleck",
+          "description": "Core functionality of CycloneDX for JavaScript (Node.js or WebBrowser).",
+          "licenses": [
+            {
+              "license": {
+                "id": "Apache-2.0"
+              }
+            }
+          ],
+          "externalReferences": [
+            {
+              "url": "git+https://github.com/CycloneDX/cyclonedx-javascript-library.git",
+              "type": "vcs",
+              "comment": "as detected from PackageJson property \"repository.url\""
+            },
+            {
+              "url": "https://github.com/CycloneDX/cyclonedx-javascript-library#readme",
+              "type": "website",
+              "comment": "as detected from PackageJson property \"homepage\""
+            },
+            {
+              "url": "https://github.com/CycloneDX/cyclonedx-javascript-library/issues",
+              "type": "issue-tracker",
+              "comment": "as detected from PackageJson property \"bugs.url\""
+            }
+          ]
+        }
+      ]
+    },
+    "component": {
+      "type": "application",
+      "name": "vulnerable-nextjs-poc",
+      "version": "1.0.0",
+      "bom-ref": "vulnerable-nextjs-poc@1.0.0",
+      "description": "POC for CVE-2025-55182 - React Server Components deserialization vulnerability",
+      "purl": "pkg:npm/vulnerable-nextjs-poc@1.0.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": ""
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "next",
+      "version": "15.0.0",
+      "bom-ref": "next@15.0.0",
+      "description": "The React Framework",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/next@15.0.0",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/vercel/next.js.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://nextjs.org",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/vercel/next.js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/next/-/next-15.0.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "fe2bea17a8024a15e92b063d85fac841887c60c81ef0bdd6fb0d6844bbff3ce98ae0c3909e1f85b1c67c6b47d1153490584fb6cfd72d358bc42c3f6f3f6155f8"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/next"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "env",
+      "group": "@next",
+      "version": "15.0.0",
+      "bom-ref": "@next/env@15.0.0",
+      "author": "Next.js Team",
+      "description": "Next.js dotenv file loading",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40next/env@15.0.0#packages/next-env",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/vercel/next.js.git#packages/next-env",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://github.com/vercel/next.js#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/vercel/next.js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@next/env/-/env-15.0.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "31cbfc6559848133b76de3e21ff789ef31ea404b36802a99d1421dd91c479830dcecfc3a9e07d2ace165c46f170e969ec7e9f61be4ca3ec4007f6f0c3bef3c1b"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@next/env"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "swc-linux-arm64-musl",
+      "group": "@next",
+      "version": "15.0.0",
+      "bom-ref": "@next/swc-linux-arm64-musl@15.0.0",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40next/swc-linux-arm64-musl@15.0.0#crates/napi/npm/linux-arm64-musl",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/vercel/next.js.git#crates/napi/npm/linux-arm64-musl",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://github.com/vercel/next.js#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/vercel/next.js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-15.0.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "240c3ce2a7cbf356900a2ad728fe159209a1883a5726ea468edf084d4907ace56505dfb78799237cfbdae4cd2d1f617d28a4a02501c4a371794b9b431fd876c3"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@next/swc-linux-arm64-musl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "counter",
+      "group": "@swc",
+      "version": "0.1.3",
+      "bom-ref": "@swc/counter@0.1.3",
+      "author": "강동윤",
+      "description": "Downloade counter for the swc project",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40swc/counter@0.1.3",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/swc-project/pkgs.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://swc.rs",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/swc-project/swc/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@swc/counter/-/counter-0.1.3.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "7b6051e25b09924465299fea0873f0f59692c5cd0c55477b82d6ed681eda32f1de25561ef2c381f0305990fd83b4848719292ef6c08ae93e9c9d8d02b57ace09"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@swc/counter"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "helpers",
+      "group": "@swc",
+      "version": "0.5.13",
+      "bom-ref": "@swc/helpers@0.5.13",
+      "author": "강동윤",
+      "description": "External helpers for the swc project.",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40swc/helpers@0.5.13",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/swc-project/swc.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://swc.rs",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/swc-project/swc/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@swc/helpers/-/helpers-0.5.13.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "528286c50debe64608f5d00b2896a9326b8afb5cd633f1f5ed9d7e8b09cd9b37094677c5b9ebd9b37ef94c0e6b5b7d69bb8052e0da12cb57d1b1ec435df5a7e7"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@swc/helpers"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tslib",
+      "version": "2.8.1",
+      "bom-ref": "tslib@2.8.1",
+      "author": "Microsoft Corp.",
+      "description": "Runtime library for TypeScript helper functions",
+      "licenses": [
+        {
+          "license": {
+            "id": "0BSD",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/tslib@2.8.1",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/Microsoft/tslib.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://www.typescriptlang.org/",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/Microsoft/TypeScript/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "a0916ef781d06fe29576e49440bef09e99aa9df98bb0e03f9c087a6fa107d30084a0ad3f98f79753a737c0a0d5f373243ae1cf447b525ca294f7d2016b34bfdb"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/tslib"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "busboy",
+      "version": "1.6.0",
+      "bom-ref": "busboy@1.6.0",
+      "author": "Brian White",
+      "description": "A streaming parser for HTML form data for node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared",
+            "url": "http://github.com/mscdex/busboy/raw/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:npm/busboy@1.6.0",
+      "externalReferences": [
+        {
+          "url": "git+ssh://git@github.com/mscdex/busboy.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/mscdex/busboy#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/mscdex/busboy/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/busboy/-/busboy-1.6.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "f121506e0ff4850f71cb750d4c1d18127b0d05b59f85fed1b67ce92fb4e40624c145fad0f45c5c9f3ed526c95e269ca9eab54bbd78ae391aa39478b9abe3d8b8"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/busboy"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "streamsearch",
+      "version": "1.1.0",
+      "bom-ref": "streamsearch@1.1.0",
+      "author": "Brian White",
+      "description": "Streaming Boyer-Moore-Horspool searching for node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared",
+            "url": "http://github.com/mscdex/streamsearch/raw/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:npm/streamsearch@1.1.0",
+      "externalReferences": [
+        {
+          "url": "git+ssh://git@github.com/mscdex/streamsearch.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/mscdex/streamsearch#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/mscdex/streamsearch/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/streamsearch/-/streamsearch-1.1.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "31c739c077a1a7d697cf56b1e9b654c98e5a7e0f6edabbf972a408de646b624182f2b5b684cd368d6bb08ed2fef8b4b9aa29d2ca18f641f2f236cb9cf95b04c6"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/streamsearch"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "caniuse-lite",
+      "version": "1.0.30001760",
+      "bom-ref": "caniuse-lite@1.0.30001760",
+      "author": "Ben Briggs",
+      "description": "A smaller version of caniuse-db, with only the essentials!",
+      "licenses": [
+        {
+          "license": {
+            "id": "CC-BY-4.0",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/caniuse-lite@1.0.30001760",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/browserslist/caniuse-lite.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/browserslist/caniuse-lite#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/browserslist/caniuse-lite/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001760.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "ec000c3dcb9e5842edd69de68b5dc747f2c71f44c92d3d75727c03244b37c40e3e08afcf2ca78ef4a975a2bbb6e21b64c942ad9060af031e28841d13b6bcbc0f"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/caniuse-lite"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "postcss",
+      "version": "8.4.31",
+      "bom-ref": "postcss@8.4.31",
+      "author": "Andrey Sitnik",
+      "description": "Tool for transforming styles with JS plugins",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/postcss@8.4.31",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/postcss/postcss.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://postcss.org/",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/postcss/postcss/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/postcss/-/postcss-8.4.31.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "3d2d3c21ba226bd9adb3fdb2815dde2e96398219d471f2d5fc45d3396d44daa63124a186054b4d8cdefa1581e732cdfa4660119f8d5b0b40199a7fab474395a5"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/postcss"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "nanoid",
+      "version": "3.3.11",
+      "bom-ref": "nanoid@3.3.11",
+      "author": "Andrey Sitnik",
+      "description": "A tiny (116 bytes), secure URL-friendly unique string ID generator",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/nanoid@3.3.11",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/ai/nanoid.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/ai/nanoid#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/ai/nanoid/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.11.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "37c4a97cf527529d5b2be3cc616f2a496765f54fb0c0d588e102b13980f2f4902ba3758c5fba7639e55117dbfedf8ee99da90d7af3e688784d999d876c503beb"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/nanoid"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "picocolors",
+      "version": "1.1.1",
+      "bom-ref": "picocolors@1.1.1",
+      "author": "Alexey Raspopov",
+      "description": "The tiniest and the fastest library for terminal output formatting with ANSI colors",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/picocolors@1.1.1",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/alexeyraspopov/picocolors.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/alexeyraspopov/picocolors#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/alexeyraspopov/picocolors/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "c5c787dac9e1b5be4cf658aa0ec984c39ea57b7efa993664117fe311bfd1c4d1727a036e97b78db250973fd1438ff2dcbb45fc284c8c71e3f69eda5a1eb0c454"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/picocolors"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "source-map-js",
+      "version": "1.2.1",
+      "bom-ref": "source-map-js@1.2.1",
+      "author": "Valentin 7rulnik Semirulnik",
+      "description": "Generates and consumes source maps",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/source-map-js@1.2.1",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/7rulnik/source-map-js.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/7rulnik/source-map-js",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/7rulnik/source-map-js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "51758c2a12cec1529bef6f0852d40f5f17d853ebac7726ed52b2bff2e184f0240cbeb84ea70bf30c1c23d108522fb31073bbc8b084811bc550f3e203431a5f40"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/source-map-js"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-dom",
+      "version": "19.0.0",
+      "bom-ref": "react-dom@19.0.0",
+      "description": "React package for working with the DOM.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/react-dom@19.0.0#packages/react-dom",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/facebook/react.git#packages/react-dom",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://react.dev/",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/facebook/react/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/react-dom/-/react-dom-19.0.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "e06579b07146d1eff4003e17fb24b2e9425dde3565d6236c34776969dd2a840049d75b704b74d3067b1eaac2aeaca72c36a08415e18bdee2e954286920edd07d"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/react-dom"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react",
+      "version": "19.0.0",
+      "bom-ref": "react@19.0.0",
+      "description": "React is a JavaScript library for building user interfaces.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/react@19.0.0#packages/react",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/facebook/react.git#packages/react",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://react.dev/",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/facebook/react/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/react/-/react-19.0.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "57c0159e63c8202896a467e6e862f3091fd6e455cb7211e8a78d16e275c199d94471e875eab08df0ef0b3569b96e1e57517f757e1ecaa40f96d1380c2a6813a5"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/react"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "sharp",
+      "version": "0.33.5",
+      "bom-ref": "sharp@0.33.5",
+      "author": "Lovell Fuller",
+      "description": "High performance Node.js image processing, the fastest module to resize JPEG, PNG, WebP, GIF, AVIF and TIFF images",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/sharp@0.33.5",
+      "externalReferences": [
+        {
+          "url": "git://github.com/lovell/sharp.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://sharp.pixelplumbing.com",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/lovell/sharp/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/sharp/-/sharp-0.33.5.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "85a3d59b51244bda60bc7ad0fc5dd7cbe86072e315d169bdbdf2014a2c19d3993ec606f43e4050a46b0003fa16743a1b35a6531f9a69bc7b730856e7484c0757"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/sharp"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "sharp-libvips-linuxmusl-arm64",
+      "group": "@img",
+      "version": "1.0.4",
+      "bom-ref": "@img/sharp-libvips-linuxmusl-arm64@1.0.4",
+      "author": "Lovell Fuller",
+      "description": "Prebuilt libvips and dependencies for use with sharp on Linux (musl) 64-bit ARM",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "LGPL-3.0-or-later",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40img/sharp-libvips-linuxmusl-arm64@1.0.4#npm/linuxmusl-arm64",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/lovell/sharp-libvips.git#npm/linuxmusl-arm64",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://sharp.pixelplumbing.com",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/lovell/sharp-libvips/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@img/sharp-libvips-linuxmusl-arm64/-/sharp-libvips-linuxmusl-arm64-1.0.4.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "f538be05b4d80dcb1ba78c1f6226fc0ad9b58a592e82403fbac7149fa5172b595da42d498e25db2df159b519418633d9e68d4d08b8836e0f1f8543ca4ad1e84c"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@img/sharp-libvips-linuxmusl-arm64"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "sharp-linuxmusl-arm64",
+      "group": "@img",
+      "version": "0.33.5",
+      "bom-ref": "@img/sharp-linuxmusl-arm64@0.33.5",
+      "author": "Lovell Fuller",
+      "description": "Prebuilt sharp for use with Linux (musl) 64-bit ARM",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40img/sharp-linuxmusl-arm64@0.33.5#npm/linuxmusl-arm64",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/lovell/sharp.git#npm/linuxmusl-arm64",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://sharp.pixelplumbing.com",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/lovell/sharp/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@img/sharp-linuxmusl-arm64/-/sharp-linuxmusl-arm64-0.33.5.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "5eb1cc6701901af260d95fe845251f4807e37cfc4efb80e489187aa760058cb433b5652e63fa3c32ad1e31054863b1c9d420d0509971186651c356b96ea99dd6"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@img/sharp-linuxmusl-arm64"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "color",
+      "version": "4.2.3",
+      "bom-ref": "color@4.2.3",
+      "description": "Color conversion and manipulation with CSS string support",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/color@4.2.3",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/Qix-/color.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/Qix-/color#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/Qix-/color/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/color/-/color-4.2.3.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "d6b5deb94522186af2921f8278176ee487bb389c229c28106346dcec6091c72e71547cbe9a86aa9292ff8ea42ad0cb5039e61caea133e1a6dce5fd0ab54ed6e0"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/color"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "color-convert",
+      "version": "2.0.1",
+      "bom-ref": "color-convert@2.0.1",
+      "author": "Heather Arthur",
+      "description": "Plain color conversion functions",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/color-convert@2.0.1",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/Qix-/color-convert.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/Qix-/color-convert#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/Qix-/color-convert/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "4511023ec8fb8aeff16f9a0a61cb051d2a6914d9ec8ffe763954d129be333f9a275f0545df3566993a0d70e7c60be0910e97cafd4e7ce1f320dfc64709a12529"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/color-convert"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "color-name",
+      "version": "1.1.4",
+      "bom-ref": "color-name@1.1.4",
+      "author": "DY",
+      "description": "A list of color names and its values",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/color-name@1.1.4",
+      "externalReferences": [
+        {
+          "url": "git+ssh://git@github.com/colorjs/color-name.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/colorjs/color-name",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/colorjs/color-name/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "74ecbedc0b96ddadb035b64722e319a537208c6b8b53fb812ffb9b71917d3976c3a3c7dfe0ef32569e417f479f4bcb84a18a39ab8171edd63d3a04065e002c40"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/color-name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "color-string",
+      "version": "1.9.1",
+      "bom-ref": "color-string@1.9.1",
+      "author": "Heather Arthur",
+      "description": "Parser and generator for CSS color strings",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/color-string@1.9.1",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/Qix-/color-string.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/Qix-/color-string#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/Qix-/color-string/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/color-string/-/color-string-1.9.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "b21ad56b0405a239d9bfac4ce346a7c780a4a033fe7d9b30fd97ab10cb16fe9cb3b116c4969b0bfc30555bbab7131c70bac74d5c8de55e9ba1119933b3ca7912"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/color-string"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "simple-swizzle",
+      "version": "0.2.4",
+      "bom-ref": "simple-swizzle@0.2.4",
+      "author": "Qix",
+      "description": "Simply swizzle your arguments",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/simple-swizzle@0.2.4",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/qix-/node-simple-swizzle.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/qix-/node-simple-swizzle#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/qix-/node-simple-swizzle/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/simple-swizzle/-/simple-swizzle-0.2.4.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "9c0bb55853d048c36bd999fd3c64992bd0069f8b7fcbdee5126f8c5d3b540f07cfd24b00217e273beeabb83f49c2eb780b8f520755acf9f6d7b26ff249c58e1f"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/simple-swizzle"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "is-arrayish",
+      "version": "0.3.4",
+      "bom-ref": "is-arrayish@0.3.4",
+      "author": "Qix",
+      "description": "Determines if an object can be used as an array",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/is-arrayish@0.3.4",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/qix-/node-is-arrayish.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/qix-/node-is-arrayish#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/qix-/node-is-arrayish/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/is-arrayish/-/is-arrayish-0.3.4.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "9ba52b8331555186b0181875754b164793360a5aa273d4555c2ffd7fc71e365bf621c3bd8fd27fcfc52808b3eab6c3c114dcc4a5f477c5fb6885b7ea0f1f0440"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/is-arrayish"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "detect-libc",
+      "version": "2.1.2",
+      "bom-ref": "detect-libc@2.1.2",
+      "author": "Lovell Fuller",
+      "description": "Node.js module to detect the C standard library (libc) implementation family and version",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/detect-libc@2.1.2",
+      "externalReferences": [
+        {
+          "url": "git://github.com/lovell/detect-libc.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/lovell/detect-libc#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/lovell/detect-libc/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "06d8f604e38ef37a375b21f9f5ef0c817b3111055c6ab9143a9118aee6c1d2eaf09cdd74c90dfae2bb22072535d67665a966199b4e62fe87fb8a8e26ce2841b5"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/detect-libc"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "semver",
+      "version": "7.7.3",
+      "bom-ref": "semver@7.7.3",
+      "author": "GitHub Inc.",
+      "description": "The semantic version parser used by npm.",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/semver@7.7.3",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/npm/node-semver.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/npm/node-semver#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/npm/node-semver/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/semver/-/semver-7.7.3.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "49db0a32b23d4dd823770794491f4cc1e1c0e0427c6311e7f0315a0e2b2f85595439ee01175b4b0fb1808f4948a96565f9d3dbfeb131af406d6f2e65a109b6d1"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/semver"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "styled-jsx",
+      "version": "5.1.6",
+      "bom-ref": "styled-jsx@5.1.6",
+      "description": "Full CSS support for JSX without compromises",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/styled-jsx@5.1.6",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/vercel/styled-jsx.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/vercel/styled-jsx#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/vercel/styled-jsx/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/styled-jsx/-/styled-jsx-5.1.6.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "a925720d378ca2d76f418a0758b346c111491c2fa2f99bdd051628b0e1600be5a0d6fc787eb376fd11bf340ed262aaaf28d2dfdfd3f62d2440da9bba9f45d864"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/styled-jsx"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "client-only",
+      "version": "0.0.1",
+      "bom-ref": "client-only@0.0.1",
+      "description": "This is a marker package to indicate that a module can only be used in Client Components.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/client-only@0.0.1",
+      "externalReferences": [
+        {
+          "url": "https://reactjs.org/",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/facebook/react/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/client-only/-/client-only-0.0.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "215dcebb48d233366b777a59e3c9cb913f4303b020d699cfcda8908695bb73745b72aab3bf3cd5bbe2fc81fa8ca7ff08336310b528aa682c6badc7eef08f2b30"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/client-only"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "scheduler",
+      "version": "0.25.0",
+      "bom-ref": "scheduler@0.25.0",
+      "description": "Cooperative scheduler for the browser environment.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/scheduler@0.25.0#packages/scheduler",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/facebook/react.git#packages/scheduler",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://react.dev/",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/facebook/react/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/scheduler/-/scheduler-0.25.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "c4556ebb5d6387ec5c3bb24e00624d39795df3f4dc1072bfe028adb8151e51be61ab124b8fd62e7a6004baf9bd810ffea605d87db42ea8092262efaeed812c34"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/scheduler"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "vulnerable-nextjs-poc@1.0.0",
+      "dependsOn": [
+        "next@15.0.0",
+        "react-dom@19.0.0",
+        "react@19.0.0"
+      ]
+    },
+    {
+      "ref": "next@15.0.0",
+      "dependsOn": [
+        "@next/env@15.0.0",
+        "@next/swc-linux-arm64-musl@15.0.0",
+        "@swc/counter@0.1.3",
+        "@swc/helpers@0.5.13",
+        "busboy@1.6.0",
+        "caniuse-lite@1.0.30001760",
+        "postcss@8.4.31",
+        "react-dom@19.0.0",
+        "react@19.0.0",
+        "sharp@0.33.5",
+        "styled-jsx@5.1.6"
+      ]
+    },
+    {
+      "ref": "@next/env@15.0.0"
+    },
+    {
+      "ref": "@next/swc-linux-arm64-musl@15.0.0"
+    },
+    {
+      "ref": "@swc/counter@0.1.3"
+    },
+    {
+      "ref": "@swc/helpers@0.5.13",
+      "dependsOn": [
+        "tslib@2.8.1"
+      ]
+    },
+    {
+      "ref": "tslib@2.8.1"
+    },
+    {
+      "ref": "busboy@1.6.0",
+      "dependsOn": [
+        "streamsearch@1.1.0"
+      ]
+    },
+    {
+      "ref": "streamsearch@1.1.0"
+    },
+    {
+      "ref": "caniuse-lite@1.0.30001760"
+    },
+    {
+      "ref": "postcss@8.4.31",
+      "dependsOn": [
+        "nanoid@3.3.11",
+        "picocolors@1.1.1",
+        "source-map-js@1.2.1"
+      ]
+    },
+    {
+      "ref": "nanoid@3.3.11"
+    },
+    {
+      "ref": "picocolors@1.1.1"
+    },
+    {
+      "ref": "source-map-js@1.2.1"
+    },
+    {
+      "ref": "react-dom@19.0.0",
+      "dependsOn": [
+        "react@19.0.0",
+        "scheduler@0.25.0"
+      ]
+    },
+    {
+      "ref": "react@19.0.0"
+    },
+    {
+      "ref": "sharp@0.33.5",
+      "dependsOn": [
+        "@img/sharp-libvips-linuxmusl-arm64@1.0.4",
+        "@img/sharp-linuxmusl-arm64@0.33.5",
+        "color@4.2.3",
+        "detect-libc@2.1.2",
+        "semver@7.7.3"
+      ]
+    },
+    {
+      "ref": "@img/sharp-libvips-linuxmusl-arm64@1.0.4"
+    },
+    {
+      "ref": "@img/sharp-linuxmusl-arm64@0.33.5",
+      "dependsOn": [
+        "@img/sharp-libvips-linuxmusl-arm64@1.0.4"
+      ]
+    },
+    {
+      "ref": "color@4.2.3",
+      "dependsOn": [
+        "color-convert@2.0.1",
+        "color-string@1.9.1"
+      ]
+    },
+    {
+      "ref": "color-convert@2.0.1",
+      "dependsOn": [
+        "color-name@1.1.4"
+      ]
+    },
+    {
+      "ref": "color-name@1.1.4"
+    },
+    {
+      "ref": "color-string@1.9.1",
+      "dependsOn": [
+        "color-name@1.1.4",
+        "simple-swizzle@0.2.4"
+      ]
+    },
+    {
+      "ref": "simple-swizzle@0.2.4",
+      "dependsOn": [
+        "is-arrayish@0.3.4"
+      ]
+    },
+    {
+      "ref": "is-arrayish@0.3.4"
+    },
+    {
+      "ref": "detect-libc@2.1.2"
+    },
+    {
+      "ref": "semver@7.7.3"
+    },
+    {
+      "ref": "styled-jsx@5.1.6",
+      "dependsOn": [
+        "client-only@0.0.1",
+        "react@19.0.0"
+      ]
+    },
+    {
+      "ref": "client-only@0.0.1"
+    },
+    {
+      "ref": "scheduler@0.25.0"
+    }
+  ]
+}
