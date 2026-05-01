@@ -21,39 +21,73 @@ Khi chọn technique để thêm vào kế hoạch, **phải đối chiếu vớ
 
 Root: `d:\vcs\ael\testlab-enterprise\windows-adversary-plan\`
 
-### Phase files (`Phase 1.md` → `Phase 5.md`)
+```
+windows-adversary-plan/
+├── Emulation_Plan/
+│   ├── Phase 1.md → Phase 5.md
+│   └── Overview.md
+└── resources/
+    ├── payloads/
+    │   ├── T1189/               # Drive-by / HTA chain
+    │   ├── CWLHerpaderping/     # Process Herpaderping injector
+    │   ├── CVE-2025-9491_POC/   # Exploit PoC
+    │   ├── react2shell-tool/    # React2Shell exploit tool
+    │   ├── webshell/            # Webshell payloads
+    │   └── dnscat2.exe          # C2 beacon binary
+    └── setup/
+        ├── Windows Server 2022-IIS.md
+        ├── file-upload-vuln-web/
+        └── react2shell-vuln-web/
+```
 
-Mỗi Phase tương ứng với một **sub-attack chain** — nhóm các hành vi thường được thực hiện liên tiếp, có sự kết hợp hoặc phụ thuộc nhau theo flow dưới đây (định nghĩa trong `d:\vcs\ael\testlab-enterprise\mitre-outline\chain-breakdown.md`):
+### `Emulation_Plan/`
+
+Path: `d:\vcs\ael\testlab-enterprise\windows-adversary-plan\Emulation_Plan\`
+
+Chứa các **Phase file** — mỗi file là một kịch bản tấn công hoàn chỉnh theo format emulation plan chuẩn (tham khảo `d:\vcs\ael\plan-for-agent\emulation-plan-structure.md`). Mỗi Phase tương ứng một sub-attack chain:
 
 | File | Tactic chain |
 |---|---|
-| `Phase 1.md` | Initial Access → Execution → (Command & Control) → (Persistence) → (Defense Evasion) |
+| `Phase 1.md` | Initial Access → Execution → Command & Control → (Defense Evasion) |
 | `Phase 2.md` | Discovery → Credential Access |
-| `Phase 3.md` | Lateral Movement + Privilege Escalation → Execution → (Persistence) → (Defense Evasion) |
+| `Phase 3.md` | Lateral Movement + Privilege Escalation → Execution → (Persistence) |
 | `Phase 4.md` | Collection → Exfiltration |
 | `Phase 5.md` | Impact |
 
-**Nội dung của Phase files**: mô tả sơ bộ các vector tấn công, technique ID, và tham chiếu đến Procedure file tương ứng. Không chứa câu lệnh hay payload chi tiết.
+**Nội dung của Phase files**: mỗi file là một execution plan đầy đủ gồm các Steps với **Voice Track** (mô tả hành vi từ góc nhìn adversary), **Procedures** (câu lệnh step-by-step, dùng `☣️` cho bước nguy hiểm), và **Reference Tables** (ATT&CK mapping với Detection Criteria cụ thể). Xem `emulation-plan-structure.md` để biết format chi tiết.
 
-### `Procedures/`
+### `resources/payloads/`
 
-Path: `d:\vcs\ael\testlab-enterprise\windows-adversary-plan\Procedures\`
+Path: `d:\vcs\ael\testlab-enterprise\windows-adversary-plan\resources\payloads\`
 
-Chứa:
-- **Procedure markdown files** (`T<ID>.md`): mô tả chi tiết từng Atomic Test, bao gồm technique tags, nền tảng hỗ trợ, và câu lệnh/payload thực thi. Đây là nơi đặt hướng dẫn step-by-step.
-- **`payloads/`**: các file payload thực tế (script, tool, exploit PoC...) được tổ chức theo technique ID hoặc tên công cụ.
+Chứa toàn bộ payload, tool, và exploit PoC dùng trong các Phase. Tổ chức theo tên công cụ hoặc technique ID:
 
-Quy tắc đặt tên Procedure file: `T<TechniqueID>.md` (ví dụ: `T1189.md`, `T1190.md`).
+| Thư mục / File | Nội dung |
+|---|---|
+| `T1189/` | Drive-by chain: `staging.html`, `stage1.hta`, `cert_bundle.txt`, `encode-command.py` |
+| `CWLHerpaderping/` | Process Herpaderping injector — source C++ + build output |
+| `CVE-2025-9491_POC/` | Exploit PoC cho CVE-2025-9491 |
+| `react2shell-tool/` | Tool khai thác React2Shell RCE |
+| `webshell/` | ASPX webshell |
+| `dnscat2.exe` | dnscat2 C2 client binary |
 
-### `resources/`
+Khi thêm payload mới: đặt vào thư mục con theo tên tool hoặc technique ID. Đặt `README.md` trong thư mục nếu payload có nhiều file.
 
-Path: `d:\vcs\ael\testlab-enterprise\windows-adversary-plan\resources\`
+### `resources/setup/`
 
-Chứa tài liệu liên quan đến **môi trường lab và hạ tầng**: hướng dẫn dựng máy chủ, cấu hình IIS, các ứng dụng web dễ bị tấn công dùng cho lab, v.v. Không chứa payload hay kịch bản tấn công.
+Path: `d:\vcs\ael\testlab-enterprise\windows-adversary-plan\resources\setup\`
+
+Chứa tài liệu hạ tầng lab: hướng dẫn dựng IIS, cấu hình ứng dụng web dễ bị tấn công (`file-upload-vuln-web`, `react2shell-vuln-web`), v.v. Không chứa payload hay kịch bản tấn công.
 
 ---
 
 ## Thư viện tham khảo
+
+### Emulation Plan Structure
+
+Path: `d:\vcs\ael\plan-for-agent\emulation-plan-structure.md`
+
+Định nghĩa format chuẩn cho Phase files trong `Emulation_Plan/`: cấu trúc Step, Voice Track, Procedures, Reference Tables, ký hiệu `☣️`, và format cột Reference Table. **Đọc file này trước khi viết hoặc sửa bất kỳ Phase file nào.**
 
 ### MITRE Knowledge Base
 
@@ -88,17 +122,16 @@ Thư viện mô phỏng hành vi tấn công mã nguồn mở. Mỗi thư mục 
 - `T<ID>.yaml` — định nghĩa test dạng máy đọc được
 - `src/` — script hỗ trợ (nếu có)
 
-**Dùng khi**: cần tham khảo cách thực hiện thực tế của một technique, tìm câu lệnh mẫu, hoặc hiểu rõ hành vi kỹ thuật trước khi viết Procedure.
+**Dùng khi**: cần tham khảo cách thực hiện thực tế của một technique, tìm câu lệnh mẫu, hoặc hiểu rõ hành vi kỹ thuật.
 
 ---
 
 ## Quy trình làm việc
 
-> **Lưu ý:** Quy trình dưới đây mang tính tham khảo. Câu hỏi hoặc task cụ thể của người dùng có thể yêu cầu cách xử lý khác, nhưng nhìn chung các approach này hữu ích khi làm việc với các task liên quan đến adversary plan.
+> **Lưu ý:** Quy trình dưới đây mang tính tham khảo. Câu hỏi hoặc task cụ thể của người dùng có thể yêu cầu cách xử lý khác.
 
 1. **Chọn technique** từ scope của Scenario 1 / Scenario 2
 2. **Tra cứu lý thuyết** trong `mitre-knowledge-base/techniques/`
 3. **Tham khảo ART** trong `atomic-red-team/atomics/` để hiểu hành vi thực tế
-4. **Viết Procedure** vào `Procedures/T<ID>.md` với Atomic Tests chi tiết
-5. **Đặt payload** vào `Procedures/payloads/` nếu có file đi kèm
-6. **Cập nhật Phase file** tương ứng với mô tả sơ bộ + tham chiếu đến Procedure
+4. **Xây dựng payload** — đặt vào `resources/payloads/<tool-or-technique>/` kèm `README.md`
+5. **Viết / cập nhật Phase file** trong `Emulation_Plan/` theo format emulation plan (Step + Voice Track + Procedures + Reference Table), tham chiếu payload bằng đường dẫn tương đối đến `../resources/payloads/`
