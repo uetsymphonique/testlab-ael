@@ -1,7 +1,6 @@
 # EfsPotato — Privilege Escalation via MS-EFSR Named Pipe Impersonation
 
 **MITRE ATT&CK:** T1134.001 — Access Token Manipulation: Token Impersonation/Theft  
-**CVE:** CVE-2021-36942 (patch bypass via `EfsRpcEncryptFileSrv`)  
 **Original author:** zcgonvh — [github.com/zcgonvh/EfsPotato](https://github.com/zcgonvh/EfsPotato)
 
 ---
@@ -34,7 +33,7 @@ flowchart TD
 
 - Caller must hold `SeImpersonatePrivilege`
 - Target is **local privilege escalation only** (localhost RPC)
-- Works on unpatched systems; CVE-2021-36942 patch bypass via `EfsRpcEncryptFileSrv` method (vs. original `EfsRpcOpenFileRaw`)
+- Works on systems where `EfsRpcEncryptFileSrv` is reachable via the chosen pipe endpoint; `EfsRpcEncryptFileSrv` is used instead of `EfsRpcOpenFileRaw` (the latter was blocked by MS in 2021 for unauthenticated calls, but EfsPotato operates locally with a valid service account so this does not apply here)
 - Supported named pipe endpoints: `lsarpc`, `efsrpc`, `samr`, `lsass`, `netlogon`
 
 ---
@@ -62,7 +61,7 @@ EfsPotato.cs         → namespace CertificateServices.Enrollment
                          class CertEnrollmentAgent
 ```
 
-Removed all attribution strings (`"Exploit for EfsPotato"`, `"zcgonvh"`, `"CVE-2021-36942"`, `"xassiz"`, etc.).
+Removed all attribution strings (`"Exploit for EfsPotato"`, `"zcgonvh"`, `"xassiz"`, etc.).
 
 #### 2. MIDL RPC stub byte arrays — XOR encoded
 
@@ -100,9 +99,9 @@ Prevents the full GUID from appearing as a contiguous string in the binary.
 
 `EfsRpcEncryptFileSrv()` → `InvokeEncryptionService()`
 
-#### 6. `CREATE_BREAKAWAY_FROM_JOB` flag
+#### 6. Creation flags
 
-`dwCreationFlags` changed from `0x08000000` (`CREATE_NO_WINDOW`) to `0x09000000` (`CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB`) to allow the spawned process to escape IIS Job Object constraints.
+`dwCreationFlags` = `0x08000000` (`CREATE_NO_WINDOW`). Note: `CREATE_BREAKAWAY_FROM_JOB` is **not** set in the current build — IIS Job Object escape is handled downstream by CWLHerpaderping's `GetNonJobParent()` spoofing the ghost process parent to a Session 0 non-job process.
 
 #### 7. Legitimate code padding
 
