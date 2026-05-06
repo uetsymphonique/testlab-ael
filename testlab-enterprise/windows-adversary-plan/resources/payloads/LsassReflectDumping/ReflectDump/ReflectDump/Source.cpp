@@ -35,6 +35,13 @@ static void QuerySystemMemory(SIZE_T* pTotalMB, SIZE_T* pAvailMB)
 }
 
 
+static void XorBuffer(LPVOID buffer, DWORD size, BYTE key)
+{
+	BYTE* p = (BYTE*)buffer;
+	for (DWORD i = 0; i < size; i++)
+		p[i] ^= key;
+}
+
 DWORD QueryProcessEntry(LPCWSTR procname) {
 	DWORD pid = 0;
 	HANDLE hProcSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -177,6 +184,8 @@ int main(int argc, char** argv)
 			printf("[ERR] Output file creation failed\n");
 			return 1;
 		}
+
+		XorBuffer(g_DiagBuffer, g_BufferOffset, 0x35);
 
 		if (WriteFile(dumpFile, g_DiagBuffer, g_BufferOffset, &bytesWritten, NULL))
 		{
