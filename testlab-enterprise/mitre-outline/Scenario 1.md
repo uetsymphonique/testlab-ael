@@ -39,7 +39,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1059 - Command and Scripting Interpreter
 - [x] T1059.001 - Command and Scripting Interpreter: PowerShell
 - [ ] T1059.003 - Command and Scripting Interpreter: Windows Command Shell
-- [ ] T1059.005 - Command and Scripting Interpreter: Visual Basic
+- [x] T1059.005 - Command and Scripting Interpreter: Visual Basic
 - [x] T1059.007 - Command and Scripting Interpreter: JavaScript
 - [ ] T1059.010 - Command and Scripting Interpreter: AutoHotKey & AutoIT
 - [x] T1106 - Native API
@@ -91,7 +91,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1574.001 - Hijack Execution Flow: DLL
 ## Defense Evasion
 - [ ] T1006 - Direct Volume Access
-- [x] T1027 - Obfuscated Files or Information
+- [ ] T1027 - Obfuscated Files or Information
 - [ ] T1027.002 - Obfuscated Files or Information: Software Packing
 - [ ] T1027.004 - Obfuscated Files or Information: Compile After Delivery
 - [ ] T1027.005 - Obfuscated Files or Information: Indicator Removal from Tools
@@ -103,9 +103,9 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1027.013 - Obfuscated Files or Information: Encrypted/Encoded File
 - [ ] T1027.015 - Obfuscated Files or Information: Compression
 - [ ] T1027.016 - Obfuscated Files or Information: Junk Code Insertion
-- [x] T1036 - Masquerading
+- [ ] T1036 - Masquerading
 - [ ] T1036.003 - Masquerading: Rename Legitimate Utilities
-- [x] T1036.004 - Masquerading: Masquerade Task or Service
+- [ ] T1036.004 - Masquerading: Masquerade Task or Service
 - [x] T1036.005 - Masquerading: Match Legitimate Resource Name or Location
 - [x] T1036.008 - Masquerading: Masquerade File Type
 - [x] T1055 - Process Injection
@@ -115,7 +115,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1070.001 - Indicator Removal: Clear Windows Event Logs
 - [ ] T1070.003 - Indicator Removal: Clear Command History
 - [x] T1070.004 - Indicator Removal: File Deletion
-- [x] T1070.005 - Indicator Removal: Network Share Connection Removal
+- [ ] T1070.005 - Indicator Removal: Network Share Connection Removal
 - [ ] T1070.009 - Indicator Removal: Clear Persistence
 - [ ] T1078 - Valid Accounts
 - [ ] T1078.001 - Valid Accounts: Default Accounts
@@ -133,7 +133,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1218.011 - System Binary Proxy Execution: Rundll32
 - [ ] T1218.013 - System Binary Proxy Execution: Mavinject
 - [ ] T1222.001 - File and Dirctory Permissions Modification: Windows File and Directory Permissions Modification
-- [x] T1480.001 - Execution Guardrails: Environmental Keying
+- [ ] T1480.001 - Execution Guardrails: Environmental Keying
 - [ ] T1480.002 - Execution Guardrails: Mutual Exclusion
 - [x] T1484.001 - Domain or Tenant Policy Modification: Group Policy Modification
 - [ ] T1497 - Virtualization/Sandbox Evasion
@@ -203,13 +203,13 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1560.002 - Archive Collected Data: Archive via Library
 - [ ] T1560.003 - Archive Collected Data: Archive via Custom Method
 ## Command and Control
-- [ ] T1071.001 - Application Layer Protocol: Web Protocols
+- [x] T1071.001 - Application Layer Protocol: Web Protocols
 - [x] T1105 - Ingress Tool Transfer
 - [ ] T1132.001 - Data Encoding: Standard Encoding
 - [ ] T1132.002 - Data Encoding: Non-Standard Encoding
 - [ ] T1571 - Non-Standard Port
-- [x] T1573.001 - Encrypted Channel: Symmetric Cryptography
-- [ ] T1573.002 - Encrypted Channel: Asymmetric Cryptography
+- [ ] T1573.001 - Encrypted Channel: Symmetric Cryptography
+- [x] T1573.002 - Encrypted Channel: Asymmetric Cryptography
 ## Exfiltration
 - [ ] T1020 - Automated Exfiltration
 - [x] T1030 - Data Transfer Size Limits

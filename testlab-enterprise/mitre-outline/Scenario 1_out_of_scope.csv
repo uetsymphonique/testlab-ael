@@ -1,3 +1,4 @@
 tactic,tech_id,tech_name
 Command And Control,T1071.004,Application Layer Protocol: DNS
+Defense Evasion,T1134,Access Token Manipulation
 Initial Access,T1190,Exploit Public-Facing Application
