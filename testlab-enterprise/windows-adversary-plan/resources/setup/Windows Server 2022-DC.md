@@ -6,6 +6,7 @@
 | - | - | - |
 | Domain Controller | `DC01` | `10.12.10.10` |
 | IIS Server | `IIS01` | `10.12.10.20` |
+| Workstation | `WS01` | `10.12.10.30` |
 
 Domain: `testlab.local`
 
@@ -95,6 +96,9 @@ Add-DnsServerPrimaryZone -Name "testlab.local" -ReplicationScope "Forest" -PassT
 # IIS server — both virtual hostnames point to the same IIS01 IP
 Add-DnsServerResourceRecordA -ZoneName "testlab.local" -Name "upload" -IPv4Address "10.12.10.20"
 Add-DnsServerResourceRecordA -ZoneName "testlab.local" -Name "react"  -IPv4Address "10.12.10.20"
+
+# Workstation
+Add-DnsServerResourceRecordA -ZoneName "testlab.local" -Name "ws01" -IPv4Address "10.12.10.30"
 ```
 
 ### Conditional Forwarder for dnscat2 C2
@@ -170,7 +174,113 @@ Add-Computer -DomainName "testlab.local" `
 
 ---
 
-## Step 7 — Verify
+## Step 7 — Join Workstation to Domain
+
+Run on **WS01** as Administrator.
+
+```powershell
+# Rename the machine first, then reboot
+Rename-Computer -NewName "WS01" -Force
+Restart-Computer -Force
+```
+
+After reboot:
+
+```powershell
+# If the machine has multiple NICs, identify the internal lab interface first:
+#   Get-NetAdapter | Select-Object Name, Status, MacAddress
+# Then set $iface explicitly, e.g.:
+#   $iface = "Ethernet 3"
+$iface = (Get-NetAdapter | Where-Object Status -eq "Up").Name
+
+# Set static IP on the internal interface
+New-NetIPAddress -InterfaceAlias $iface `
+    -IPAddress "10.12.10.30" `
+    -PrefixLength 24 `
+    -DefaultGateway "10.12.10.1"
+
+# Set DC as primary DNS on the internal interface
+Set-DnsClientServerAddress -InterfaceAlias $iface -ServerAddresses "10.12.10.10"
+
+# Verify WS01 can reach and resolve the domain before joining
+ipconfig /all
+Test-NetConnection 10.12.10.10 -Port 53
+Test-NetConnection 10.12.10.10 -Port 88
+Test-NetConnection 10.12.10.10 -Port 389
+Resolve-DnsName testlab.local -Server 10.12.10.10
+Resolve-DnsName _ldap._tcp.dc._msdcs.testlab.local -Server 10.12.10.10
+
+# Join domain and reboot
+Add-Computer -DomainName "testlab.local" `
+    -Credential (Get-Credential "TESTLAB\Administrator") `
+    -Restart -Force
+```
+
+---
+
+## Step 8 — Workstation Local User Handling
+
+Local users on **WS01** cannot be directly converted into domain users. A local account and a domain account are separate identities with different SIDs. Create a new domain user in AD, sign in with that domain user on WS01, migrate any required profile data, then remove the old local account if it is no longer needed.
+
+Run on **DC01** to create a domain user:
+
+```powershell
+$userPass = ConvertTo-SecureString "l@bu53r.gr3atAga1n" -AsPlainText -Force
+
+New-ADUser `
+    -SamAccountName "labuser" `
+    -UserPrincipalName "labuser@testlab.local" `
+    -Name "labuser" `
+    -AccountPassword $userPass `
+    -PasswordNeverExpires $true `
+    -Enabled $true
+```
+
+After creating the user, sign in on **WS01** as:
+
+```text
+TESTLAB\labuser
+```
+
+If the old local profile contains files that must be preserved, copy only the required user data from:
+
+```text
+C:\Users\<local-user>
+```
+
+to the new domain profile:
+
+```text
+C:\Users\<domain-user>
+```
+
+Common folders to migrate are `Desktop`, `Documents`, `Downloads`, and `Pictures`. Avoid copying the full `AppData` directory unless required.
+
+Run on **WS01** to review local users:
+
+```powershell
+Get-LocalUser
+```
+
+Remove an old local user if it is no longer needed:
+
+```powershell
+Remove-LocalUser -Name "<local-user>"
+```
+
+Remove the old local profile directory if needed:
+
+```powershell
+Get-CimInstance Win32_UserProfile |
+    Where-Object { $_.LocalPath -eq "C:\Users\<local-user>" } |
+    Remove-CimInstance
+```
+
+Keep at least one local administrator account for recovery if domain authentication, DNS, or network connectivity breaks.
+
+---
+
+## Step 9 — Verify
 
 ```powershell
 # Check domain accounts
@@ -185,7 +295,8 @@ Get-DnsServerZone | Where-Object ZoneType -eq "Forwarder"
 # Test internal A record resolution
 Resolve-DnsName upload.testlab.local
 Resolve-DnsName react.testlab.local
+Resolve-DnsName ws01.testlab.local
 
-# Confirm IIS01 appears in AD
+# Confirm IIS01 and WS01 appear in AD
 Get-ADComputer -Filter * | Select-Object Name, Enabled
 ```
