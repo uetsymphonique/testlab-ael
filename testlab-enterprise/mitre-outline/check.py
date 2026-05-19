@@ -320,13 +320,33 @@ def main():
             if tid not in name_map and name:
                 name_map[tid] = name
 
+    # Collect scope pairs first to check if parent exists before adding
+    scope_pairs = collect_scope_pairs(scope_file)
+
+    # Second pass: add parent techniques only if parent exists in scope
+    for p in plan_files:
+        rows = extract_plan_techniques(p)
+        for tac, tid, name, cat in rows:
+            # If subtechnique (TXXXX.YYY), also tick parent technique (TXXXX) if it exists in scope
+            parent_match = re.match(r"(T\d{4})\.\d{3}", tid)
+            if parent_match:
+                parent_tid = parent_match.group(1)
+                parent_key = (tac, parent_tid)
+                if parent_key in scope_pairs:
+                    covered.add(parent_key)
+                    if tac not in covered_tids[parent_tid]:
+                        covered_tids[parent_tid].append(tac)
+                    if parent_tid not in name_map and name:
+                        # Use parent name by stripping subtechnique part
+                        parent_name = re.sub(r":\s+[^:]+$", "", name)
+                        name_map[parent_tid] = parent_name
+
     total_pairs = len(covered)
     print(f"[*] Total unique (tactic, tech) pairs: {total_pairs}")
     unk_str = f", Unknown: {total_unknown_cat}" if total_unknown_cat else ""
     print(f"[*] Calibrated: {total_calibrated}, Not Calibrated: {total_uncalibrated}{unk_str}")
 
     # Find plan techniques absent from scope entirely
-    scope_pairs  = collect_scope_pairs(scope_file)
     out_of_scope = covered - scope_pairs
 
     # Update scope file

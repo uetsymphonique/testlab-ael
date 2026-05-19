@@ -27,7 +27,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1592.001 - Gather Victim Host Information: Hardware
 - [ ] T1592.002 - Gather Victim Host Information: Software
 ## Initial Access
-- [ ] T1078 - Valid Accounts
+- [~] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1078.001 - Valid Accounts: Default Accounts
 - [~] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1078.003 - Valid Accounts: Local Accounts
@@ -36,14 +36,14 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 ## Execution
 - [x] T1047 - Windows Management Instrumentation
 - [ ] T1053.005 - Scheduled Task/Job: Scheduled Task
-- [ ] T1059 - Command and Scripting Interpreter
+- [x] T1059 - Command and Scripting Interpreter
 - [x] T1059.001 - Command and Scripting Interpreter: PowerShell
 - [ ] T1059.003 - Command and Scripting Interpreter: Windows Command Shell
 - [x] T1059.005 - Command and Scripting Interpreter: Visual Basic
 - [x] T1059.007 - Command and Scripting Interpreter: JavaScript
 - [ ] T1059.010 - Command and Scripting Interpreter: AutoHotKey & AutoIT
 - [x] T1106 - Native API
-- [ ] T1204 - User Execution
+- [x] T1204 - User Execution
 - [x] T1204.001 - User Execution: Malicious Link
 - [ ] T1204.002 - User Execution: Malicious File
 - [x] T1204.004 - User Execution: Malicious Copy and Paste
@@ -52,11 +52,11 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1037.001 - Boot or Logon Initialization Scripts: Logon Script (Windows)
 - [x] T1037.003 - Boot or Logon Initialization Scripts: Network Logon Script
 - [ ] T1037.005 - Boot or Logon Initialization Scripts: Startup Items
-- [ ] T1078 - Valid Accounts
+- [~] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1078.001 - Valid Accounts: Default Accounts
 - [~] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1078.003 - Valid Accounts: Local Accounts
-- [ ] T1098 - Account Manipulation
+- [x] T1098 - Account Manipulation
 - [x] T1098.007 - Account Manipulation: Additional Local or Domain Groups
 - [x] T1112 - Modify Registry
 - [ ] T1133 - External Remote Services
@@ -75,7 +75,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1055.001 - Process Injection: Dynamic-link Library Injection
 - [ ] T1055.002 - Process Injection: Portable Executable Injection
 - [ ] T1055.012 - Process Injection: Process Hollowing
-- [ ] T1078 - Valid Accounts
+- [x] T1078 - Valid Accounts
 - [ ] T1078.001 - Valid Accounts: Default Accounts
 - [x] T1078.002 - Valid Accounts: Domain Accounts
 - [ ] T1078.003 - Valid Accounts: Local Accounts
@@ -91,8 +91,8 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1574.001 - Hijack Execution Flow: DLL
 ## Defense Evasion
 - [ ] T1006 - Direct Volume Access
-- [ ] T1027 - Obfuscated Files or Information
-- [ ] T1027.002 - Obfuscated Files or Information: Software Packing
+- [x] T1027 - Obfuscated Files or Information
+- [x] T1027.002 - Obfuscated Files or Information: Software Packing
 - [ ] T1027.004 - Obfuscated Files or Information: Compile After Delivery
 - [ ] T1027.005 - Obfuscated Files or Information: Indicator Removal from Tools
 - [x] T1027.006 - Obfuscated Files or Information: HTML Smuggling
@@ -101,9 +101,9 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1027.009 - Obfuscated Files or Information: Embedded Payloads
 - [x] T1027.010 - Obfuscated Files or Information: Command Obfuscation
 - [x] T1027.013 - Obfuscated Files or Information: Encrypted/Encoded File
-- [ ] T1027.015 - Obfuscated Files or Information: Compression
+- [x] T1027.015 - Obfuscated Files or Information: Compression
 - [ ] T1027.016 - Obfuscated Files or Information: Junk Code Insertion
-- [ ] T1036 - Masquerading
+- [x] T1036 - Masquerading
 - [ ] T1036.003 - Masquerading: Rename Legitimate Utilities
 - [x] T1036.004 - Masquerading: Masquerade Task or Service
 - [x] T1036.005 - Masquerading: Match Legitimate Resource Name or Location
@@ -117,7 +117,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1070.004 - Indicator Removal: File Deletion
 - [ ] T1070.005 - Indicator Removal: Network Share Connection Removal
 - [ ] T1070.009 - Indicator Removal: Clear Persistence
-- [ ] T1078 - Valid Accounts
+- [~] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1078.001 - Valid Accounts: Default Accounts
 - [~] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1078.003 - Valid Accounts: Local Accounts
@@ -136,7 +136,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1480.001 - Execution Guardrails: Environmental Keying
 - [ ] T1480.002 - Execution Guardrails: Mutual Exclusion
 - [x] T1484.001 - Domain or Tenant Policy Modification: Group Policy Modification
-- [ ] T1497 - Virtualization/Sandbox Evasion
+- [x] T1497 - Virtualization/Sandbox Evasion
 - [x] T1497.001 - Virtualization/Sandbox Evasion: System Checks
 - [x] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks
 - [ ] T1553.002 - Subvert Trust Controls: Code Signing
@@ -145,12 +145,12 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1562.003 - Impair Defenses: Impair Command History Logging
 - [ ] T1562.004 - Impair Defenses: Disable or Modify System Firewall
 - [x] T1562.006 - Impair Defenses: Indicator Blocking
-- [ ] T1564.001 - Hide Artifacts: Hidden Files and Directories
+- [x] T1564.001 - Hide Artifacts: Hidden Files and Directories
 - [ ] T1564.002 - Hide Artifacts: Hidden Users
 - [x] T1564.003 - Hide Artifacts: Hidden Window
 - [x] T1564.010 - Hide Artifacts: Process Argument Spoofing
 - [ ] T1574.001 - Hijack Execution Flow: DLL
-- [ ] T1620 - Reflective Code Loading
+- [x] T1620 - Reflective Code Loading
 - [ ] T1622 - Debugger Evasion
 - [x] T1678 - Delay Execution
 - [ ] T1679 - Selective Exclusion
