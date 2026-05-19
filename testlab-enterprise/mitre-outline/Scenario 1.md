@@ -44,7 +44,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1059.010 - Command and Scripting Interpreter: AutoHotKey & AutoIT
 - [x] T1106 - Native API
 - [ ] T1204 - User Execution
-- [ ] T1204.001 - User Execution: Malicious Link
+- [x] T1204.001 - User Execution: Malicious Link
 - [ ] T1204.002 - User Execution: Malicious File
 - [x] T1204.004 - User Execution: Malicious Copy and Paste
 - [x] T1569.002 - System Services: Service Execution
@@ -58,11 +58,11 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1078.003 - Valid Accounts: Local Accounts
 - [ ] T1098 - Account Manipulation
 - [x] T1098.007 - Account Manipulation: Additional Local or Domain Groups
-- [ ] T1112 - Modify Registry
+- [x] T1112 - Modify Registry
 - [ ] T1133 - External Remote Services
 - [ ] T1136.001 - Create Account: Local Account
 - [x] T1136.002 - Create Account: Domain Account
-- [ ] T1543.003 - Create or Modify System Process: Windows Service
+- [x] T1543.003 - Create or Modify System Process: Windows Service
 - [x] T1546.003 - Event Triggered Execution: Windows Management Instrumentation Event Subscription
 - [ ] T1547.001 - Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder
 - [ ] T1547.004 - Boot or Logon Autostart Execution: Winlogon Helper DLL
@@ -83,7 +83,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1134.002 - Access Token Manipulation: Create Process with Token
 - [ ] T1134.003 - Access Token Manipulation: Make and Impersonate Token
 - [~] T1134.004 - Access Token Manipulation: Parent PID Spoofing  <!-- plan tactic: Defense Evasion -->
-- [ ] T1543.003 - Create or Modify System Process: Windows Service
+- [~] T1543.003 - Create or Modify System Process: Windows Service  <!-- plan tactic: Persistence -->
 - [~] T1546.003 - Event Triggered Execution: Windows Management Instrumentation Event Subscription  <!-- plan tactic: Persistence -->
 - [ ] T1547.001 - Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder
 - [ ] T1547.004 - Boot or Logon Autostart Execution: Winlogon Helper DLL
@@ -105,7 +105,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1027.016 - Obfuscated Files or Information: Junk Code Insertion
 - [ ] T1036 - Masquerading
 - [ ] T1036.003 - Masquerading: Rename Legitimate Utilities
-- [ ] T1036.004 - Masquerading: Masquerade Task or Service
+- [x] T1036.004 - Masquerading: Masquerade Task or Service
 - [x] T1036.005 - Masquerading: Match Legitimate Resource Name or Location
 - [x] T1036.008 - Masquerading: Masquerade File Type
 - [x] T1055 - Process Injection
@@ -121,7 +121,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1078.001 - Valid Accounts: Default Accounts
 - [~] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1078.003 - Valid Accounts: Local Accounts
-- [ ] T1112 - Modify Registry
+- [~] T1112 - Modify Registry  <!-- plan tactic: Persistence -->
 - [~] T1134.001 - Access Token Manipulation: Token Impersonation/Theft  <!-- plan tactic: Privilege Escalation -->
 - [~] T1134.002 - Access Token Manipulation: Create Process with Token  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1134.003 - Access Token Manipulation: Make and Impersonate Token
@@ -144,7 +144,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1562.002 - Impair Defenses: Disable Windows Event Logging
 - [ ] T1562.003 - Impair Defenses: Impair Command History Logging
 - [ ] T1562.004 - Impair Defenses: Disable or Modify System Firewall
-- [ ] T1562.006 - Impair Defenses: Indicator Blocking
+- [x] T1562.006 - Impair Defenses: Indicator Blocking
 - [ ] T1564.001 - Hide Artifacts: Hidden Files and Directories
 - [ ] T1564.002 - Hide Artifacts: Hidden Users
 - [x] T1564.003 - Hide Artifacts: Hidden Window
@@ -179,7 +179,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1482 - Domain Trust Discovery
 - [~] T1497.001 - Virtualization/Sandbox Evasion: System Checks  <!-- plan tactic: Defense Evasion -->
 - [~] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks  <!-- plan tactic: Defense Evasion -->
-- [ ] T1518.001 - Software Discovery: Security Software Discovery
+- [x] T1518.001 - Software Discovery: Security Software Discovery
 - [ ] T1614.001 - System Location Discovery: System Language Discovery
 - [ ] T1622 - Debugger Evasion
 - [ ] T1680 - Local Storage Discovery
