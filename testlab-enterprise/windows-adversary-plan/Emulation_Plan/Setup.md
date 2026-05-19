@@ -10,7 +10,7 @@ This document covers all pre-operation build and encoding steps required before 
 
 | Binary | Source | Deployed As | Role |
 | - | - | - | - |
-| `dnscat2.exe` | `resources/payloads/dnscat2/go-client/` (Go) | `dnscat2.exe` / `CertCA.bin` | DNS C2 beacon |
+| `dnscat2.exe` | `resources/payloads/dnscat2/go-client/` (Go) | `dnscat2.exe` (reflectively loaded via stdin pipe - T1620) | DNS C2 beacon |
 | `dnscat-service.exe` | `resources/payloads/dnscat2/go-client/` (Go, service wrapper) | `dnscat-service.exe` | DNS C2 beacon as Windows service |
 | `CWLHerpaderping.exe` | `resources/payloads/CWLHerpaderping/` (C++ MSVC) | `CertEnrollAgent.exe` | Process Herpaderping loader |
 | `CertEnrollSvc.exe` | `resources/payloads/EfsPotato/` (C# source + pre-built `.exe`) | `CertEnrollSvc.exe` | EfsPotato — `SeImpersonatePrivilege` → elevated run |
@@ -126,18 +126,24 @@ Output: `resources/payloads/dnscat2/go-client/dnscat-service.exe`
 
 #### `CWLHerpaderping.exe` (C++, Process Herpaderping loader)
 
-**Code flow (from source):** `CWLHerpaderping/CWLImplant.cpp` — `PatchEtw()` patches `ntdll!EtwEventWrite` early. `main()` calls `GetPayloadBuffer()`: opens wide path `PAYLOAD_PATH` (compile-time `PAYLOAD_PATH`, overridden via MSBuild `CustomPayloadPath`), reads the file into RW memory, **deletes** the payload file, returns buffer. `Herpaderping()` initializes **indirect syscalls** for `NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx`; creates a temp file, maps/writes the payload, builds process parameters (with optional `StackSpoof` around some calls), creates remote process/thread so the payload runs from the swapped file image (Herpaderping-style execution). Parent spoofing uses `GetNonJobParent()` (e.g. `svchost.exe` / `wininit.exe` in session 0) for `CreateProcess` inheritance where applicable.
+**Code flow (from source):** `CWLHerpaderping/CWLImplant.cpp` — `PatchEtw()` patches `ntdll!EtwEventWrite` early. `main()` calls `GetPayloadBuffer()`, which supports **two modes for T1620 Reflective Code Loading**:
 
-**Build:** Release `x64` uses `/MT` (`MultiThreaded`) in the `.vcxproj` for a static CRT.
+- **Mode 1 (stdin pipe - reflective loading):** Detects stdin redirection via `GetFileType(STD_INPUT_HANDLE) == FILE_TYPE_PIPE`, reads 4-byte size header followed by PE bytes from stdin via `ReadFile`, allocates RW buffer via `VirtualAlloc` — **no disk file artifact** (payload passed via react2shell `herpload` command).
+- **Mode 2 (file fallback):** Opens wide path `PAYLOAD_PATH` (compile-time default, overridden via MSBuild `CustomPayloadPath`), reads the file into RW memory, **deletes** the payload file via `DeleteFileW` — used for testing or when stdin is unavailable.
+
+`Herpaderping()` initializes **indirect syscalls** for `NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx`; creates a temp file (`%TEMP%\HD*.tmp`), maps/writes the payload buffer, builds spoofed process parameters (with optional `StackSpoof` around some calls), creates remote process/thread so the payload runs from the swapped file image (Herpaderping-style execution). Parent spoofing uses `GetNonJobParent()` (e.g. `svchost.exe` / `wininit.exe` in session 0) for `CreateProcess` inheritance where applicable.
+
+**Build:** Release `x64` uses `/MT` (`MultiThreaded`) in the `.vcxproj` for a static CRT. The `CustomPayloadPath` compile-time flag is **optional** (only used for Mode 2 file fallback).
 
 ```powershell
 cd resources\payloads\CWLHerpaderping
 msbuild CWLHerpaderping.sln `
   /p:Configuration=Release `
   /p:Platform=x64 `
-  /p:CustomPayloadPath="C:\\ProgramData\\CertCA.bin" `
   /t:Rebuild /m
 ```
+
+> **Note:** `/p:CustomPayloadPath` was removed from the default build command. Stdin mode (Mode 1) is now the primary reflective loading mechanism. The file fallback mode uses the hardcoded default `PAYLOAD_PATH` (`C:\temp\payload64.exe`) if stdin is not redirected.
 
 Output: `resources\payloads\CWLHerpaderping\x64\Release\CWLHerpaderping.exe`
 

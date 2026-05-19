@@ -1,23 +1,30 @@
-# Attack Flow Summary - Through Phase 3
+# Attack Flow Summary
 
 ## Overview
 
-This scenario models a Windows enterprise intrusion through two parallel entry
-paths against IIS01:
+This scenario models a Windows enterprise intrusion through two independent
+attack paths that both target `IIS01`. The two paths are run separately and
+cover different entry points, techniques, and host contexts. They share the
+same lab environment and the same post-exploitation chain once a SYSTEM C2
+session is established on `IIS01`.
 
-- `upload.testlab.local`: the attacker abuses unrestricted file upload to host
-  `staging.html`. A domain user opens the lure, receives `cert_bundle.txt` via
-  HTML smuggling, executes the copy-paste PowerShell chain, launches an HTA
-  dropper, downloads dnscat2 and the Herpaderping loader, and establishes DNS C2
-  from the workstation.
-- `react.testlab.local`: the attacker exploits React Server Components RCE
-  (CVE-2025-55182), stages payloads through react2shell, escalates to SYSTEM with
-  EfsPotato, and establishes DNS C2 from IIS01 through Herpaderping and dnscat2.
+- **[`html-smuggling-path/`](html-smuggling-path/Plan.md)** — user-driven
+  initial access via `upload.testlab.local`. The attacker abuses unrestricted
+  file upload to host a malicious HTML lure. A domain user on `WS01` opens the
+  page, receives `cert_bundle.txt` via HTML smuggling, executes the copy-paste
+  PowerShell chain, and launches an HTA dropper that downloads dnscat2 and the
+  Herpaderping loader and establishes DNS C2 from the workstation. This path
+  ends with a C2 session on `WS01` as the domain user.
 
-From the IIS01 SYSTEM C2 session, the attacker dumps LSASS, recovers the
-`TESTLAB\Administrator` NT hash, performs Pass the Hash to DC01, establishes C2
-on the Domain Controller, and installs multiple independent persistence
-mechanisms.
+- **[`iis-apppool-escalation-path/`](iis-apppool-escalation-path/Phase%201.md)**
+  — server-side initial access via `react.testlab.local`. The attacker exploits
+  a React Server Components deserialization vulnerability (CVE-2025-55182) to
+  achieve unauthenticated RCE on `IIS01` as the AppPool identity, escalates to
+  `NT AUTHORITY\SYSTEM` via EfsPotato, and establishes DNS C2 through
+  Herpaderping and dnscat2. From this SYSTEM session the attacker dumps LSASS,
+  recovers the `TESTLAB\Administrator` NT hash, performs Pass the Hash to
+  `DC01`, and installs multiple independent persistence mechanisms on the Domain
+  Controller.
 
 ## Lab Environment
 
@@ -61,83 +68,96 @@ flowchart LR
     ATTACKER -->|"HTTP / exploit traffic"| IIS
 ```
 
-## Attack Flow
+## Path 1 — HTML Smuggling (User-Driven)
+
+**Files:** [`html-smuggling-path/Plan.md`](html-smuggling-path/Plan.md),
+[`html-smuggling-path/Cleanup.md`](html-smuggling-path/Cleanup.md)
+
+**Entry point:** `upload.testlab.local` on `IIS01`  
+**Primary host:** `WS01` (domain workstation)  
+**End state:** dnscat2 DNS C2 on `WS01` as domain user, via Herpaderping ghost `RuntimeBroker.exe`
+
+### Attack Flow
 
 ```mermaid
 flowchart TD
-    A["Attacker"] --> B["upload.testlab.local<br/>File upload"]
-    A --> C["react.testlab.local<br/>React RSC RCE"]
-
-    B --> D["staging.html in /uploads"]
-    D --> E["Domain user opens lure"]
-    E --> F["HTML smuggling<br/>Downloads/cert_bundle.txt"]
-    F --> G["Win+R PowerShell copy-paste"]
-    G --> H["Decode HTA to temp directory"]
-    H --> I["mshta.exe HTA dropper"]
-    I --> J["Download dnscat2 + CWLHerpaderping"]
-    J --> K["RuntimeBroker.exe ghost<br/>Workstation DNS C2"]
-
-    C --> L["react2shell eval shell<br/>IIS AppPool"]
-    L --> M["Stage CertEnrollSvc,<br/>CertEnrollAgent, dnscat2"]
-    M --> N["EfsPotato / SeImpersonate"]
-    N --> O["CertEnrollAgent as SYSTEM"]
-    O --> P["RuntimeBroker.exe ghost<br/>IIS01 SYSTEM DNS C2"]
-
-    P --> Q["Stage WdiBoot.exe<br/>ReflectDump"]
-    Q --> R["Reflect LSASS and write<br/>C:/Windows/Temp/f.elif"]
-    R --> S["react2shell download"]
-    S --> T["Offline XOR decrypt<br/>lsass.dmp"]
-    T --> U["Recover TESTLAB\\Administrator hash"]
-
-    U --> V["go-thehash.exe on IIS01"]
-    V --> W["Pass the Hash to DC01"]
-    W --> X["SMB C$ transfer<br/>CertCA.bin + CertEnrollAgent.exe"]
-    X --> Y1["WMI execution path"]
-    X --> Y2["SCM execution path"]
-    Y1 --> Z1["DC01 C2 as TESTLAB\\Administrator"]
-    Y2 --> Z2["DC01 C2 as NT AUTHORITY\\SYSTEM"]
-
-    Z1 --> PERSIST["Stage persistence payloads on DC01"]
-    Z2 --> PERSIST
-    PERSIST --> P1["svcbackup domain admin"]
-    PERSIST --> P2["WMI timer subscription"]
-    PERSIST --> P3["SYSVOL logon script update.exe"]
-    PERSIST --> P4["CertPolicyHost service"]
-    PERSIST --> P5["CertPolicyCache registry service"]
+    A["Attacker"] --> B["upload.testlab.local<br/>Unrestricted file upload"]
+    B --> C["Stage staging.html,<br/>dnscat2.exe, CWLHerpaderping.exe<br/>in /uploads"]
+    C --> D["Deliver lure URL to domain user"]
+    D --> E["Domain user opens staging.html<br/>in browser on WS01"]
+    E --> F["HTML smuggling<br/>browser writes cert_bundle.txt<br/>to Downloads/ (no HTTP request)"]
+    F --> G["Lure overlay: Win+R<br/>paste PowerShell one-liner"]
+    G --> H["explorer.exe spawns powershell.exe<br/>-w h -ep bypass -c iex(gc -Raw ...)"]
+    H --> I["PowerShell decodes cert_bundle.txt<br/>writes hpsolutionsportal.bin → .hta<br/>to %TEMP%"]
+    I --> J["powershell.exe spawns mshta.exe<br/>hpsolutionsportal.hta"]
+    J --> K["mshta.exe VBScript<br/>HTTP GET dnscat2.exe → C:\\ProgramData\\CertCA.bin<br/>HTTP GET CWLHerpaderping.exe → CertEnrollAgent.exe"]
+    K --> L["mshta.exe spawns CertEnrollAgent.exe<br/>SW_HIDE"]
+    L --> M["CWLHerpaderping: Herpaderping ghost<br/>RuntimeBroker.exe on WS01<br/>DNS C2 as domain user"]
 ```
 
-## Phase Breakdown
+### Step Summary
 
-| Phase | Objective | Main Result |
+| Step | Tactic | Key Behavior |
 | - | - | - |
-| Phase 1 | Initial access, execution, and C2 | Workstation DNS C2 as a domain user; IIS01 DNS C2 as SYSTEM |
-| Phase 2 | Credential access and discovery | LSASS dump exfiltrated and decrypted; `TESTLAB\Administrator` hash recovered |
-| Phase 3 | Lateral movement and persistence | DC01 reached via Pass the Hash; C2 and persistence established on the Domain Controller |
+| Step 1 | Initial Access, Defense Evasion | Unrestricted file upload stages lure and payloads; HTML smuggling delivers `cert_bundle.txt` via in-page base64 blob (T1027.006) |
+| Step 2 | Execution, C2 | User executes Win+R PowerShell paste (T1204.004); PowerShell decodes HTA (T1140, T1036.008) and launches `mshta.exe` (T1218.005); HTA VBScript downloads payloads over HTTP (T1105, T1071.001) and spawns Herpaderping loader |
 
-## Main Behavior Chain
+---
 
-1. The attacker stages the lure and payloads through `upload.testlab.local`.
-2. A workstation user executes the PowerShell copy-paste chain, which launches an
-   HTA, downloads payloads, and creates dnscat2 DNS C2 through a Herpaderping
-   ghost process.
-3. In parallel, the attacker exploits `react.testlab.local`, stages payloads
-   through react2shell, escalates with EfsPotato, and creates SYSTEM dnscat2 DNS
-   C2 on IIS01.
-4. The attacker uploads and runs `WdiBoot.exe` on IIS01 to create an
-   XOR-encrypted LSASS dump (`f.elif`), downloads it, decrypts it to
-   `lsass.dmp`, and extracts credential material.
-5. The attacker uses the recovered `TESTLAB\Administrator` NT hash with
-   `go-thehash.exe` to authenticate to DC01 over NTLM and transfer payloads over
-   `C$`.
-6. The attacker executes payloads on DC01 through two paths:
-   - WMI `Win32_Process.Create`: C2 as `TESTLAB\Administrator`.
-   - SCM transient service: C2 as `NT AUTHORITY\SYSTEM`.
-7. The attacker installs persistence on DC01:
-   - `svcbackup` domain admin account.
-   - WMI permanent event subscription running `C:\ProgramData\dnscat2.exe`.
-   - Default Domain Policy logon script running SYSVOL `update.exe`.
-   - `CertPolicyHost` auto-start service via `ServiceInstaller.exe`.
-   - `CertPolicyCache` registry-backed service via `NtServiceInstaller.exe`.
+## Path 2 — IIS AppPool Escalation (Server-Side)
+
+**Files:** [`iis-apppool-escalation-path/Phase 1.md`](iis-apppool-escalation-path/Phase%201.md),
+[`iis-apppool-escalation-path/Phase 2.md`](iis-apppool-escalation-path/Phase%202.md),
+[`iis-apppool-escalation-path/Phase 3.md`](iis-apppool-escalation-path/Phase%203.md),
+[`iis-apppool-escalation-path/Cleanup.md`](iis-apppool-escalation-path/Cleanup.md)
+
+**Entry point:** `react.testlab.local` on `IIS01`  
+**Primary hosts:** `IIS01` → `DC01`  
+**End state:** dnscat2 DNS C2 on `DC01`; five persistence mechanisms installed
+
+### Attack Flow
+
+```mermaid
+flowchart TD
+    A["Attacker"] --> B["react.testlab.local<br/>CVE-2025-55182 React RSC RCE"]
+    B --> C["react2shell eval shell<br/>IIS APPPOOL\\react.testlab.local"]
+
+    C --> D1["Step 1A — Reflective load<br/>T1620: node.exe pipes dnscat2 PE<br/>via stdin to CertEnrollAgent.exe<br/>No disk artifact for payload"]
+    C --> D2["Step 1B — File-based full chain<br/>Upload + decode CertEnrollSvc.exe,<br/>CertCA.bin via eval fs writes"]
+
+    D2 --> E["eval detached spawn<br/>CertEnrollSvc.exe CertEnrollAgent.exe"]
+    E --> F["EfsPotato: SeImpersonatePrivilege<br/>named-pipe token → SYSTEM"]
+    F --> G["CertEnrollAgent.exe as SYSTEM<br/>Herpaderping ghost RuntimeBroker.exe<br/>IIS01 DNS C2 as NT AUTHORITY\\SYSTEM"]
+
+    D1 --> G
+
+    G --> H["Phase 2 — Credential Access<br/>Upload WdiBoot.exe (ReflectDump)<br/>gzip+b64 compressed, hidden attrib"]
+    H --> I["SYSTEM shell executes WdiBoot.exe<br/>RtlCreateProcessReflection forks LSASS<br/>MiniDumpWriteDump on fork<br/>XOR-encrypt → C:\\Windows\\Temp\\f.elif"]
+    I --> J["react2shell download f.elif<br/>8192-byte chunked exfil"]
+    J --> K["Offline XOR decrypt → lsass.dmp<br/>pypykatz / mimikatz<br/>Recover TESTLAB\\Administrator hash"]
+
+    G --> L["Phase 2 — Discovery<br/>WmiAvQuery.exe: ROOT\\SecurityCenter2<br/>whoami /all, nltest, net group, net view"]
+
+    K --> M["Phase 3 — Lateral Movement<br/>go-thehash.exe PtH → DC01<br/>SMB C$ transfer CertCA.bin + CertEnrollAgent.exe"]
+    M --> N1["Path A: WMI Win32_Process.Create<br/>DC01 C2 as TESTLAB\\Administrator"]
+    M --> N2["Path B: SCM transient service<br/>DC01 C2 as NT AUTHORITY\\SYSTEM"]
+
+    N1 --> O["Phase 3 — Persistence on DC01"]
+    N2 --> O
+    O --> P1["svcbackup domain admin account"]
+    O --> P2["WMI permanent event subscription<br/>respawns dnscat2.exe every 60s"]
+    O --> P3["SYSVOL Default Domain Policy<br/>logon script update.exe"]
+    O --> P4["CertPolicyHost auto-start service<br/>via ServiceInstaller.exe SCM API"]
+    O --> P5["CertPolicyCache registry service<br/>via NtServiceInstaller.exe NT API"]
+```
+
+### Phase Summary
+
+| Phase | File | Tactic | Key Behaviors |
+| - | - | - | - |
+| Phase 1 | `Phase 1.md` | Initial Access, Privilege Escalation, Defense Evasion, C2 | CVE-2025-55182 RCE → react2shell; Step 1A T1620 reflective load (no disk artifact); Step 1B EfsPotato token impersonation → SYSTEM; Herpaderping ghost process; dnscat2 DNS C2 |
+| Phase 2 | `Phase 2.md` | Credential Access, Discovery | ReflectDump via `RtlCreateProcessReflection`; XOR-encrypted `f.elif`; chunked exfil; offline decrypt; WMI AV query; domain recon |
+| Phase 3 | `Phase 3.md` | Lateral Movement, Execution, Persistence | Pass the Hash via `go-thehash.exe`; WMI + SCM dual-path execution on DC01; 5 independent persistence mechanisms |
 
 ## Key Hosts
 
