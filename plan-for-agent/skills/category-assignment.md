@@ -1,6 +1,6 @@
 # Skill: Gán nhãn Category và kiểm tra Detection Criteria
 
-Mô tả quy trình xác định nhãn `Calibrated`/`Not Calibrated` cho từng row trong Reference Table, và kiểm tra Detection Criteria đạt chuẩn. Dựa trên `attack-behavior-methodology.md`.
+Mô tả quy trình xác định nhãn `Calibrated`/`Not Calibrated` cho từng row trong Reference Table, và kiểm tra Detection Criteria đạt chuẩn. Đây là quy trình vận hành chuẩn; `attack-behavior-methodology.md` là bản diễn giải mở rộng bằng dẫn chứng từ các scenario MITRE cũ.
 
 ---
 
