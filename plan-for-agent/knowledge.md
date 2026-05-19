@@ -96,17 +96,19 @@ Một plan không bắt buộc phải có đầy đủ mọi thư mục/file nga
 
 Path mẫu: `d:\vcs\ael\testlab-enterprise\<plan-name>\Emulation_Plan\`
 
-Chứa các **Phase file** — mỗi file là một kịch bản tấn công hoàn chỉnh theo format emulation plan chuẩn (tham khảo `d:\vcs\ael\plan-for-agent\emulation-plan-structure.md`). Mỗi Phase tương ứng một sub-attack chain:
+Chứa các **Phase file** — mỗi file là một kịch bản tấn công hoàn chỉnh theo format emulation plan chuẩn (tham khảo `d:\vcs\ael\plan-for-agent\emulation-plan-structure.md`). Mỗi Phase tương ứng một sub-attack chain.
 
-| File | Tactic chain |
+Cấu trúc cụ thể có thể khác nhau giữa các plan. Ví dụ, `windows-adversary-plan` không dùng cấu trúc `Phase 1.md → Phase N.md` tuyến tính mà chia thành các **attack path subdirectory** song song (xem mục **Plan hiện tại** bên dưới). Khi làm việc với một plan cụ thể, đọc `summary.md` của plan đó trước để nắm cấu trúc thực tế.
+
+Mapping Phase → tactic chain có thể thay đổi theo từng plan. Khi cập nhật plan, ưu tiên mô tả đúng flow thực tế của plan đó hơn là ép theo bảng mẫu dưới đây:
+
+| File (mẫu tham khảo) | Tactic chain |
 |---|---|
 | `Phase 1.md` | Initial Access → Execution → Command & Control → (Defense Evasion) |
 | `Phase 2.md` | Discovery → Credential Access |
 | `Phase 3.md` | Lateral Movement + Privilege Escalation → Execution → (Persistence) |
 | `Phase 4.md` | Collection → Exfiltration |
 | `Phase 5.md` | Impact |
-
-Mapping Phase → tactic chain có thể thay đổi theo từng plan. Khi cập nhật plan, ưu tiên mô tả đúng flow thực tế của plan đó hơn là ép theo bảng mẫu.
 
 **Nội dung của Phase files**: mỗi file là một execution plan đầy đủ gồm các Steps với **Voice Track** (mô tả hành vi từ góc nhìn adversary), **Procedures** (câu lệnh step-by-step, dùng `☣️` cho bước nguy hiểm), và **Reference Tables** (ATT&CK mapping với Detection Criteria cụ thể). Xem `emulation-plan-structure.md` để biết format chi tiết.
 
@@ -143,12 +145,29 @@ Chứa tài liệu hạ tầng lab: hướng dẫn dựng host, domain, service,
 
 ### Plan hiện tại: `windows-adversary-plan`
 
-Plan Windows Enterprise hiện tại nằm tại `d:\vcs\ael\testlab-enterprise\windows-adversary-plan\`. Một số thành phần đang có:
+Plan Windows Enterprise hiện tại nằm tại `d:\vcs\ael\testlab-enterprise\windows-adversary-plan\`. Plan này **không dùng cấu trúc Phase tuyến tính** mà chia `Emulation_Plan/` thành hai attack path subdirectory song song, cùng hội tụ tại IIS01 SYSTEM C2 trước khi chuyển sang lateral movement:
+
+**`Emulation_Plan/html-smuggling-path/`** — path user-driven (WS01)
+
+| File | Nội dung |
+|---|---|
+| `Plan.md` | Initial Access & C2: HTML smuggling → copy-paste PowerShell → HTA dropper → dnscat2 C2 trên WS01 |
+| `Cleanup.md` | Dọn dẹp artifact của path này |
+
+**`Emulation_Plan/iis-apppool-escalation-path/`** — path server-side (IIS01 → DC01)
+
+| File | Nội dung |
+|---|---|
+| `Phase 1.md` | Initial Access & C2: CVE-2025-55182 React RSC RCE → react2shell eval shell → EfsPotato SYSTEM → Herpaderping ghost → dnscat2 C2 trên IIS01 (Step 1A: T1620 reflective load; Step 1B: file-based full chain) |
+| `Phase 2.md` | Discovery & Credential Access: ReflectDump LSASS → XOR-encrypted `f.elif` → exfil qua react2shell → offline decrypt; host & domain recon (WmiAvQuery, whoami, nltest, net group, net view) |
+| `Phase 3.md` | Lateral Movement, C2, Persistence: go-thehash.exe PtH → DC01 C$; WMI path (C2 as TESTLAB\Administrator) + SCM path (C2 as SYSTEM); 5 persistence mechanisms (svcbackup, WMI subscription, SYSVOL logon script, API service, registry service) |
+| `Cleanup.md` | Dọn dẹp artifact của path này |
+
+**`Emulation_Plan/summary.md`** — tóm tắt flow tổng thể và lab topology cả 2 path.
 
 | Nhóm | Thành phần |
 |---|---|
-| Emulation plan | `Phase 1.md` → `Phase 5.md`, `Setup.md`, `Cleanup.md`, `summary.md`, `further-reading/` |
-| Payload/tool | `T1189/`, `CWLHerpaderping/`, `CVE-2025-9491_POC/`, `dnscat2/`, `dnscat2.exe`, `EfsPotato/`, `go-thehash/`, `Invoke-TheHash/`, `LsassReflectDumping/`, `react2shell-tool/`, `webshell/`, `windows-service/` |
+| Payload/tool | `T1189/`, `CWLHerpaderping/`, `EfsPotato/`, `react2shell-tool/`, `dnscat2/`, `dnscat2.exe`, `go-thehash/`, `Invoke-TheHash/`, `LsassReflectDumping/`, `WmiAvQuery/`, `webshell/`, `windows-service/` |
 | Setup | `Windows Server 2022-DC.md`, `Windows Server 2022-IIS.md`, `file-upload-vuln-web/`, `react2shell-vuln-web/` |
 
 ---
