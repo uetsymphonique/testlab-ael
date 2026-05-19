@@ -300,3 +300,4 @@ Resolve-DnsName ws01.testlab.local
 # Confirm IIS01 and WS01 appear in AD
 Get-ADComputer -Filter * | Select-Object Name, Enabled
 ```
+
