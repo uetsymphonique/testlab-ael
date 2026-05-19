@@ -15,10 +15,11 @@ This document summarizes the code flow of `react2shell-tool`, focusing on how th
 | Config | `../../resources/payloads/react2shell-tool/exploit_tool/config.py` | Target URL normalization and timeout |
 | Built-ins | `../../resources/payloads/react2shell-tool/exploit_tool/commands/builtin.py` | help, info, timeout, eval, history |
 | Recon commands | `../../resources/payloads/react2shell-tool/exploit_tool/commands/recon.py` | sysinfo, ipconfig, env, domain, ls, readfile through Node.js APIs |
-| File operations | `../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py` | upload, decode, copyfile, rename, download through Node.js `fs` |
+| File operations | `../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py` | upload, decode, decompress, copyfile, rename, download, hide, herpload through Node.js `fs`/`zlib`/`child_process` |
 | Charcode helper | `../../resources/payloads/react2shell-tool/exploit_tool/utils.py` | Converts JS strings to `String.fromCharCode(...)` |
 | Local encoder | `../../resources/payloads/react2shell-tool/encode_payload.py` | Encodes local files to base64/certutil-compatible text |
 | Local decoder | `../../resources/payloads/react2shell-tool/decode_payload.py` | Decodes base64/certutil-compatible text back to local binary |
+| Payload compressor | `../../resources/payloads/react2shell-tool/compress_payload.py` | Compresses files with gzip and optionally base64-encodes (T1027.015) |
 
 ## High-Level Runtime Flow
 
@@ -174,7 +175,8 @@ The request uses `requests.Session.post()` with `allow_redirects=False` and `ver
 |---|---|---|
 | `help`, `clear`, `info`, `history`, `timeout`, `eval` | `BuiltinCommands` | Mostly eval-based; `clear` is local terminal only |
 | `sysinfo`, `ipconfig`, `env`, `domain`, `ls`, `readfile` | `ReconCommands` | Node.js APIs through eval, no process spawn |
-| `upload`, `decode`, `copyfile`, `rename`, `download` | `FileOperations` | Node.js `fs` APIs through eval, no process spawn |
+| `upload`, `decode`, `decompress`, `copyfile`, `rename`, `download` | `FileOperations` | Node.js `fs`/`zlib` APIs through eval, no process spawn |
+| `hide`, `herpload` | `FileOperations` | `child_process.spawnSync('attrib')` or loader with stdin pipe |
 | `run` | `InteractiveShell.execute_command_spawn()` | `child_process.spawnSync(..., shell:false)` |
 | Anything else | `InteractiveShell.execute_command()` | `child_process.execSync()` |
 
@@ -226,6 +228,37 @@ fs.writeFileSync(output, Buffer.from(fs.readFileSync(input, 'utf8').trim(), 'bas
 
 This converts an uploaded base64 text file into the final binary on the target.
 
+### Decompress
+
+`decompress <input.gz> <output.bin>` runs:
+
+```text
+fs.writeFileSync(output, zlib.gunzipSync(fs.readFileSync(input)))
+```
+
+This decompresses a gzip-compressed file using Node.js built-in `zlib` module. No child process is spawned. The attacker uses `compress_payload.py` locally to create gzip+base64 payloads before upload, reducing transfer size by ~62% and evading signature-based detection of raw PE structure (T1027.015).
+
+### Hide
+
+`hide <filepath>` spawns `attrib.exe` to set Windows hidden attribute:
+
+```text
+child_process.spawnSync('attrib', ['+h', filepath], {encoding: 'utf8'})
+```
+
+This is one of the few file operations that **spawns a child process**. Node.js `fs.chmod()` only supports Unix permissions, not Windows file attributes, so `attrib.exe` must be invoked. The process creation is intentionally observable for T1564.001 detection.
+
+### Herpload
+
+`herpload <payload.b64> <loader.exe>` reflectively loads a PE via stdin redirection:
+
+1. Reads base64 file and decodes to Buffer
+2. Prepends 4-byte size header (little-endian DWORD)
+3. Spawns loader executable with `stdin` containing `[size_header + payload_bytes]`
+4. No disk write of payload binary (T1620 - Reflective Code Loading)
+
+This spawns the loader process but eliminates the intermediate disk artifact.
+
 ### Copy and Rename
 
 `copyfile` and `rename` call:
@@ -254,9 +287,9 @@ local Python base64-decodes each chunk and writes downloaded_<filename>
 
 Chunk size is 8192 bytes. The target sends each chunk back through the same redirect-header base64 channel.
 
-## Local Encode / Decode Helpers
+## Local Encode / Decode / Compress Helpers
 
-`encode_payload.py` and `decode_payload.py` run locally, not on the target.
+`encode_payload.py`, `decode_payload.py`, and `compress_payload.py` run locally, not on the target.
 
 `encode_payload.py`:
 
@@ -273,6 +306,17 @@ Chunk size is 8192 bytes. The target sends each chunk back through the same redi
 3. Base64-decodes to bytes.
 4. Writes the output file in binary mode.
 
+`compress_payload.py`:
+
+1. Reads input file as bytes.
+2. Compresses with gzip at level 9 (maximum compression).
+3. Optionally base64-encodes the compressed output with `--b64`.
+4. Line length control via `-l` flag (0 = no wrapping, single line for upload).
+5. Typical compression ratio: ~62% size reduction.
+6. Writes compressed output (`.gz` or `.gz.b64` depending on options).
+
+This enables T1027.015 (Obfuscated Files or Information: Compression) by reducing payload size and evading signature detection during upload.
+
 ## Detection-Relevant Code Paths
 
 | Behavior | Code path | Observable artifact |
@@ -288,6 +332,9 @@ Chunk size is 8192 bytes. The target sends each chunk back through the same redi
 | Node.js recon | `ReconCommands` | Access to `os`, `dns`, `fs`, `path`, and `process.env` modules |
 | File upload | `FileOperations.upload()` | Repeated POSTs write/append base64 chunks to target file |
 | Target-side base64 decode | `FileOperations.decode()` | Node.js writes binary output from base64 text |
+| Target-side gzip decompression | `FileOperations.decompress()` | Node.js `zlib.gunzipSync()` decompresses gzip file, no child process |
+| Set Windows hidden attribute | `FileOperations.hide()` | `node.exe` spawns `attrib.exe` with `['+h', filepath]` arguments |
+| Reflective PE load via stdin | `FileOperations.herpload()` | Reads b64, decodes to Buffer, spawns loader with stdin pipe containing PE bytes |
 | File download | `FileOperations.download()` | Repeated POSTs read target file chunks and return base64 in redirect header |
 | Request ID generation | `PayloadGenerator.generate_hash()` | Timestamp-derived hex values in `X-Nextjs-Request-Id` headers |
 | TLS verification disabled | `requests.Session.post(..., verify=False)` | Client accepts invalid target certificates |
@@ -301,6 +348,9 @@ Chunk size is 8192 bytes. The target sends each chunk back through the same redi
 | `execSync()` command execution through shell | `T1059.003` Command and Scripting Interpreter: Windows Command Shell on Windows, or shell equivalent on Linux |
 | Direct executable launch with `spawnSync(..., shell:false)` | `T1106` Native API / execution behavior, depending scenario mapping |
 | Uploading payload chunks through the web exploit channel | `T1105` Ingress Tool Transfer |
+| Decompressing gzip payload via Node.js `zlib.gunzipSync()` | `T1027.015` Obfuscated Files or Information: Compression |
+| Setting Windows hidden attribute via `attrib.exe +h` | `T1564.001` Hide Artifacts: Hidden Files and Directories |
+| Reflective PE loading via stdin redirection (no disk artifact) | `T1620` Reflective Code Loading |
 | Reading files through Node.js `fs` and returning contents | `T1005` Data from Local System |
 | Enumerating host/network/environment with Node.js APIs | `T1082`, `T1016`, `T1033`, and related Discovery techniques depending specific command |
 | Returning command/file output via HTTP response header | `T1041` Exfiltration Over C2 Channel or `T1105`, depending scenario context |
