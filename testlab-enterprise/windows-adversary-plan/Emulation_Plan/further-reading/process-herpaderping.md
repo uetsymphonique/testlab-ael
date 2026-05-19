@@ -19,9 +19,16 @@ This document summarizes the code flow of `CWLHerpaderping`, focusing on how the
 main()
   -> PatchEtw()
   -> GetPayloadBuffer()
-       -> CreateFileW(PAYLOAD_PATH)
-       -> ReadFile(payload bytes)
-       -> DeleteFileW(PAYLOAD_PATH)
+       -> GetFileType(STD_INPUT_HANDLE)
+       -> MODE 1 (stdin pipe - T1620 Reflective Code Loading):
+            -> ReadFile(stdin, 4-byte size header)
+            -> VirtualAlloc(payload size)
+            -> ReadFile(stdin, payload bytes)
+            -> NO DISK FILE (reflective loading)
+       -> MODE 2 (file fallback - T1070.004 File Deletion):
+            -> CreateFileW(PAYLOAD_PATH)
+            -> ReadFile(payload bytes)
+            -> DeleteFileW(PAYLOAD_PATH)
   -> Herpaderping(payloadBuffer, payloadSize)
        -> InitSyscallPool()
        -> build indirect syscall stubs
@@ -51,13 +58,19 @@ GetPayloadBuffer(payloadSize)
 Herpaderping(payloadBuffer, payloadSize)
 ```
 
-The default `PAYLOAD_PATH` is:
+### Default Payload Path (Mode 2 only)
 
 ```text
 C:\temp\payload64.exe
 ```
 
-This path can be overridden at build time with a preprocessor definition. The payload is expected to be an x64 PE with a normal entry point.
+This path can be overridden at build time with a preprocessor definition (e.g., `C:\ProgramData\CertCA.bin` in emulation plan). Only used when stdin is not redirected.
+
+### Stdin Redirection (Mode 1)
+
+When spawned with stdin pipe redirection (e.g., via Node.js `spawnSync` with `input` option), the loader detects `FILE_TYPE_PIPE` and switches to reflective loading mode, bypassing `PAYLOAD_PATH` entirely.
+
+The payload is expected to be an x64 PE with a normal entry point in both modes.
 
 ## Stage 1 - Static Evasion Helpers
 
@@ -87,9 +100,24 @@ Artifacts to watch:
 | Modified bytes at `ntdll!EtwEventWrite` | ETW tampering in loader process memory |
 | `VirtualProtect` on an `ntdll.dll` code region | Preparation for executable memory patching |
 
-## Stage 3 - Read and Remove Payload
+## Stage 3 - Payload Acquisition (Dual Mode)
 
-`GetPayloadBuffer()`:
+`GetPayloadBuffer()` supports two loading modes:
+
+### Mode 1: Reflective Loading via Stdin (T1620)
+
+**Trigger:** `GetFileType(STD_INPUT_HANDLE) == FILE_TYPE_PIPE`
+
+1. Reads 4-byte size header from stdin via `ReadFile`.
+2. Allocates heap memory with `VirtualAlloc(PAGE_READWRITE, size)`.
+3. Reads payload bytes from stdin via `ReadFile` into allocated buffer.
+4. Returns buffer pointer and size.
+
+**Key characteristic:** Payload **never touches disk** - loaded directly from pipe into memory.
+
+### Mode 2: File-based Loading with Deletion (T1070.004)
+
+**Trigger:** stdin is not a pipe (normal file handle or console)
 
 1. Opens `PAYLOAD_PATH` with `CreateFileW`.
 2. Gets the file size.
@@ -98,7 +126,9 @@ Artifacts to watch:
 5. Closes the handle.
 6. Deletes the original payload with `DeleteFileW(PAYLOAD_PATH)`.
 
-After this step, the loader keeps the PE payload in a heap buffer; the original payload file is removed to reduce disk footprint.
+**Key characteristic:** Payload read from disk then **deleted** to reduce forensic footprint.
+
+After either mode, the loader keeps the PE payload in a heap buffer.
 
 ## Stage 4 - Indirect Syscall Setup
 
@@ -263,7 +293,8 @@ Wrapped calls:
 | Behavior | Code path | Observable artifact |
 |---|---|---|
 | ETW tampering | `main()` -> `PatchEtw()` | `ntdll!EtwEventWrite` patched to immediate success |
-| Payload read/delete | `GetPayloadBuffer()` | `PAYLOAD_PATH` read then deleted |
+| Reflective payload load (Mode 1) | `GetPayloadBuffer()` stdin detection | `GetFileType(STD_INPUT_HANDLE) == FILE_TYPE_PIPE`, payload read from stdin, NO disk artifact |
+| File-based payload load (Mode 2) | `GetPayloadBuffer()` file fallback | `PAYLOAD_PATH` read then deleted via `DeleteFileW` |
 | Temp PE staging | `Herpaderping()` -> `GetTempFileNameW` / `WriteFile` | `%TEMP%\HD*.tmp` created with PE content |
 | Image section creation | `NtCreateSection(..., SEC_IMAGE, hTemp)` | Image section backed by temp file |
 | PPID spoof candidate search | `GetNonJobParent()` | Process enumeration and handle open to Session 0 process |
@@ -296,6 +327,8 @@ Wrapped calls:
 | ETW patching | `T1562.006` Impair Defenses: Indicator Blocking |
 | Indirect native API/syscall execution | `T1106` Native API |
 | Parent process spoofing | `T1134` Access Token Manipulation / defense evasion context, depending scenario mapping |
-| Payload file deletion and temp overwrite | `T1070.004` File Deletion, if modeled as a distinct observable event |
+| Reflective code loading via stdin pipe | `T1620` Reflective Code Loading (Mode 1 - no disk artifact) |
+| Payload file deletion after read | `T1070.004` File Deletion (Mode 2 - file fallback with anti-forensic cleanup) |
+| Temp file overwrite after section map | `T1070` Indicator Removal (file herpaderping obfuscation) |
 | RuntimeBroker process parameter spoofing | `T1036.005` Masquerading: Match Legitimate Name or Location, if detection criteria focuses on process metadata mismatch |
 | PEB / process argument spoofing | `T1564.010` Hide Artifacts: Process Argument Spoofing |
