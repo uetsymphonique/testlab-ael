@@ -24,14 +24,14 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 | Network Segmentation              | Realistic segmentation — DMZ, internal workstation zones, server zones |
 # Technique Scope
 ## Reconnaissance
-- [ ] T1592.001 - Gather Victim Host Information: Hardware
-- [ ] T1592.002 - Gather Victim Host Information: Software
+- [ ] ~~T1592.001 - Gather Victim Host Information: Hardware~~
+- [ ] ~~T1592.002 - Gather Victim Host Information: Software~~
 ## Initial Access
-- [~] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
-- [ ] T1078.001 - Valid Accounts: Default Accounts
-- [~] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
-- [ ] T1078.003 - Valid Accounts: Local Accounts
-- [ ] T1133 - External Remote Services
+- [x] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
+- [ ] ~~T1078.001 - Valid Accounts: Default Accounts~~
+- [x] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
+- [ ] ~~T1078.003 - Valid Accounts: Local Accounts~~
+- [ ] ~~T1133 - External Remote Services~~
 - [x] T1189 - Drive-by Compromise
 ## Execution
 - [x] T1047 - Windows Management Instrumentation
@@ -45,60 +45,60 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1106 - Native API
 - [x] T1204 - User Execution
 - [x] T1204.001 - User Execution: Malicious Link
-- [ ] T1204.002 - User Execution: Malicious File
+- [x] T1204.002 - User Execution: Malicious File
 - [x] T1204.004 - User Execution: Malicious Copy and Paste
 - [x] T1569.002 - System Services: Service Execution
 ## Persistence
 - [ ] T1037.001 - Boot or Logon Initialization Scripts: Logon Script (Windows)
 - [x] T1037.003 - Boot or Logon Initialization Scripts: Network Logon Script
 - [ ] T1037.005 - Boot or Logon Initialization Scripts: Startup Items
-- [~] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
-- [ ] T1078.001 - Valid Accounts: Default Accounts
-- [~] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
-- [ ] T1078.003 - Valid Accounts: Local Accounts
+- [x] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
+- [ ] ~~T1078.001 - Valid Accounts: Default Accounts~~
+- [x] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
+- [ ] ~~T1078.003 - Valid Accounts: Local Accounts~~
 - [x] T1098 - Account Manipulation
 - [x] T1098.007 - Account Manipulation: Additional Local or Domain Groups
 - [x] T1112 - Modify Registry
-- [ ] T1133 - External Remote Services
-- [ ] T1136.001 - Create Account: Local Account
+- [ ] ~~T1133 - External Remote Services~~
+- [ ] ~~T1136.001 - Create Account: Local Account~~
 - [x] T1136.002 - Create Account: Domain Account
 - [x] T1543.003 - Create or Modify System Process: Windows Service
 - [x] T1546.003 - Event Triggered Execution: Windows Management Instrumentation Event Subscription
 - [ ] T1547.001 - Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder
 - [ ] T1547.004 - Boot or Logon Autostart Execution: Winlogon Helper DLL
-- [ ] T1574.001 - Hijack Execution Flow: DLL
+- [x] T1574.001 - Hijack Execution Flow: DLL  <!-- plan tactic: Defense Evasion -->
 ## Privilege Escalation
 - [ ] T1037.001 - Boot or Logon Initialization Scripts: Logon Script (Windows)
-- [~] T1037.003 - Boot or Logon Initialization Scripts: Network Logon Script  <!-- plan tactic: Persistence -->
+- [x] T1037.003 - Boot or Logon Initialization Scripts: Network Logon Script  <!-- plan tactic: Persistence -->
 - [ ] T1037.005 - Boot or Logon Initialization Scripts: Startup Items
-- [~] T1055 - Process Injection  <!-- plan tactic: Defense Evasion -->
+- [x] T1055 - Process Injection  <!-- plan tactic: Defense Evasion -->
 - [ ] T1055.001 - Process Injection: Dynamic-link Library Injection
 - [ ] T1055.002 - Process Injection: Portable Executable Injection
 - [ ] T1055.012 - Process Injection: Process Hollowing
 - [x] T1078 - Valid Accounts
-- [ ] T1078.001 - Valid Accounts: Default Accounts
+- [ ] ~~T1078.001 - Valid Accounts: Default Accounts~~
 - [x] T1078.002 - Valid Accounts: Domain Accounts
-- [ ] T1078.003 - Valid Accounts: Local Accounts
+- [ ] ~~T1078.003 - Valid Accounts: Local Accounts~~
 - [x] T1134.001 - Access Token Manipulation: Token Impersonation/Theft
 - [x] T1134.002 - Access Token Manipulation: Create Process with Token
 - [ ] T1134.003 - Access Token Manipulation: Make and Impersonate Token
-- [~] T1134.004 - Access Token Manipulation: Parent PID Spoofing  <!-- plan tactic: Defense Evasion -->
-- [~] T1543.003 - Create or Modify System Process: Windows Service  <!-- plan tactic: Persistence -->
-- [~] T1546.003 - Event Triggered Execution: Windows Management Instrumentation Event Subscription  <!-- plan tactic: Persistence -->
+- [x] T1134.004 - Access Token Manipulation: Parent PID Spoofing  <!-- plan tactic: Defense Evasion -->
+- [x] T1543.003 - Create or Modify System Process: Windows Service  <!-- plan tactic: Persistence -->
+- [x] T1546.003 - Event Triggered Execution: Windows Management Instrumentation Event Subscription  <!-- plan tactic: Persistence -->
 - [ ] T1547.001 - Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder
 - [ ] T1547.004 - Boot or Logon Autostart Execution: Winlogon Helper DLL
 - [ ] T1548.002 - Abuse Elevation Control Mechanism: Bypass User Account Control
-- [ ] T1574.001 - Hijack Execution Flow: DLL
+- [x] T1574.001 - Hijack Execution Flow: DLL  <!-- plan tactic: Defense Evasion -->
 ## Defense Evasion
 - [ ] T1006 - Direct Volume Access
 - [x] T1027 - Obfuscated Files or Information
-- [x] T1027.002 - Obfuscated Files or Information: Software Packing
+- [ ] T1027.002 - Obfuscated Files or Information: Software Packing
 - [ ] T1027.004 - Obfuscated Files or Information: Compile After Delivery
 - [ ] T1027.005 - Obfuscated Files or Information: Indicator Removal from Tools
 - [x] T1027.006 - Obfuscated Files or Information: HTML Smuggling
 - [x] T1027.007 - Obfuscated Files or Information: Dynamic API Resolution
 - [x] T1027.008 - Obfuscated Files or Information: Stripped Payloads
-- [ ] T1027.009 - Obfuscated Files or Information: Embedded Payloads
+- [x] T1027.009 - Obfuscated Files or Information: Embedded Payloads
 - [x] T1027.010 - Obfuscated Files or Information: Command Obfuscation
 - [x] T1027.013 - Obfuscated Files or Information: Encrypted/Encoded File
 - [x] T1027.015 - Obfuscated Files or Information: Compression
@@ -117,21 +117,21 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1070.004 - Indicator Removal: File Deletion
 - [ ] T1070.005 - Indicator Removal: Network Share Connection Removal
 - [ ] T1070.009 - Indicator Removal: Clear Persistence
-- [~] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
-- [ ] T1078.001 - Valid Accounts: Default Accounts
-- [~] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
-- [ ] T1078.003 - Valid Accounts: Local Accounts
-- [~] T1112 - Modify Registry  <!-- plan tactic: Persistence -->
-- [~] T1134.001 - Access Token Manipulation: Token Impersonation/Theft  <!-- plan tactic: Privilege Escalation -->
-- [~] T1134.002 - Access Token Manipulation: Create Process with Token  <!-- plan tactic: Privilege Escalation -->
+- [x] T1078 - Valid Accounts  <!-- plan tactic: Privilege Escalation -->
+- [ ] ~~T1078.001 - Valid Accounts: Default Accounts~~
+- [x] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
+- [ ] ~~T1078.003 - Valid Accounts: Local Accounts~~
+- [x] T1112 - Modify Registry  <!-- plan tactic: Persistence -->
+- [x] T1134.001 - Access Token Manipulation: Token Impersonation/Theft  <!-- plan tactic: Privilege Escalation -->
+- [x] T1134.002 - Access Token Manipulation: Create Process with Token  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1134.003 - Access Token Manipulation: Make and Impersonate Token
 - [x] T1134.004 - Access Token Manipulation: Parent PID Spoofing
 - [x] T1140 - Deobfuscate/Decode Files or Information
 - [ ] T1202 - Indirect Command Execution
 - [x] T1218.005 - System Binary Proxy Execution: Mshta
-- [ ] T1218.010 - System Binary Proxy Execution: Regsvr32
+- [x] T1218.010 - System Binary Proxy Execution: Regsvr32
 - [ ] T1218.011 - System Binary Proxy Execution: Rundll32
-- [ ] T1218.013 - System Binary Proxy Execution: Mavinject
+- [x] T1218.013 - System Binary Proxy Execution: Mavinject
 - [ ] T1222.001 - File and Dirctory Permissions Modification: Windows File and Directory Permissions Modification
 - [ ] T1480.001 - Execution Guardrails: Environmental Keying
 - [ ] T1480.002 - Execution Guardrails: Mutual Exclusion
@@ -139,19 +139,19 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1497 - Virtualization/Sandbox Evasion
 - [x] T1497.001 - Virtualization/Sandbox Evasion: System Checks
 - [x] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks
-- [ ] T1553.002 - Subvert Trust Controls: Code Signing
+- [x] T1553.002 - Subvert Trust Controls: Code Signing
 - [ ] T1562.001 - Impair Defenses: Disable or Modify Tools
 - [ ] T1562.002 - Impair Defenses: Disable Windows Event Logging
 - [ ] T1562.003 - Impair Defenses: Impair Command History Logging
 - [ ] T1562.004 - Impair Defenses: Disable or Modify System Firewall
 - [x] T1562.006 - Impair Defenses: Indicator Blocking
 - [x] T1564.001 - Hide Artifacts: Hidden Files and Directories
-- [ ] T1564.002 - Hide Artifacts: Hidden Users
+- [x] T1564.002 - Hide Artifacts: Hidden Users
 - [x] T1564.003 - Hide Artifacts: Hidden Window
 - [x] T1564.010 - Hide Artifacts: Process Argument Spoofing
-- [ ] T1574.001 - Hijack Execution Flow: DLL
+- [x] T1574.001 - Hijack Execution Flow: DLL
 - [x] T1620 - Reflective Code Loading
-- [ ] T1622 - Debugger Evasion
+- [x] T1622 - Debugger Evasion
 - [x] T1678 - Delay Execution
 - [ ] T1679 - Selective Exclusion
 ## Credential Access
@@ -170,51 +170,51 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1057 - Process Discovery
 - [ ] T1069.001 - Permission Groups Discovery: Local Groups
 - [x] T1069.002 - Permission Groups Discovery: Domain Groups
-- [ ] T1082 - System Information Discovery
+- [x] T1082 - System Information Discovery
 - [ ] T1083 - File and Directory Discovery
-- [ ] T1087.001 - Account Discovery: Local Account
+- [ ] ~~T1087.001 - Account Discovery: Local Account~~
 - [x] T1087.002 - Account Discovery: Domain Account
 - [x] T1135 - Network Share Discovery
 - [ ] T1217 - Browser Information Discovery
 - [ ] T1482 - Domain Trust Discovery
-- [~] T1497.001 - Virtualization/Sandbox Evasion: System Checks  <!-- plan tactic: Defense Evasion -->
-- [~] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks  <!-- plan tactic: Defense Evasion -->
+- [x] T1497.001 - Virtualization/Sandbox Evasion: System Checks  <!-- plan tactic: Defense Evasion -->
+- [x] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks  <!-- plan tactic: Defense Evasion -->
 - [x] T1518.001 - Software Discovery: Security Software Discovery
-- [ ] T1614.001 - System Location Discovery: System Language Discovery
-- [ ] T1622 - Debugger Evasion
+- [ ] ~~T1614.001 - System Location Discovery: System Language Discovery~~
+- [x] T1622 - Debugger Evasion  <!-- plan tactic: Defense Evasion -->
 - [ ] T1680 - Local Storage Discovery
 ## Lateral Movement
 - [ ] T1021.001 - Remote Services: Remote Desktop Protocol
 - [x] T1021.002 - Remote Services: SMB/Windows Admin Shares
-- [ ] T1021.004 - Remote Services: SSH
+- [ ] ~~T1021.004 - Remote Services: SSH~~
 - [ ] T1021.006 - Remote Services: Windows Remote Management
 - [x] T1550.002 - Use Alternate Authentication Material: Pass the Hash
 - [ ] T1550.004 - Use Alternate Authentication Material: Web Session Cookie
 - [x] T1570 - Lateral Tool Transfer
 ## Collection
-- [ ] T1005 - Data from Local System
-- [ ] T1039 - Data from Network Shared Drive
-- [ ] T1074.001 - Data Staged: Local Data Staging
-- [ ] T1113 - Screen Capture
-- [ ] T1115 - Clipboard Data
-- [ ] T1119 - Automated Collection
-- [ ] T1560 - Archive Collected Data
-- [ ] T1560.001 - Archive Collected Data: Archive via Utility
-- [ ] T1560.002 - Archive Collected Data: Archive via Library
-- [ ] T1560.003 - Archive Collected Data: Archive via Custom Method
+- [x] T1005 - Data from Local System
+- [x] T1039 - Data from Network Shared Drive
+- [x] T1074.001 - Data Staged: Local Data Staging
+- [x] T1113 - Screen Capture
+- [x] T1115 - Clipboard Data
+- [x] T1119 - Automated Collection
+- [x] T1560 - Archive Collected Data
+- [x] T1560.001 - Archive Collected Data: Archive via Utility
+- [x] T1560.002 - Archive Collected Data: Archive via Library
+- [x] T1560.003 - Archive Collected Data: Archive via Custom Method
 ## Command and Control
 - [x] T1071.001 - Application Layer Protocol: Web Protocols
 - [x] T1105 - Ingress Tool Transfer
 - [ ] T1132.001 - Data Encoding: Standard Encoding
 - [ ] T1132.002 - Data Encoding: Non-Standard Encoding
-- [ ] T1571 - Non-Standard Port
+- [ ] ~~T1571 - Non-Standard Port~~
 - [ ] T1573.001 - Encrypted Channel: Symmetric Cryptography
 - [x] T1573.002 - Encrypted Channel: Asymmetric Cryptography
 ## Exfiltration
 - [ ] T1020 - Automated Exfiltration
 - [x] T1030 - Data Transfer Size Limits
 - [ ] T1041 - Exfiltration Over C2 Channel
-- [ ] T1048 - Exfiltration Over Alternative Protocol
+- [x] T1048 - Exfiltration Over Alternative Protocol
 - [ ] T1048.001 - Exfiltration Over Alternative Protocol: Exfiltration Over Symmetric Encrypted Non-C2 Protocol
 - [ ] T1048.002 - Exfiltration Over Alternative Protocol: Exfiltration Over Asymmetric Encrypted Non-C2 Protocol
 - [ ] T1048.003 - Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted Non-C2 Protocol

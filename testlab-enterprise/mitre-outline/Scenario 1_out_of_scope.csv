@@ -1,4 +1,6 @@
 tactic,tech_id,tech_name
 Command And Control,T1071.004,Application Layer Protocol: DNS
-Defense Evasion,T1134,Access Token Manipulation
+Command And Control,T1095,Non-Application Layer Protocol
+Credential Access,T1003.003,OS Credential Dumping: NTDS
 Initial Access,T1190,Exploit Public-Facing Application
+Initial Access,T1566.002,Phishing: Spearphishing Link

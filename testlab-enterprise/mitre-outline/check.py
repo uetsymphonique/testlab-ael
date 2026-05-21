@@ -5,25 +5,31 @@ check.py — Mark techniques as done in a Scenario scope list.
 Reads Reference Tables from one or more plan .md files, then updates the target
 scope file (Scenario 1/2) checkboxes:
 
-  - [x]  technique + tactic both match plan  (exact hit)
-  - [~]  technique matches plan but under a different tactic in the plan
+  - [x]  technique appears in plan (any tactic)
   - [ ]  not covered by any plan file (unchanged)
+  - ~~[ ] technique~~  excluded from emulation (strikethrough)
+
+Exact tactic match: removes <!-- plan tactic: ... --> comment.
+Mismatch: keeps/adds comment showing which tactic(s) the plan uses.
 
 Techniques in the plan that are absent from the scope file entirely are written
 to <scope>_out_of_scope.csv.
 
 Usage:
     python check.py --scope <Scenario.md> <plan1.md> [plan2.md ...]
+    python check.py --scope <Scenario.md> --folder <plan_directory>
     python check.py --reset --scope <Scenario.md>
 
 Options:
-    --reset   Undo all marks in the scope file: revert [x]/[~] → [ ] and
-              strip <!-- plan tactic: ... --> annotations. Plan files are
-              not required when using --reset.
+    --folder  Directory containing Phase*.md plan files. All matching files
+              are collected and sorted automatically.
+    --reset   Undo all marks in the scope file: revert [x] → [ ] and
+              strip <!-- plan tactic: ... --> annotations.
+              Skips strikethrough ~~techniques~~.
 
 Examples:
     python check.py --scope "Scenario 1.md" Phase1.md Phase2.md
-    python check.py --scope "Scenario 2.md" Phase1.md Phase2.md Phase3.md
+    python check.py --scope "Scenario 2.md" --folder ../Emulation_Plan/iis-path
     python check.py --reset --scope "Scenario 1.md"
 """
 
@@ -134,13 +140,16 @@ def _is_calibrated(category: str) -> bool | None:
 # ---------------------------------------------------------------------------
 
 TECH_LINE_RE = re.compile(
-    r"^(?P<indent>\s*)-\s+\[(?P<state>[ x~])\]\s+(?P<tid>T\d{4}(?:\.\d+)?)\b.*$"
+    r"^(?P<indent>\s*)-\s+\[(?P<state>[ x])\]\s+(?:~~)?(?P<tid>T\d{4}(?:\.\d+)?)\b.*$"
 )
 SECTION_RE = re.compile(r"^(?P<hashes>#{1,4})\s+(?P<title>.+)$")
+STRIKETHROUGH_RE = re.compile(r"~~.*?~~")  # Detect excluded techniques
+PLAN_TACTIC_COMMENT_RE = re.compile(r"\s*<!--\s*plan tactic:[^>]*-->")
 
 
 def collect_scope_pairs(scope_path: Path) -> set[tuple[str, str]]:
-    """Return all (norm_tactic, tech_id) present in scope file."""
+    """Return all (norm_tactic, tech_id) present in scope file.
+    Excludes techniques marked with strikethrough ~~...~~."""
     lines = scope_path.read_text(encoding="utf-8").splitlines()
     pairs: set[tuple[str, str]] = set()
     cur = ""
@@ -150,8 +159,41 @@ def collect_scope_pairs(scope_path: Path) -> set[tuple[str, str]]:
             cur = _norm(m.group("title"))
         tm = TECH_LINE_RE.match(line.rstrip())
         if tm:
+            # Skip techniques marked with strikethrough (excluded)
+            if STRIKETHROUGH_RE.search(line):
+                continue
             pairs.add((cur, tm.group("tid")))
     return pairs
+
+
+def collect_scope_stats(scope_path: Path) -> dict[str, int]:
+    """Return statistics about techniques in scope file.
+    De-duplicates by technique ID (cross-tactic).
+    Counts: total unique, marked [x], excluded ~~strike~~, pending [ ]."""
+    lines = scope_path.read_text(encoding="utf-8").splitlines()
+    all_tids: set[str] = set()
+    marked_tids: set[str] = set()
+    excluded_tids: set[str] = set()
+    pending_tids: set[str] = set()
+    for line in lines:
+        tm = TECH_LINE_RE.match(line.rstrip())
+        if tm:
+            tid = tm.group("tid")
+            state = tm.group("state")
+            all_tids.add(tid)
+            # Check for strikethrough (excluded)
+            if STRIKETHROUGH_RE.search(line):
+                excluded_tids.add(tid)
+            elif state == "x":
+                marked_tids.add(tid)
+            elif state == " ":
+                pending_tids.add(tid)
+    return {
+        "total_unique_techs": len(all_tids),
+        "marked": len(marked_tids),
+        "excluded": len(excluded_tids),
+        "pending": len(pending_tids),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -162,19 +204,18 @@ def update_scope_file(
     scope_path: Path,
     covered: set[tuple[str, str]],
     covered_tids: dict[str, list[str]],
-) -> tuple[int, int, int]:
+) -> tuple[int, int]:
     """
     Rewrite scope_path in-place.
-      [x]  exact (tactic, tech) match
-      [~]  tech matches but tactic differs — appends  <!-- plan tactic: X -->
+      [x]  tech appears in plan (regardless of tactic match)
       [ ]  untouched
+      ~~[ ] tech~~  excluded — never touched
 
-    Returns (newly_exact, newly_mismatch, already_done).
+    Returns (newly_marked, already_done).
     """
     lines = scope_path.read_text(encoding="utf-8").splitlines(keepends=True)
     cur_tactic  = ""
-    n_exact     = 0
-    n_mismatch  = 0
+    n_marked    = 0
     n_already   = 0
     out = []
 
@@ -187,67 +228,90 @@ def update_scope_file(
         if tech_m:
             tid   = tech_m.group("tid")
             state = tech_m.group("state")
-            key   = (cur_tactic, tid)
 
-            if key in covered:
-                if state == " ":
-                    line = line.replace("- [ ]", "- [x]", 1)
-                    n_exact += 1
-                elif state in ("x", "~"):
-                    n_already += 1
-            elif tid in covered_tids and state == " ":
-                plan_tacs = ", ".join(t.title() for t in covered_tids[tid])
-                eol = "\n" if line.endswith("\n") else ""
-                line = (
-                    line.rstrip("\n\r").replace("- [ ]", "- [~]", 1)
-                    + f"  <!-- plan tactic: {plan_tacs} -->"
-                    + eol
-                )
-                n_mismatch += 1
+            # Skip techniques marked as strikethrough - never touch them
+            if STRIKETHROUGH_RE.search(line):
+                out.append(line)
+                continue
+
+            # If tech appears in plan (any tactic), mark as [x]
+            if tid in covered_tids:
+                key = (cur_tactic, tid)
+                if key in covered:
+                    # Exact match: [x] without comment
+                    if state == " " or PLAN_TACTIC_COMMENT_RE.search(line):
+                        if state == " ":
+                            line = line.replace("- [ ]", "- [x]", 1)
+                        line = PLAN_TACTIC_COMMENT_RE.sub("", line)
+                        n_marked += 1
+                    else:
+                        n_already += 1
+                else:
+                    # Mismatch: [x] with comment showing plan tactics
+                    plan_tacs = ", ".join(t.title() for t in covered_tids[tid])
+                    if state == " ":
+                        eol = "\n" if line.endswith("\n") else ""
+                        line = (
+                            line.rstrip("\n\r").replace("- [ ]", "- [x]", 1)
+                            + f"  <!-- plan tactic: {plan_tacs} -->"
+                            + eol
+                        )
+                        n_marked += 1
+                    elif not PLAN_TACTIC_COMMENT_RE.search(line):
+                        # Already [x] but missing comment - add it
+                        eol = "\n" if line.endswith("\n") else ""
+                        line = (
+                            line.rstrip("\n\r")
+                            + f"  <!-- plan tactic: {plan_tacs} -->"
+                            + eol
+                        )
+                        n_already += 1
+                    else:
+                        n_already += 1
 
         out.append(line)
 
     scope_path.write_text("".join(out), encoding="utf-8")
-    return n_exact, n_mismatch, n_already
+    return n_marked, n_already
 
 
 # ---------------------------------------------------------------------------
 # Reset helper
 # ---------------------------------------------------------------------------
 
-PLAN_TACTIC_COMMENT_RE = re.compile(r"\s*<!--\s*plan tactic:[^>]*-->")
-
 
 def reset_scope_file(scope_path: Path) -> tuple[int, int]:
     """
     Revert all marks written by update_scope_file:
-      [x] → [ ]
-      [~] → [ ]   (also strips <!-- plan tactic: ... --> annotation)
+      [x] → [ ]   (also strips <!-- plan tactic: ... --> annotation)
+    Skips excluded techniques (~~strikethrough~~).
 
-    Returns (n_unchecked, n_unmismatch).
+    Returns (n_unchecked, n_cleared).
     """
     lines = scope_path.read_text(encoding="utf-8").splitlines(keepends=True)
-    n_unchecked  = 0
-    n_unmismatch = 0
+    n_unchecked = 0
+    n_cleared   = 0
     out = []
 
     for line in lines:
         tech_m = TECH_LINE_RE.match(line.rstrip("\n\r"))
         if tech_m:
             state = tech_m.group("state")
+            # Skip excluded techniques (strikethrough)
+            if STRIKETHROUGH_RE.search(line):
+                out.append(line)
+                continue
             if state == "x":
+                # Reset [x] to [ ] and strip any comment
                 line = line.replace("- [x]", "- [ ]", 1)
-                n_unchecked += 1
-            elif state == "~":
-                line = line.replace("- [~]", "- [ ]", 1)
                 stripped = line.rstrip("\n\r")
                 eol = line[len(stripped):]  # preserve original line ending
                 line = PLAN_TACTIC_COMMENT_RE.sub("", stripped).rstrip() + eol
-                n_unmismatch += 1
+                n_unchecked += 1
         out.append(line)
 
     scope_path.write_text("".join(out), encoding="utf-8")
-    return n_unchecked, n_unmismatch
+    return n_unchecked, n_cleared
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +334,30 @@ def main():
         sys.exit(1)
 
     scope_file = Path(args[idx + 1])
-    plan_files = [Path(a) for a in args if a != "--scope" and a != args[idx + 1]]
+
+    # Collect plan files from --folder and/or positional arguments
+    consumed = {"--scope", args[idx + 1]}
+    folder_path = None
+    if "--folder" in args:
+        fi = args.index("--folder")
+        if fi + 1 >= len(args):
+            print("[!] --folder requires a directory argument.", file=sys.stderr)
+            sys.exit(1)
+        folder_path = Path(args[fi + 1])
+        consumed.update({"--folder", args[fi + 1]})
+
+    plan_files = [Path(a) for a in args if a not in consumed]
+
+    if folder_path is not None:
+        if not folder_path.is_dir():
+            print(f"[!] Folder not found: {folder_path}", file=sys.stderr)
+            sys.exit(1)
+        phase_files = sorted(folder_path.rglob("Phase*.md"))
+        if not phase_files:
+            print(f"[!] No Phase*.md files found in {folder_path}", file=sys.stderr)
+            sys.exit(1)
+        print(f"[*] Folder {folder_path}: found {len(phase_files)} Phase*.md file(s)")
+        plan_files = phase_files + plan_files
 
     if not scope_file.exists():
         print(f"[!] Scope file not found: {scope_file}", file=sys.stderr)
@@ -278,10 +365,9 @@ def main():
 
     # ── reset mode ──────────────────────────────────────────────────────────
     if reset_mode:
-        n_unchk, n_unmis = reset_scope_file(scope_file)
+        n_unchk, _ = reset_scope_file(scope_file)
         print(f"[+] Reset {scope_file.name}")
         print(f"    [ ] Unchecked [x]   : {n_unchk}")
-        print(f"    [ ] Cleared  [~]    : {n_unmis}")
         return
 
     # ── normal check mode ───────────────────────────────────────────────────
@@ -350,13 +436,20 @@ def main():
     out_of_scope = covered - scope_pairs
 
     # Update scope file
-    n_exact, n_mismatch, n_already = update_scope_file(scope_file, covered, covered_tids)
+    n_marked, n_already = update_scope_file(scope_file, covered, covered_tids)
+
+    # Collect scope statistics
+    scope_stats = collect_scope_stats(scope_file)
 
     print(f"\n[+] {scope_file.name}")
-    print(f"    [x] Newly exact-matched  : {n_exact}")
-    print(f"    [~] Tactic mismatch      : {n_mismatch}")
+    print(f"    [x] Newly marked         : {n_marked}")
     print(f"    Already done             : {n_already}")
     print(f"    Not in scope at all      : {len(out_of_scope)}")
+    print(f"\n[*] Scope Statistics (de-dup by technique ID):")
+    print(f"    Total techniques         : {scope_stats['total_unique_techs']}")
+    print(f"    Done ([x])               : {scope_stats['marked']}")
+    print(f"    Excluded (~~strike~~)    : {scope_stats['excluded']}")
+    print(f"    Pending ([ ])            : {scope_stats['pending']}")
 
     # Write out-of-scope CSV
     if out_of_scope:
