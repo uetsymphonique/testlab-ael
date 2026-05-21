@@ -1,11 +1,9 @@
-# Defense Evasion Enhancements - Phase 1 Step 3
+# Defense Evasion Enhancements
 
-## Overview
-Proposed additions to Step 3 (Server-Side RCE & Privilege Escalation) to expand Defense Evasion coverage per Scenario 1 scope. Focus on techniques that enhance payload stealth without impacting general detection evaluation.
 
 ---
 
-## T1620 - Reflective Code Loading
+## T1620 - Reflective Code Loading (done)
 
 **Target:** CWLHerpaderping payload staging flow
 
@@ -47,7 +45,7 @@ Proposed additions to Step 3 (Server-Side RCE & Privilege Escalation) to expand 
 
 ---
 
-## T1564.001 - Hidden Files and Directories
+## T1564.001 - Hidden Files and Directories (done)
 
 **Target:** Staged payloads
 
