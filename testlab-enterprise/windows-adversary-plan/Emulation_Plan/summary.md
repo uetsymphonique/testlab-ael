@@ -2,8 +2,8 @@
 
 ## Overview
 
-This scenario models a Windows enterprise intrusion through two independent
-attack paths that both target `IIS01`. The two paths are run separately and
+This scenario models a Windows enterprise intrusion through three independent
+attack paths that all target `IIS01`. The three paths are run separately and
 cover different entry points, techniques, and host contexts. They share the
 same lab environment and the same post-exploitation chain once a SYSTEM C2
 session is established on `IIS01`.
@@ -16,6 +16,15 @@ session is established on `IIS01`.
   Herpaderping loader and establishes DNS C2 from the workstation. This path
   ends with a C2 session on `WS01` as the domain user.
 
+- **[`toneshell-path/`](toneshell-path/Phase%201.md)** — user-driven initial
+  access via `upload.testlab.local`. The attacker hosts a fake update lure page
+  that delivers a password-protected RAR archive. A domain user on `WS01`
+  downloads and extracts the archive, executes the embedded LNK shortcut, and
+  triggers DLL sideloading of the Toneshell backdoor into `waitfor.exe` via
+  `regsvr32.exe` and `mavinject.exe`, establishing TCP C2 to the attacker
+  machine. This path ends with a Toneshell C2 session on `WS01` as the domain
+  user.
+
 - **[`iis-apppool-escalation-path/`](iis-apppool-escalation-path/Phase%201.md)**
   — server-side initial access via `react.testlab.local`. The attacker exploits
   a React Server Components deserialization vulnerability (CVE-2025-55182) to
@@ -23,28 +32,30 @@ session is established on `IIS01`.
   `NT AUTHORITY\SYSTEM` via EfsPotato, and establishes DNS C2 through
   Herpaderping and dnscat2. From this SYSTEM session the attacker dumps LSASS,
   recovers the `TESTLAB\Administrator` NT hash, performs Pass the Hash to
-  `DC01`, and installs multiple independent persistence mechanisms on the Domain
-  Controller.
+  `DC01`, installs multiple independent persistence mechanisms on the Domain
+  Controller, then collects credential material and web configuration files,
+  archives them via three independent methods, and exfiltrates via the
+  react2shell HTTP channel.
 
 ## Lab Environment
 
 The lab is a Windows Server 2022 Active Directory environment under the
 `testlab.local` domain. `DC01` is the Domain Controller and DNS server. `IIS01`
 hosts both vulnerable web applications through IIS virtual hosts. `WS01` is the
-domain-joined workstation used for the user-driven execution path.
+domain-joined workstation used for the user-driven execution paths.
 
 | Role | Hostname | IP | Notes |
 | - | - | - | - |
 | Domain Controller / DNS | `DC01` | `10.12.10.10` | Hosts AD DS, DNS zone `testlab.local`, and conditional forwarder for `attacker.local` |
 | IIS Server | `IIS01` | `10.12.10.20` | Hosts `upload.testlab.local` and `react.testlab.local` |
 | Workstation | `WS01` | `10.12.10.30` | Domain-joined workstation used by the victim domain user |
-| Attacker machine | Operator controlled | `192.168.56.2` | Runs dnscat2 server and exploit tooling; receives DNS tunnel traffic for `attacker.local` |
+| Attacker machine | Operator controlled | `192.168.56.2` | Runs dnscat2 server and exploit tooling; receives DNS tunnel traffic for `attacker.local` and Toneshell TCP C2 |
 
 ### Lab Topology
 
 ```mermaid
 flowchart LR
-    ATTACKER["Attacker machine<br/>192.168.56.2<br/>dnscat2 + react2shell"]
+    ATTACKER["Attacker machine<br/>192.168.56.2<br/>dnscat2 + react2shell + Toneshell C2"]
     DC["DC01<br/>10.12.10.10<br/>AD DS + DNS<br/>testlab.local"]
     IIS["IIS01<br/>10.12.10.20<br/>IIS web server"]
     WS["WS01<br/>10.12.10.30<br/>Domain workstation"]
@@ -104,16 +115,51 @@ flowchart TD
 
 ---
 
-## Path 2 — IIS AppPool Escalation (Server-Side)
+## Path 2 — Toneshell Sideloading (User-Driven)
+
+**Files:** [`toneshell-path/Phase 1.md`](toneshell-path/Phase%201.md)
+
+**Entry point:** `upload.testlab.local` on `IIS01`  
+**Primary host:** `WS01` (domain workstation)  
+**End state:** Toneshell TCP C2 on `WS01` as domain user, via `waitfor.exe` shellcode injection
+
+### Attack Flow
+
+```mermaid
+flowchart TD
+    A["Attacker"] --> B["upload.testlab.local<br/>Unrestricted file upload"]
+    B --> C["Stage update.html + Important_Update.rar<br/>in /uploads<br/>(RAR: Update.lnk + EssosUpdate.exe + wsdapi.dll)"]
+    C --> D["Deliver lure URL to domain user<br/>via spearphishing link (T1566.002)"]
+    D --> E["Domain user opens update.html<br/>in browser on WS01 (T1189)"]
+    E --> F["User downloads Important_Update.rar<br/>password-protected (T1027.013)<br/>extracts with password 'infected'"]
+    F --> G["User double-clicks Update.lnk<br/>explorer.exe spawns EssosUpdate.exe (T1204.002)"]
+    G --> H["EssosUpdate.exe sideloads wsdapi.dll<br/>TONESHELL loader (T1574.001)"]
+    H --> I["wsdapi.dll: anti-analysis checks<br/>foreground window + process name (T1497, T1622)"]
+    I --> J["wsdapi.dll spawns regsvr32.exe /s<br/>re-registers itself (T1218.010)"]
+    J --> K["regsvr32.exe spawns waitfor.exe<br/>then mavinject.exe injects wsdapi.dll<br/>into waitfor.exe (T1218.013)"]
+    K --> L["waitfor.exe: XOR-decrypt embedded shellcode<br/>reflective load (T1140, T1620)"]
+    L --> M["waitfor.exe: discover computer name<br/>generate GUID, connect to C2<br/>192.168.56.2:443 TCP (T1095)"]
+```
+
+### Step Summary
+
+| Step | Tactic | Key Behavior |
+| - | - | - |
+| Step 1 | Initial Access, Defense Evasion, Execution, C2 | Drive-by lure delivers password-protected RAR (T1027.013); LNK shortcut launches renamed legitimate binary (T1204.002); DLL sideloading loads Toneshell (T1574.001); `regsvr32.exe` proxy execution (T1218.010); `mavinject.exe` injection into `waitfor.exe` (T1218.013); XOR-decrypt and reflective shellcode load (T1140, T1620); TCP C2 (T1095) |
+
+---
+
+## Path 3 — IIS AppPool Escalation (Server-Side)
 
 **Files:** [`iis-apppool-escalation-path/Phase 1.md`](iis-apppool-escalation-path/Phase%201.md),
 [`iis-apppool-escalation-path/Phase 2.md`](iis-apppool-escalation-path/Phase%202.md),
 [`iis-apppool-escalation-path/Phase 3.md`](iis-apppool-escalation-path/Phase%203.md),
+[`iis-apppool-escalation-path/Phase 4.md`](iis-apppool-escalation-path/Phase%204.md),
 [`iis-apppool-escalation-path/Cleanup.md`](iis-apppool-escalation-path/Cleanup.md)
 
 **Entry point:** `react.testlab.local` on `IIS01`  
 **Primary hosts:** `IIS01` → `DC01`  
-**End state:** dnscat2 DNS C2 on `DC01`; five persistence mechanisms installed
+**End state:** dnscat2 DNS C2 on `DC01`; five persistence mechanisms installed; NTDS credential material and IIS config files exfiltrated
 
 ### Attack Flow
 
@@ -149,6 +195,16 @@ flowchart TD
     O --> P3["SYSVOL Default Domain Policy<br/>logon script update.exe"]
     O --> P4["CertPolicyHost auto-start service<br/>via ServiceInstaller.exe SCM API"]
     O --> P5["CertPolicyCache registry service<br/>via NtServiceInstaller.exe NT API"]
+
+    O --> Q["Phase 4 — Collection & Exfiltration"]
+    Q --> R1["Step 1: VSS shadow copy<br/>ntds.dit + SYSTEM/SAM/SECURITY hives<br/>→ C:\\ProgramData\\CertStore\\"]
+    Q --> R2["Step 2: SMB sweep of IIS01 C$<br/>inetpub web config files<br/>→ C:\\ProgramData\\CertStore\\"]
+    R1 --> S1["Step 3: makecab LOLBin<br/>certstore.cab (T1560.001)"]
+    R2 --> S1
+    S1 --> S2["Step 4: .NET ZipFile API<br/>certstore.zip (T1560.002)"]
+    S2 --> S3["Step 5: PowerShell XOR 0x5A<br/>certstore.tmp (T1560.003)"]
+    S3 --> T1["Step 6: Stage to IIS01 C$<br/>react2shell download<br/>Exfil over HTTP C2 (T1041)"]
+    T1 --> U["Offline: XOR decrypt + unzip<br/>impacket-secretsdump<br/>Full domain credential harvest"]
 ```
 
 ### Phase Summary
@@ -158,13 +214,14 @@ flowchart TD
 | Phase 1 | `Phase 1.md` | Initial Access, Privilege Escalation, Defense Evasion, C2 | CVE-2025-55182 RCE → react2shell; Step 1A T1620 reflective load (no disk artifact); Step 1B EfsPotato token impersonation → SYSTEM; Herpaderping ghost process; dnscat2 DNS C2 |
 | Phase 2 | `Phase 2.md` | Credential Access, Discovery | ReflectDump via `RtlCreateProcessReflection`; XOR-encrypted `f.elif`; chunked exfil; offline decrypt; WMI AV query; domain recon |
 | Phase 3 | `Phase 3.md` | Lateral Movement, Execution, Persistence | Pass the Hash via `go-thehash.exe`; WMI + SCM dual-path execution on DC01; 5 independent persistence mechanisms |
+| Phase 4 | `Phase 4.md` | Collection, Exfiltration | VSS/NTDS credential harvest (T1003.003, T1005); SMB network share collection from IIS01 (T1039); archive via `makecab` LOLBin (T1560.001), .NET ZipFile API (T1560.002), and XOR custom method (T1560.003); exfil via react2shell HTTP C2 (T1041) |
 
 ## Key Hosts
 
 | Host | Role |
 | - | - |
-| Attacker machine | Runs dnscat2 server, react2shell, payload encoding, and LSASS dump parsing |
-| IIS01 / `upload.testlab.local` | File-upload staging for the workstation path |
-| IIS01 / `react.testlab.local` | React RCE, SYSTEM foothold, LSASS dump source, and PtH launch point |
-| WS01 / victim workstation | User-driven execution and logon-script target |
-| DC01 | Domain Controller, lateral movement target, and persistence anchor |
+| Attacker machine | Runs dnscat2 server, react2shell, Toneshell C2, payload encoding, and LSASS dump / NTDS parsing |
+| IIS01 / `upload.testlab.local` | File-upload staging for both workstation paths (HTML smuggling and Toneshell) |
+| IIS01 / `react.testlab.local` | React RCE, SYSTEM foothold, LSASS dump source, PtH launch point, and exfil staging for collection archive |
+| WS01 / victim workstation | User-driven execution for both Path 1 (HTML smuggling) and Path 2 (Toneshell sideloading); logon-script target |
+| DC01 | Domain Controller, lateral movement target, persistence anchor, and collection source (NTDS + hives) |
