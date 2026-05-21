@@ -1,5 +1,7 @@
-# Templates
-Do kịch bản cụ thể chưa được MITRE ATTT&CK Evaluation công bố cụ thể nên để dễ dàng xây dựng kịch bản tôi đưa ra một số templates phổ biến trong các kịch bản tấn công đã gặp để từ đó dự đoán một số case liên quan từ danh sách kĩ thuật đã công bố.
+# Attack Chain Templates
+
+Reference templates for common attack chain patterns. Since the specific MITRE ATT&CK Evaluation scenarios have not been fully published, these templates are drawn from observed past scenarios to help predict likely cases from the published technique list.
+
 ## Phase 1
 
 ```mermaid
@@ -12,13 +14,16 @@ flowchart LR
 ```
 
 ## Phase 2
+
 ```mermaid
 flowchart LR
     DI["Discovery"] -->|"identify useful assets/accounts"| CA["Credential Access"]
 ```
 
 Phase 2 output: discovered hosts, services, trust paths, and credentials become operational input for later expansion.
+
 ## Phase 3
+
 Phase 3 input: use Phase 2 findings to choose lateral paths, target privileged accounts, and execute on remote systems.
 
 ```mermaid
@@ -31,14 +36,15 @@ flowchart LR
 ```
 
 ## Phase 4
+
 ```mermaid
 flowchart LR
     CO["Collection"] -->|"stage and transfer data"| EF["Exfiltration"]
 ```
 
 ## Phase 5
+
 ```mermaid
 flowchart LR
     IM["Impact"]
 ```
-

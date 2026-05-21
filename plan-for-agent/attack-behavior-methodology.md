@@ -1,265 +1,265 @@
-# Phương pháp luận trong việc dựng các hành vi tấn công
+# Attack Behavior Methodology
 
-Rút ra từ [`Enterprise/mustang_panda/Emulation_Plan/`](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) và [`Enterprise/scattered_spider/Emulation_Plan/`](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md).
+Derived from [`Enterprise/mustang_panda/Emulation_Plan/`](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) and [`Enterprise/scattered_spider/Emulation_Plan/`](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md).
 
-File này là **bản diễn giải mở rộng** cho quy trình vận hành trong [`skills/category-assignment.md`](./skills/category-assignment.md): dùng các kịch bản MITRE đã công bố để giải thích vì sao các rule đó hợp lý và chúng biểu hiện ra sao trong thực tế. Khi cần quyết định nhãn cho một row cụ thể, dùng `skills/category-assignment.md` làm chuẩn thao tác; dùng file này để đọc nền tảng, ví dụ, và lập luận.
+This file is the **extended commentary** for the operational process in [`guides/category-assignment.md`](./guides/category-assignment.md): it uses published MITRE scenarios to explain why those rules are sound and how they manifest in practice. When you need to assign a label to a specific row, use `guides/category-assignment.md` as the operational standard; use this file for background, examples, and reasoning.
 
 ---
 
-## Hệ thống phân loại Category
+## Category Classification System
 
-Mỗi technique trong Reference Table được gán một trong các category sau:
+Each technique in the Reference Table receives one of the following categories:
 
-| Category | Ý nghĩa |
+| Category | Meaning |
 |---|---|
-| `Calibrated - Not Benign` | Substep là **scored behavior** và thoả 4 điều kiện (observable, reproducible, independently verifiable, fair scoring point). Hành vi là malicious; được tính vào denominator của detection rate. |
-| `Not Calibrated - Not Benign` | Substep **không được tính điểm** vì artifact nằm ngoài detection surface, là **implementation detail / redundancy** của một behavior đã được đo rõ hơn, hoặc không thoả ít nhất một trong 4 điều kiện. Hành vi là malicious, vẫn ghi đầy đủ trong Reference Table nhưng không tính vào denominator. |
-| `Calibrated - Benign` | Substep là hành vi **hợp lệ, bình thường** nhưng trông giống attack từ góc nhìn telemetry. Dùng để kiểm tra false-positive. |
+| `Calibrated - Not Benign` | Substep is a **scored behavior** and satisfies all 4 conditions (observable, reproducible, independently verifiable, fair scoring point). Behavior is malicious; counts toward the detection rate denominator. |
+| `Not Calibrated - Not Benign` | Substep **is not scored** because the artifact is outside the detection surface, is an **implementation detail / redundancy** of a behavior already measured more precisely, or fails at least one of the 4 conditions. Behavior is malicious; still recorded fully in the Reference Table but does not count toward the denominator. |
+| `Calibrated - Benign` | Substep is **legitimate, normal behavior** that looks like an attack from a telemetry perspective. Used to test false-positive thresholds. |
 
 ---
 
-## Nguyên lý 1 — Nhãn là quyết định per scenario, per substep
+## Principle 1 — Labels are per-scenario, per-substep decisions
 
-`Calibrated` / `Not Calibrated` **không phải thuộc tính cố định của technique**. Cùng một technique có thể nhận nhãn khác nhau giữa hai scenario tuỳ vào loại test và vai trò của substep trong chuỗi.
+`Calibrated` / `Not Calibrated` is **not a fixed attribute of a technique**. The same technique can receive different labels across scenarios depending on the test type and the substep's role in the chain.
 
-**Ví dụ thực tế:** `T1566.001 Spearphishing Attachment`
-- [Mustang Panda **main scenario**](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) → **Not Calibrated**: email delivery nằm ngoài bề mặt EDR endpoint đang đo; substep này chỉ là tiền đề để victim download payload.
-- [Mustang Panda **Protections Test 4**](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md) → **Calibrated**: bề mặt test mở rộng sang email gateway; chặn delivery chính là điểm cần đo.
+**Real example:** `T1566.001 Spearphishing Attachment`
+- [Mustang Panda **main scenario**](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) → **Not Calibrated**: email delivery is outside the EDR endpoint surface being measured; this substep is only a prerequisite for the victim downloading the payload.
+- [Mustang Panda **Protections Test 4**](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md) → **Calibrated**: test surface extends to the email gateway; blocking delivery is the actual measurement point.
 
-Hệ quả: khi gán nhãn, phải xác lập ngữ cảnh trước, không gán theo cảm tính hoặc theo "technique này thường là gì".
+Implication: establish context first before labeling — do not assign based on intuition or "what this technique usually is."
 
 ---
 
-## Quy trình gán nhãn — 3 lớp
+## Labeling process — 3 layers
 
-### Lớp 0 — Xác lập ngữ cảnh (làm trước khi nhìn vào từng substep)
+### Layer 0 — Establish context (do this before reviewing any substep)
 
-Ghi rõ **4 thông số** cho scenario đang xây:
+Record **4 parameters** for the scenario being built:
 
-1. **Loại test**: Detections hay Protections.
-2. **Loại Scenario** (chỉ áp dụng cho Detections):
-   - **Scenario 1 — EDR-centric**: target là EDR / endpoint protection / SIEM tập trung host. Bề mặt đo giới hạn trong endpoint sensors.
-   - **Scenario 2 — XDR / Enterprise**: target là XDR platform, identity protection, MDR/MSSP. Bề mặt đo mở rộng sang identity, cloud, cross-host.
-3. **Bề mặt đo lường**: liệt kê cụ thể các kênh telemetry được giả định bao phủ.
+1. **Test type**: Detections or Protections.
+2. **Scenario type** (Detections only):
+   - **Scenario 1 — EDR-centric**: target is EDR / endpoint protection / host-focused SIEM. Measurement surface limited to endpoint sensors.
+   - **Scenario 2 — XDR / Enterprise**: target is XDR platform, identity protection, MDR/MSSP. Measurement surface extends to identity, cloud, cross-host.
+3. **Measurement surface**: explicitly list the telemetry channels assumed to be covered.
 
-   | Loại | Kênh telemetry trong scope |
+   | Type | In-scope telemetry channels |
    |---|---|
-   | Scenario 1 (EDR) | Process tree, command line, file I/O, registry, network connection, DNS query, script-block log — **chỉ endpoint sensors** |
-   | Scenario 2 (XDR) | Tất cả Scenario 1 **cộng thêm**: IdP/SSO audit log, cloud API call log (AWS CloudTrail, Azure AD, GCP), cross-host correlation, identity anomaly signal |
-   | Protections | Tuỳ scope: thêm email gateway, web filter, identity provider nếu khai báo trong setup |
+   | Scenario 1 (EDR) | Process tree, command line, file I/O, registry, network connection, DNS query, script-block log — **endpoint sensors only** |
+   | Scenario 2 (XDR) | All Scenario 1 **plus**: IdP/SSO audit log, cloud API call log (AWS CloudTrail, Azure AD, GCP), cross-host correlation, identity anomaly signal |
+   | Protections | Depends on scope: add email gateway, web filter, identity provider if declared in setup |
 
-4. **Mục tiêu của substep trong chuỗi**: xem Lớp 1.
+4. **Substep's role in the chain**: see Layer 1.
 
-### Lớp 1 — Sàng lọc trước khi áp 4 điều kiện
+### Layer 1 — Pre-filter before applying the 4 conditions
 
-Theo `skills/category-assignment.md`, trước khi gọi một substep là ứng viên `Calibrated`, cần tách hai loại lý do `Not Calibrated` khác nhau:
+Per `guides/category-assignment.md`, before calling a substep a `Calibrated` candidate, separate two distinct `Not Calibrated` reasons:
 
-1. **Scope issue** — artifact có nằm trên detection surface đã khai báo ở Lớp 0 không?
-   - Nếu **không**, substep → `Not Calibrated`.
-2. **Redundancy issue** — substep có phải implementation detail của một behavior đã được đo tốt hơn ở row khác không?
-   - Nếu **có**, substep → `Not Calibrated`. Có thể là cùng event bị double-count, cơ chế upstream chỉ phục vụ objective downstream đã có row đại diện, hoặc một dead-end chain không còn đường nào đến scoring opportunity.
+1. **Scope issue** — is the artifact on the detection surface declared in Layer 0?
+   - If **no**, substep → `Not Calibrated`.
+2. **Redundancy issue** — is the substep an implementation detail of a behavior already measured better in another row?
+   - If **yes**, substep → `Not Calibrated`. May be the same event double-counted, an upstream mechanism serving a downstream objective that already has a row, or a dead-end chain with no remaining path to a scoring opportunity.
 
-Nếu cả hai câu trả lời đều **không**, substep là **primary output** của adversary action và mới đi tiếp sang Lớp 2. Một `primary output` chỉ trở thành **scored behavior** khi nó tiếp tục thoả cả 4 điều kiện ở Lớp 2.
+If both answers are **no**, the substep is the **primary output** of an adversary action and proceeds to Layer 2. A `primary output` only becomes a **scored behavior** if it also satisfies all 4 conditions in Layer 2.
 
-> Điểm cần tránh hiểu sai: một bước là điều kiện tiên quyết cho bước sau **chưa đủ** để tự động `Not Calibrated`. Nếu chính bước đó tạo ra artifact độc lập, nằm trên detection surface, không bị row khác đại diện tốt hơn, nó vẫn có thể là điểm đo hợp lệ.
+> Key distinction: a step being a prerequisite for the next step **alone is not sufficient** to Not Calibrate it. If the step itself produces an independent artifact, on the detection surface, not better represented by another row, it may still be a valid measurement point.
 
-**Các nhóm thường là implementation detail:**
-- Native API call nằm trong loader chain (T1106 `NtCreateSection`, `ws2_32.send`, `MSXML2.XMLHTTP`) khi đã có substep mô tả output của chain đó (process-create, file-write, network connection).
-- Nội dung mã hoá bên trong payload đã Calibrated (T1027.013 PEM structure của file đã Calibrated ở HTML Smuggling).
-- API call phụ phục vụ token/handle thao tác khi đã có substep đo process-create outcome (T1134.002 `CreateProcessAsUser` khi T1134.001 đã Calibrated).
-- Tool scanning behavior bên trong authenticated session (T1213, T1552 tool execute against internal service) khi authentication event (T1078) đã Calibrated: tool's internal requests có thể khó phân biệt với legitimate browsing nếu không biết trước tool signature; theo framework này, authentication log entry thường là scoring point mạnh hơn scanning behavior. Ví dụ [Scattered Spider Step 8](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md): `T1078` Wekan authentication được Calibrated, còn `T1552` Jecretz execute against Wekan là Not Calibrated. Đây là cách diễn giải từ pattern của scenario, không phải claim rằng MITRE đã công bố công khai lý do phân loại.
+**Groups that are commonly implementation details:**
+- Native API calls inside a loader chain (T1106 `NtCreateSection`, `ws2_32.send`, `MSXML2.XMLHTTP`) when another substep already describes the chain's output (process-create, file-write, network connection).
+- Encrypted content inside a payload that is already Calibrated (T1027.013 PEM structure of a file already Calibrated at HTML Smuggling).
+- Auxiliary API calls for token/handle manipulation when the process-create outcome is already measured (T1134.002 `CreateProcessAsUser` when T1134.001 is already Calibrated).
+- Tool scanning behavior inside an authenticated session (T1213, T1552 tool executing against an internal service) when the authentication event (T1078) is already Calibrated: the tool's internal requests may be indistinguishable from legitimate browsing without knowing the tool signature; under this framework, the authentication log entry is typically the stronger scoring point. Example from [Scattered Spider Step 8](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md): `T1078` Wekan authentication is Calibrated, while `T1552` Jecretz execution against Wekan is Not Calibrated. This interpretation is drawn from pattern-reading of the scenario, not from a public MITRE statement of reasoning.
 
-**Các nhóm thường rơi vào scope issue hoặc redundancy issue:**
-- Attacker upload file lên server → thường là attacker-side staging hoặc bước upstream đã được victim-side download đại diện tốt hơn.
-- Email arrive ở mailbox trong Detections endpoint-only → nằm ngoài detection surface của EDR.
-- User click mở file/link khi mục tiêu thật sự là process spawn từ đó → thường bị row process execution downstream đại diện tốt hơn. *Ngoại lệ*: nếu click tạo browser request đến phishing domain cụ thể và đó là network event thuộc detection surface, click có thể là primary output riêng (xem T1204.001 [Mustang Panda Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md)).
-- **Post-objective cleanup/teardown steps**: xoá file, xoá registry key, self-delete batch script sau khi adversary đã đạt objective (ví dụ [Mustang Panda Step 9](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) `del_WinGupSvc.bat`) → thường không còn là scoring objective; khác với in-chain stealth cleanup đang phục vụ attack flow và có thể tạo primary output riêng.
+**Groups that commonly fall into scope issue or redundancy issue:**
+- Attacker uploading a file to a server → usually attacker-side staging or an upstream step already better represented by the victim-side download.
+- Email arriving at a mailbox in an endpoint-only Detections scenario → outside the EDR detection surface.
+- User clicking to open a file/link when the real target is the process spawn from that action → usually better represented by the downstream process execution row. *Exception*: if the click produces a browser request to a specific phishing domain and that is a network event on the detection surface, the click may be its own primary output (see T1204.001 in [Mustang Panda Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md)).
+- **Post-objective cleanup/teardown steps**: deleting files, deleting registry keys, self-deleting batch scripts after the adversary has already achieved the objective (e.g., [Mustang Panda Step 9](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) `del_WinGupSvc.bat`) → typically no longer a scoring objective; distinct from in-chain stealth cleanup that is still serving the attack flow and may produce its own primary output.
 
-### Lớp 2 — Checklist 4 điều kiện cho Calibrated
+### Layer 2 — 4-condition checklist for Calibrated
 
-Substep được Calibrated khi và chỉ khi thoả **tất cả 4** điều kiện:
+A substep is Calibrated if and only if it satisfies **all 4** conditions:
 
-| # | Điều kiện | Loại trừ |
+| # | Condition | Exclusions |
 |---|---|---|
-| 1 | **Observable** — có ít nhất một artifact thuộc kênh telemetry đã khai báo ở Lớp 0 (process, file, registry, network, DNS, auth, cloud event) | Artifact chỉ tồn tại trong memory tiến trình malware hoặc không sinh telemetry ổn định bên ngoài |
-| 2 | **Reproducible** — artifact xuất hiện giống nhau ở mọi lần chạy: path, filename, command line, IP/port, sender/recipient | Timing-dependent, GUID ngẫu nhiên không theo template, dữ liệu chỉ có trong stack/heap |
-| 3 | **Independently verifiable** — evaluator xác nhận được artifact mà không dựa vào claim của red team (OS log, file trên disk, packet capture, event log) | Chỉ verify được bằng cách đọc source code malware |
-| 4 | **Fair scoring point** — sản phẩm thuộc category đang test có cơ hội thấy artifact nếu hoạt động đúng chức năng | Artifact thuộc bề mặt mà loại sản phẩm không bao phủ trong scope test |
+| 1 | **Observable** — at least one artifact exists in the telemetry channels declared in Layer 0 (process, file, registry, network, DNS, auth, cloud event) | Artifact exists only in malware process memory or does not generate stable external telemetry |
+| 2 | **Reproducible** — artifact appears consistently across runs: path, filename, command line, IP/port, sender/recipient | Timing-dependent, randomly generated GUIDs not following a template, data only in stack/heap |
+| 3 | **Independently verifiable** — evaluator can confirm the artifact without relying on red team claims (OS log, file on disk, packet capture, event log) | Only verifiable by reading malware source code |
+| 4 | **Fair scoring point** — the product category under test has the opportunity to observe the artifact if functioning correctly | Artifact belongs to a surface the product does not cover in the test scope |
 
-> **Điều kiện 4 là điểm flip nhãn chính giữa Scenario 1 và Scenario 2.** Cùng một technique có thể pass ở Scenario 2 nhưng fail ở Scenario 1 nếu artifact nằm ngoài endpoint:
-> - `T1078.004` Valid Accounts: Cloud Accounts — không có endpoint artifact → **Not Calibrated** ở Scenario 1; cloud audit log (AWS CloudTrail) là artifact độc lập verify được → **Calibrated** ở Scenario 2.
-> - `T1550.004` Web Session Cookie pivot cross-host — endpoint không thấy session reuse; IdP/SSO anomaly detectable → **Calibrated** ở Scenario 2.
-> - Ngược lại, artifact chỉ có ý nghĩa khi phải tin vào identity của một ghost/injected process sẽ fail **điều kiện 3** bất kể Scenario — không bị ảnh hưởng bởi measurement surface.
+> **Condition 4 is the primary label flip point between Scenario 1 and Scenario 2.** The same technique may pass in Scenario 2 but fail in Scenario 1 if the artifact is outside the endpoint:
+> - `T1078.004` Valid Accounts: Cloud Accounts — no endpoint artifact → **Not Calibrated** in Scenario 1; cloud audit log (AWS CloudTrail) is an independently verifiable artifact → **Calibrated** in Scenario 2.
+> - `T1550.004` Web Session Cookie pivot cross-host — endpoint does not observe session reuse; IdP/SSO anomaly is detectable → **Calibrated** in Scenario 2.
+> - Conversely, artifacts only meaningful when trusting a ghost/injected process identity fail **Condition 3** regardless of scenario — not affected by measurement surface breadth.
 
-> **Về ghost/injected process và điều kiện 3:** execution context bị inject không làm mọi artifact tự động `Not Calibrated`. Điều kiện 3 chỉ fail khi evaluator phải tin vào process identity đó mới kết luận được hành vi là malicious.
-> - Trong [Mustang Panda Step 2](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md), `waitfor.exe` chạy `netstat`, `ipconfig`, SharpNBTScan, download `mswin1.exe`; các row này đều `Not Calibrated`. Cách giải thích phù hợp nhất với framework này là malicious meaning của chúng phụ thuộc mạnh vào implanted context, nên fail điều kiện 3.
-> - Nhưng trong cùng scenario, `waitfor.exe` tạo registry run key `AccessoryInputServices`, scheduled task cùng tên, và exfiltrate RAR qua FTP; MITRE gán các row đó `Calibrated` vì registry key, scheduled task, và network transfer tới endpoint ngoại vi là artifact độc lập ngoài process context, có thể verify mà không cần tin process identity. Xem [Mustang Panda Step 5](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) và [Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md).
+> **On ghost/injected processes and Condition 3:** An injected execution context does not automatically make every artifact Not Calibrated. Condition 3 only fails when the evaluator must trust that process identity to conclude the behavior is malicious.
+> - In [Mustang Panda Step 2](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md), `waitfor.exe` runs `netstat`, `ipconfig`, SharpNBTScan, downloads `mswin1.exe`; all these rows are `Not Calibrated`. The most consistent interpretation under this framework is that their malicious meaning depends heavily on the implanted context, so they fail Condition 3.
+> - But in the same scenario, `waitfor.exe` creates a registry run key `AccessoryInputServices`, a scheduled task with the same name, and exfiltrates a RAR via FTP; MITRE assigns those rows `Calibrated` because the registry key, scheduled task, and network transfer to an external endpoint are independent artifacts outside process context, verifiable without trusting process identity. See [Mustang Panda Step 5](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) and [Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md).
 
-> **Ví dụ fail điều kiện 3 không phải redundancy:** `T1573.001` dùng PSK symmetric encryption. Nếu payload bytes chỉ chứng minh được bằng key ẩn trong malware, evaluator không thể độc lập xác nhận "đây là T1573.001" từ telemetry bên ngoài → `Not Calibrated`. Ngược lại, `T1573.002` TLS/asymmetric có certificate và JA3 fingerprint độc lập từ network capture, nên là detection axis riêng và có thể `Calibrated` ngay cả khi C2 web protocol cũng đã Calibrated. Xác nhận từ [Mustang Panda Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md): cả `T1071.001` và `T1573.002` đều Calibrated.
+> **Example of Condition 3 failure that is not a redundancy:** `T1573.001` using PSK symmetric encryption. If the payload bytes can only be proven using a key hidden inside the malware, the evaluator cannot independently confirm "this is T1573.001" from external telemetry → `Not Calibrated`. In contrast, `T1573.002` TLS/asymmetric has a certificate and JA3 fingerprint independently available from a network capture, making it a distinct detection axis that can be `Calibrated` even when C2 web protocol is also already Calibrated. Confirmed by [Mustang Panda Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md): both `T1071.001` and `T1573.002` are Calibrated.
 
-Một điều kiện không thoả → **Not Calibrated**.
+Any condition unsatisfied → **Not Calibrated**.
 
-### Lớp 3 — Heuristic phát hiện gán sai
+### Layer 3 — Heuristics for detecting mislabels
 
-Sau khi gán nhãn, đối chiếu:
+After labeling, check against these patterns:
 
-- **Anti-analysis / evasion check nội bộ được Calibrated** → gần như luôn sai. `T1497` foreground window, `T1622` IsDebuggerPresent — check xảy ra hoàn toàn trong memory tiến trình, không có external artifact, điều kiện 1 không thoả.
-- **Native API call in-memory được Calibrated** → gần như luôn sai. `T1106` CoCreateGuid, `ws2_32.send`, `T1082` GetComputerNameA khi gọi từ injected context — không có artifact EDR-observable độc lập với process-create/network event đã Calibrated ở mắt xích khác; điều kiện 1 không thoả hoặc là implementation detail của scored behavior kế tiếp.
-- **Calibrated nhưng Detection Criteria viết trừu tượng** (`Malware connects to C2`, `Loader decrypts payload`) → vi phạm điều kiện 1–2. Hạ xuống Not Calibrated hoặc viết lại Detection Criteria cụ thể trước.
-- **Not Calibrated nhưng artifact rõ, thuộc bề mặt đo, lần đầu xuất hiện trong chuỗi** → kiểm tra Lớp 1: nếu không phải scope issue hay redundancy issue thật sự → nâng Calibrated.
-- **Tỷ lệ Calibrated ~100% trong Detections của adversary stealthy** → nghi ngờ: adversary custom malware thực tế có nhiều evasion/internal chain → kiểm tra lại từng substep.
-- **Hai row cùng technique, cùng event vật lý, cùng nhãn** → double-count; một trong hai là implementation detail.
-- **Cùng technique flip nhãn giữa hai scenario** → đúng nếu loại test hoặc bề mặt đo khác nhau; sai nếu cùng ngữ cảnh và cùng event.
+- **Anti-analysis / internal evasion check labeled Calibrated** → almost always wrong. `T1497` foreground window check, `T1622` IsDebuggerPresent — checks occur entirely in process memory with no external artifact, Condition 1 fails.
+- **In-memory native API call labeled Calibrated** → almost always wrong. `T1106` CoCreateGuid, `ws2_32.send`, `T1082` GetComputerNameA called from injected context — no EDR-observable artifact independent of the already-Calibrated process-create/network event at another link; Condition 1 fails or it is an implementation detail of a scored downstream behavior.
+- **Calibrated but Detection Criteria written abstractly** (`Malware connects to C2`, `Loader decrypts payload`) → violates Conditions 1–2. Downgrade to Not Calibrated or rewrite Detection Criteria to be specific first.
+- **Not Calibrated but artifact is clear, on the measurement surface, appearing for the first time in the chain** → re-check Layer 1: if it is not genuinely a scope issue or redundancy → upgrade to Calibrated.
+- **Calibrated ratio ~100% in a Detections scenario with a stealthy adversary** → suspicious: adversary custom malware in practice has many evasion/internal chain steps → re-check each substep.
+- **Two rows with the same technique and same physical event, same label** → double-count; one is an implementation detail of the other.
+- **Same technique flips label between two scenarios** → correct if test type or measurement surface differs; incorrect if same context and same event.
 
 ---
 
-## Nguyên lý 2 — Vì sao tỷ lệ Calibrated khác nhau giữa các scenario
+## Principle 2 — Why Calibrated ratios differ across scenarios
 
-Tỷ lệ Calibrated của một scenario thường phản ánh đồng thời:
+A scenario's Calibrated ratio typically reflects two simultaneous factors:
 
-1. **Stealth profile của adversary** — chain dùng nhiều loader, injection, hoặc hành vi in-memory thường tạo ra nhiều row `Not Calibrated` hơn chain dựa trên legitimate tools và valid credentials.
-2. **Measurement surface của scenario** — Scenario 2 có thêm identity/cloud telemetry nên nhiều behavior cross-domain có thể trở thành fair scoring point, trong khi Scenario 1 endpoint-only thì không.
+1. **Adversary stealth profile** — chains using many loaders, injection, or in-memory behavior tend to produce more `Not Calibrated` rows than chains relying on legitimate tools and valid credentials.
+2. **Scenario measurement surface** — Scenario 2 includes identity/cloud telemetry, making more cross-domain behaviors fair scoring points, while Scenario 1 endpoint-only does not.
 
-| Adversary | Calibrated ratio | Giải thích |
+| Adversary | Calibrated ratio | Explanation |
 |---|---|---|
-| [Mustang Panda (main)](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) | ~39% | Custom malware (TONESHELL, PlugX) với injection chain sâu. Phần lớn evasion chain là Not Calibrated. |
-| [Scattered Spider (main)](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md) | ~93% | Legitimate tools + valid credentials. Không có evasion đặc biệt → artifact rõ ràng trên mọi surface. |
-| Protections tests ([PT4](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md), [PT5](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md), [SS PT1](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_1_Scenario.md)…) | ~97% | Test controls → cần signal rõ ràng → gần như toàn bộ Calibrated. |
+| [Mustang Panda (main)](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) | ~39% | Custom malware (TONESHELL, PlugX) with deep injection chains. Most evasion chain steps are Not Calibrated. |
+| [Scattered Spider (main)](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md) | ~93% | Legitimate tools + valid credentials. No significant evasion → artifacts clear across all surfaces. |
+| Protections tests ([PT4](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md), [PT5](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md), [SS PT1](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_1_Scenario.md)…) | ~97% | Testing controls → clear, reproducible signals needed → nearly all Calibrated. |
 
-Phần Lớp 2 đã nêu rule cụ thể cho cả hai driver: measurement surface chỉ tác động đến `fair scoring point`, còn artifact phụ thuộc process identity vẫn fail `independently verifiable` dù scenario rộng hơn. Khi xây Scenario 2, vì vậy cần review lại các technique cross-domain như `T1078.004`, `T1550.004`, `T1098.00x`, `T1087.004`, `T1580`, `T1619`.
+Layer 2 specifies the rule for both drivers: measurement surface only affects `fair scoring point`, while artifacts that depend on process identity still fail `independently verifiable` regardless of scenario breadth. When building Scenario 2, review cross-domain techniques: `T1078.004`, `T1550.004`, `T1098.00x`, `T1087.004`, `T1580`, `T1619`.
 
-## Nguyên lý 3 — Calibrated là điều kiện để một behavior được đưa vào thống kê detection
+## Principle 3 — Calibrated defines the valid scope of the detection measurement question
 
-Nhãn `Calibrated` không chỉ mô tả mức độ rõ ràng của artifact — nó xác định **phạm vi hợp lệ của câu hỏi đánh giá**.
+The `Calibrated` label does not merely describe how clear an artifact is — it defines **the valid scope of the evaluation question**.
 
-Câu hỏi đánh giá detection: *"Vendor có detect hành vi này không?"* chỉ có giá trị đo lường khi người đánh giá có thể **độc lập xác nhận artifact đã tồn tại** trên hệ thống victim. Chỉ khi đó một "miss" mới có thể được quy trách nhiệm cho vendor.
+The detection evaluation question: *"Did the vendor detect this behavior?"* only has measurement value when the evaluator can **independently confirm the artifact existed** on the victim system. Only then can a "miss" be attributed to the vendor.
 
-| Nhãn | Evaluator verify được artifact? | Miss → quy cho ai? | Đưa vào thống kê detection? |
+| Label | Evaluator can verify artifact? | Miss attributable to? | Counts in detection statistics? |
 |---|---|---|---|
-| `Calibrated` | Có — artifact được đảm bảo tạo ra và thoả 4 điều kiện | Vendor | **Có — tính vào denominator** |
-| `Not Calibrated` | Không tính: artifact ngoài detection surface, substep là redundancy / implementation detail, hoặc artifact không thoả một trong 4 điều kiện (không observable, không reproducible, không verify độc lập được, ngoài bề mặt đo) | Không xác định được | **Không** |
+| `Calibrated` | Yes — artifact is guaranteed to exist and satisfies all 4 conditions | Vendor | **Yes — counts toward denominator** |
+| `Not Calibrated` | Not counted: artifact outside detection surface, substep is redundancy/implementation detail, or artifact fails one of the 4 conditions (not observable, not reproducible, not independently verifiable, outside measurement surface) | Cannot be determined | **No** |
 
-**Ví dụ cụ thể ([Mustang Panda Step 1](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md)):**
-- `T1574.002` DLL Side-Loading `wsdapi.dll` → **Calibrated** → evaluator xác nhận file `wsdapi.dll` trên disk và được load bởi `EssosUpdate.exe` → miss rõ ràng là vendor không detect → tính vào denominator
-- `T1497` Foreground window check → **Not Calibrated** → `GetForegroundWindow()` call xảy ra trong memory, không có external artifact evaluator có thể verify độc lập → miss có thể do artifact không observable, không phải do vendor kém → không tính vào denominator
+**Concrete example ([Mustang Panda Step 1](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md)):**
+- `T1574.002` DLL Side-Loading `wsdapi.dll` → **Calibrated** → evaluator confirms `wsdapi.dll` on disk loaded by `EssosUpdate.exe` → a miss clearly means the vendor did not detect → counts toward denominator
+- `T1497` Foreground window check → **Not Calibrated** → `GetForegroundWindow()` call occurs in memory with no external artifact the evaluator can independently verify → a miss may be due to the artifact not being observable, not necessarily vendor failure → does not count toward denominator
 
-### Lưu ý để tránh hiểu sai
+### Notes to avoid misunderstanding
 
-**Not Calibrated ≠ "không cần detect".**
-Các hành vi Not Calibrated vẫn được ghi đầy đủ Detection Criteria trong Reference Table. Chúng phục vụ ba mục đích riêng:
-1. **Completeness** — scenario phản ánh đúng hành vi thực của adversary, không bị cắt xén vì lý do đo lường
-2. **Analyst reference** — nếu vendor detect được behavior Not Calibrated, đó là bonus visibility đáng ghi nhận
-3. **Stealth profile** — tỷ lệ Not Calibrated cao phản ánh adversary dùng custom malware với evasion chain sâu (xem Nguyên lý 2)
+**Not Calibrated ≠ "does not need to be detected."**
+Not Calibrated behaviors are still fully recorded with Detection Criteria in the Reference Table. They serve three distinct purposes:
+1. **Completeness** — the scenario accurately reflects real adversary behavior without editorial cuts for measurement reasons
+2. **Analyst reference** — if a vendor detects a Not Calibrated behavior, that is bonus visibility worth noting
+3. **Stealth profile** — a high Not Calibrated ratio reflects an adversary using custom malware with deep evasion chains (see Principle 2)
 
-**Not Calibrated ≠ "dễ gán nhãn".**
-Gán `Calibrated` cho một behavior mà artifact không thực sự guaranteed → làm sai denominator → detection rate bị inflate không trung thực. Nhãn `Calibrated` chỉ được gán khi red team có thể **cam kết** artifact tồn tại trên victim theo cách evaluator có thể xác nhận độc lập.
+**Not Calibrated ≠ "easy to label."**
+Assigning `Calibrated` to a behavior whose artifact is not truly guaranteed → corrupts the denominator → inflates detection rate dishonestly. The `Calibrated` label is only assigned when the red team can **commit** that the artifact exists on the victim in a way the evaluator can independently confirm.
 
 ---
 
-## Nguyên lý 4 — Detection Criteria phải là observable, specific event
+## Principle 4 — Detection Criteria must be a specific, observable event
 
-**Sai:**
+**Incorrect:**
 ```
 | Detection Criteria |
 | Malware connects to C2 |
 ```
 
-**Đúng:**
+**Correct:**
 ```
 | Detection Criteria |
 | waitfor.exe connects to 191.44.44.199 over TCP port 443 |
 ```
 
-**Quy tắc viết Detection Criteria:**
-- Format: `<parent_process> <action> <artifact/target> [trên <host>]`
-- Phải có thể dùng để query trực tiếp trong SIEM / EDR
-- Nếu artifact có path cụ thể → ghi path đầy đủ
-- Nếu có nhiều host → ghi host cụ thể trong row hoặc tách row
+**Detection Criteria writing rules:**
+- Format: `<parent_process> <action> <artifact/target> [on <host>]`
+- Must be queryable directly in SIEM / EDR
+- If artifact has a specific path → write the full path
+- If on multiple hosts → write the specific host in the row or split into multiple rows
 
 ---
 
-## Nguyên lý 5 — Mỗi observable event là một row riêng
+## Principle 5 — Each observable event gets its own row
 
-Không gộp nhiều events vào một row dù cùng technique:
+Do not combine multiple events into one row even if they share a technique:
 
 ```markdown
 | Persistence | T1053.005 | Scheduled Task | Windows | .pif executable created GFlagEditor folder | Calibrated - Not Benign | ... |
 | Persistence | T1053.005 | Scheduled Task | Windows | .pif executable scheduled task to execute gflags.exe | Calibrated - Not Benign | ... |
 ```
 
-Hai row trên cùng technique ID nhưng hai observable events khác nhau → tách riêng.
+Two rows, same technique ID, but two distinct observable events → separate rows.
 
 ---
 
-## Nguyên lý 6 — Protections tests vs Main scenario
+## Principle 6 — Protections tests vs Main scenario
 
 ### Main scenario (Detections)
 
-**Câu hỏi:** Detector có *nhìn thấy* hành vi không?
+**Question:** Does the detector *see* the behavior?
 
-- Full kill chain nhiều steps
-- Mix Calibrated / Not Calibrated theo bản chất adversary và loại Scenario
-- Thực hiện theo trình tự phụ thuộc nhau (cần step trước để thực hiện step sau)
-- Bề mặt đo theo Scenario lấy từ Lớp 0; Scenario 1 endpoint-only, Scenario 2 thêm identity/cloud/cross-host.
+- Full kill chain across many steps
+- Mixed Calibrated / Not Calibrated according to adversary nature and Scenario type
+- Executed sequentially with dependencies (each step requires prior state)
+- Measurement surface per Layer 0; Scenario 1 endpoint-only, Scenario 2 adds identity/cloud/cross-host.
 
 ### Protections tests (Protections)
 
-**Câu hỏi:** Security control có *chặn* hành vi không?
+**Question:** Does the security control *block* the behavior?
 
-- Sub-chain ngắn, cô lập một capability block
-- Thường có tỷ lệ Calibrated rất cao — test cần signal rõ ràng và reproducible để đo protection outcome
-- Mỗi test chạy độc lập, không phụ thuộc state test khác
-- Bề mặt đánh giá phụ thuộc scope của test; có thể gồm email gateway, web filter, identity provider nếu được khai báo
-- **Delivery vector khác** so với main scenario để test generality của control
+- Short sub-chain, isolating one capability block
+- Typically very high Calibrated ratio — the test needs clear, reproducible signals to measure protection outcome
+- Each test runs independently, with no state dependencies on other tests
+- Evaluation surface depends on test scope; may include email gateway, web filter, identity provider if declared
+- **Different delivery vector** from the main scenario to test generality of the control
 
-**Ví dụ delivery variant (Mustang Panda 2025):**
+**Example delivery variants (Mustang Panda 2025):**
 - [Main](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md): DOCX spearphishing → TONESHELL (`wsdapi.dll`)
 - [Protections Test 4](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md): PIF dropper → TONESHELL (`gflagsui.dll`)
 - [Protections Test 5](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md): MSC file via MMC → PlugX (`rcdll.dll`)
 
-Nếu control chỉ block theo file hash thì sẽ fail với variant — đây chính là mục đích.
+If a control only blocks by file hash, it will fail against variants — that is the point.
 
-**Hệ quả đối với nhãn:** flip `T1566.001 Spearphishing` giữa Detections và Protections ở Nguyên lý 1 là hợp lệ vì scope đo khác nhau.
-
----
-
-## Nguyên lý 7 — CTI grounding bắt buộc
-
-Mỗi technique phải có ít nhất một CTI report trong cột `Relevant CTI Reports`. Hành vi phải được **observed in the wild** — không tự ý thêm technique không có CTI backing.
-
-Đây là lý do file header luôn có phần CTI citations được đánh số `[1]`, `[2]`...
+**Implication for labels:** flipping `T1566.001 Spearphishing` between Detections and Protections in Principle 1 is valid because the measurement scope differs.
 
 ---
 
-## Nguyên lý 8 — Source code links cho custom tools
+## Principle 7 — CTI grounding is required
 
-Khi technique dùng custom tool (TONESHELL, PlugX...), cột `Source Code Links` phải trỏ đến **hàm cụ thể** trong source code, không phải chỉ file:
+Every technique must have at least one CTI report in the `Relevant CTI Reports` column. The behavior must be **observed in the wild** — do not add techniques without CTI backing.
+
+This is why the file header always contains numbered CTI citations `[1]`, `[2]`...
+
+---
+
+## Principle 8 — Source code links for custom tools
+
+When a technique uses a custom tool (TONESHELL, PlugX...), the `Source Code Links` column must point to the **specific function** in the source code, not just the file:
 
 ```markdown
 | [PerformFileDownloadTask](../Resources/toneshell/src/shellcode/exec.cpp#L241-L346) |
 | [Xor Functions](../Resources/toneshell/src/common/xor.cpp) |
 ```
 
-Với COTS tools (Snaffler, rclone, WinRAR...) → link đến repo hoặc để trống.
+For COTS tools (Snaffler, rclone, WinRAR...) → link to the repo or leave blank.
 
 ---
 
-## Template thiết kế một hành vi tấn công mới
+## Template for designing a new attack behavior
 
-1. **Chọn technique** có CTI backing cho adversary đang mô phỏng.
-2. **Xác định artifact**: technique tạo ra artifact gì? File? Registry? Network? Process?
-3. **Gán Category** — đi theo đúng flow của quy trình gán nhãn:
-   1. Artifact có nằm trên **detection surface** đã khai báo ở Lớp 0 không? (No → Not Calibrated)
-   2. Có row Calibrated khác đã **đại diện thông tin này tốt hơn** không? (Yes → Not Calibrated)
-   3. Nếu qua được hai câu trên, substep này có phải **primary output** của adversary action không? (No → Not Calibrated)
-   4. Artifact có **observable** ngoài memory không? (No → Not Calibrated)
-   5. Artifact có **reproducible** giữa các lần chạy không? (No → Not Calibrated)
-   6. Evaluator có **independently verify** được artifact không? (No → Not Calibrated)
-   7. Đây có phải **fair scoring point** cho loại sản phẩm đang test không? (No → Not Calibrated)
-   8. Detection Criteria có viết được dạng `<process|principal> <action> <artifact|target>` cụ thể không? (No → viết lại trước hoặc Not Calibrated)
+1. **Select a technique** with CTI backing for the adversary being simulated.
+2. **Identify the artifact**: what does the technique produce? File? Registry? Network? Process?
+3. **Assign Category** — follow the labeling process flow:
+   1. Is the artifact on the **detection surface** declared in Layer 0? (No → Not Calibrated)
+   2. Is there another Calibrated row that **already represents this information better**? (Yes → Not Calibrated)
+   3. If through both: is this substep the **primary output** of the adversary action? (No → Not Calibrated)
+   4. Is the artifact **observable** outside memory? (No → Not Calibrated)
+   5. Is the artifact **reproducible** across runs? (No → Not Calibrated)
+   6. Can the evaluator **independently verify** the artifact? (No → Not Calibrated)
+   7. Is this a **fair scoring point** for the product type under test? (No → Not Calibrated)
+   8. Can Detection Criteria be written in the form `<process|principal> <action> <artifact|target>` specifically? (No → rewrite first or Not Calibrated)
 
-   → Qua câu 1–3: substep là **primary output**.
-   → Qua tiếp câu 4–8: substep đủ điều kiện **Calibrated - Not Benign**.
-4. **Viết Detection Criteria**: một câu cụ thể format `<process> <action> <artifact/target> [trên <host>]`.
-5. **Xác định host + user**: hành vi xảy ra trên máy nào, tài khoản nào.
-6. **Thêm source code link** nếu dùng custom tool.
+   → Through questions 1–3: substep is a **primary output**.
+   → Through questions 4–8: substep qualifies as **Calibrated - Not Benign**.
+4. **Write Detection Criteria**: one specific sentence in the form `<process> <action> <artifact/target> [on <host>]`.
+5. **Identify host + user**: which machine does the behavior occur on, under which account.
+6. **Add source code link** if a custom tool is used.

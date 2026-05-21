@@ -1,33 +1,33 @@
 # Detections Methodology Overview
 
-## Mục tiêu
+## Objective
 
-**Detections** là nhóm kịch bản dùng để đánh giá khả năng sản phẩm bảo mật phát hiện, ghi nhận, tương quan, và hỗ trợ điều tra chuỗi hành vi adversary trong môi trường Enterprise. Trọng tâm là quan sát được hành vi tấn công qua telemetry và detection logic, không nhất thiết phải chặn hành vi ngay tại thời điểm thực thi.
+**Detections** scenarios evaluate a security product's ability to detect, record, correlate, and support investigation of adversary behavior chains in an Enterprise environment. The focus is on observing attack behavior through telemetry and detection logic — blocking at execution time is not required.
 
-Trong bối cảnh dự án này, Detections dùng để dựng một adversary emulation scenario đóng vai trò đề cương chuẩn bị cho sản phẩm trước MITRE ATT&CK Evaluation. Scope technique phải bám theo `testlab-enterprise\mitre-outline\Scenario 1.md` và `Scenario 2.md`.
+In the context of this project, Detections are used to build an adversary emulation scenario that serves as a preparation standard for the product before the MITRE ATT&CK Evaluation. Technique scope must align with `testlab-enterprise/mitre-outline/Scenario 1.md` and `Scenario 2.md`.
 
-## Đặc điểm cơ bản
+## Key Characteristics
 
-- Thường là một chuỗi hành vi dài, có ngữ cảnh adversary rõ ràng từ Initial Access đến các tactic sau như Execution, Persistence, Defense Evasion, Discovery, Credential Access, Lateral Movement, Collection, Exfiltration, Command and Control, hoặc Impact.
-- Mỗi step cần có **Voice Track** để giải thích ý đồ adversary, không chỉ liệt kê command.
-- **Procedures** mô tả cách thực hiện đủ chi tiết để tái hiện trong lab, kèm expected output khi cần xác nhận bước chạy đúng.
-- **Reference Tables** là phần rất quan trọng, dùng để ánh xạ tactic, technique ID, technique name, platform, detection criteria, category, red team activity, host/user, source code, và CTI reference.
-- Detection Criteria nên mô tả tín hiệu có thể quan sát được: process, command line, file, registry, network, authentication, cloud event, hoặc telemetry liên quan.
-- Có thể có nhiều hành vi liên tiếp tạo thành một operation flow, vì mục tiêu là đánh giá khả năng phát hiện theo chuỗi và theo bối cảnh.
+- Typically a long behavior chain with a clear adversary context, from Initial Access through subsequent tactics such as Execution, Persistence, Defense Evasion, Discovery, Credential Access, Lateral Movement, Collection, Exfiltration, Command and Control, or Impact.
+- Each step needs a **Voice Track** explaining adversary intent — not just listing commands.
+- **Procedures** describe execution in enough detail to reproduce in the lab, with expected output when needed to confirm a step ran correctly.
+- **Reference Tables** are critical: they map tactic, technique ID, technique name, platform, detection criteria, category, red team activity, host/user, source code, and CTI references.
+- Detection Criteria should describe observable signals: process, command line, file, registry, network, authentication, cloud event, or relevant telemetry.
+- Multiple sequential behaviors may form a single operation flow, because the goal is to evaluate detection capability across a chain and in context.
 
-## Ví dụ tham khảo 2025
+## 2025 Reference Examples
 
-- `Enterprise\mustang_panda\Emulation_Plan\Mustang_Panda_Scenario.md`
-- `Enterprise\scattered_spider\Emulation_Plan\Scattered_Spider_Scenario.md`
+- `Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md`
+- `Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md`
 
-Chỉ dùng các file trên để lấy insight về cách MITRE trình bày hành vi, phase, procedure, và detection mapping. Không sao chép kịch bản, payload, hoặc flow nguyên bản.
+Use the above only to extract insight on how MITRE presents behavior, phases, procedures, and detection mapping. Do not copy scenarios, payloads, or flows verbatim.
 
-## Cách áp dụng cho agent
+## How to Apply
 
-Khi viết hoặc sửa kịch bản Detections:
+When writing or editing a Detections scenario:
 
-1. Chọn technique từ scope MITRE năm nay.
-2. Tìm insight trong các Detections scenario cũ nếu cần hiểu cách MITRE diễn giải hành vi.
-3. Thiết kế flow độc lập cho `windows-adversary-plan`.
-4. Viết step theo format chuẩn: Voice Track, Procedures, Reference Tables.
-5. Đảm bảo Detection Criteria cụ thể, có thể kiểm chứng bằng telemetry, và không chỉ là mô tả chung chung.
+1. Select techniques from this year's MITRE scope.
+2. Consult old Detections scenarios if needed to understand how MITRE interprets specific behaviors.
+3. Design an independent flow for `windows-adversary-plan`.
+4. Write steps following the standard format: Voice Track, Procedures, Reference Tables.
+5. Ensure Detection Criteria are specific, verifiable by telemetry, and not generic descriptions.

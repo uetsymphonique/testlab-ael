@@ -1,33 +1,33 @@
-# Cách trình bày của một Emulation Plan
+# Emulation Plan Presentation Format
 
-Rút ra từ `Enterprise/mustang_panda/` và `Enterprise/scattered_spider/`.
+Derived from `Enterprise/mustang_panda/` and `Enterprise/scattered_spider/`.
 
 ---
 
-## Cấu trúc thư mục
+## Directory Structure
 
 ```
 Enterprise/<adversary>/
 ├── Emulation_Plan/
-│   ├── <Adversary>_Scenario.md          # Kịch bản chính (main scenario)
-│   ├── <Adversary>_Alternative_Steps.md # Các bước thay thế tùy môi trường
-│   ├── <Adversary>_Cleanup_Guide.md     # Hướng dẫn dọn dẹp sau test
-│   ├── Protections_Test_<N>_Scenario.md # Kịch bản con cho protections tests
+│   ├── <Adversary>_Scenario.md          # Main scenario
+│   ├── <Adversary>_Alternative_Steps.md # Alternative steps for different environments
+│   ├── <Adversary>_Cleanup_Guide.md     # Post-test cleanup guide
+│   ├── Protections_Test_<N>_Scenario.md # Sub-scenarios for protections tests
 │   └── README.md
 ├── CTI_Emulation_Resources/
-│   └── <Adversary>_Scenario_Overview.md # Tóm tắt high-level cho người mới
-├── Resources/                           # Source code tool, payload, C2 client
+│   └── <Adversary>_Scenario_Overview.md # High-level summary for newcomers
+├── Resources/                           # Tool source code, payloads, C2 client
 ├── Attack_Layers/                       # ATT&CK Navigator layer files
 └── README.md
 ```
 
 ---
 
-## Cấu trúc file Scenario chính
+## Main Scenario File Structure
 
 ### 1. Header — CTI citations
 
-Phần đầu file liệt kê toàn bộ CTI references được đánh số. Số này được dùng inline trong Reference Tables sau.
+The file begins with a numbered list of all CTI references used. These numbers are cited inline in the Reference Tables.
 
 ```markdown
 [1]:https://cloud.google.com/blog/topics/...
@@ -36,11 +36,11 @@ Phần đầu file liệt kê toàn bộ CTI references được đánh số. S�
 
 ### 2. Step 0 — Setup
 
-Bao gồm:
-- Cách kết nối vào attack host (thường qua RDP hoặc SSH)
-- Khởi động C2 server / handler
-- Thiết lập môi trường Kali (venv, tools)
-- Kết nối đến jumpbox và victim host
+Includes:
+- How to connect to the attack host (typically via RDP or SSH)
+- Starting the C2 server / handler
+- Setting up the Kali environment (venv, tools)
+- Connecting to jumpbox and victim host
 
 ```markdown
 ## Step 0 - Setup
@@ -49,41 +49,41 @@ Bao gồm:
 - ☣️ In a new terminal window, start the C2 handler if not already running
 ```
 
-### 3. Các Steps tấn công
+### 3. Attack Steps
 
-Mỗi step tương ứng một **tactic phase** hoặc nhóm kỹ thuật liên quan. Cấu trúc:
+Each step corresponds to a **tactic phase** or a group of related techniques. Structure:
 
 ```markdown
 ## Step <N> - <Tactic>
 
 ### Voice Track
-<Đoạn văn mô tả hành vi ở góc nhìn adversary. Viết như đang kể chuyện.>
+<Paragraph describing behavior from the adversary's perspective. Written as narrative.>
 
 ### Procedures
-<Danh sách các bước thực thi step-by-step, bao gồm:>
-- ☣️ <Bước red team (có hại)>
-- <Bước không có ký hiệu (setup bình thường, không cần chú ý đặc biệt)>
+<Step-by-step execution list, including:>
+- ☣️ <Red team step (harmful)>
+- <Step without symbol (normal setup, no special attention needed)>
 
   ```cmd/bash/python
-  <câu lệnh cụ thể>
+  <exact command>
   ```
 
   - ***Expected Output***
     ```text
-    <output mong đợi>
+    <expected output>
     ```
 
 ### Reference Tables
-<Bảng ATT&CK mapping>
+<ATT&CK mapping table>
 ```
 
-**Quy tắc ký hiệu trong Procedures:**
-- `☣️` đánh dấu bước **red team thực sự nguy hiểm** — thay đổi trạng thái hệ thống, chạy payload, hoặc thực hiện hành vi tấn công. Chỉ những bước này mới cần operator thực thi cẩn thận.
-- Bước không có `☣️` là bước bình thường (mở browser, navigate UI, đọc output...).
+**Procedure notation rules:**
+- `☣️` marks steps that are **genuinely dangerous red team actions** — changing system state, running payloads, or performing attack behavior. Only these steps require operator caution.
+- Steps without `☣️` are normal (opening a browser, navigating UI, reading output...).
 
-### 4. Reference Table — format chuẩn
+### 4. Reference Table — Standard Format
 
-Mỗi step kết thúc với một Reference Table ánh xạ hành vi vừa thực hiện sang ATT&CK.
+Each step ends with a Reference Table mapping the performed behavior to ATT&CK.
 
 ```markdown
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
@@ -91,26 +91,26 @@ Mỗi step kết thúc với một Reference Table ánh xạ hành vi vừa th�
 | Defense Evasion | T1574.002 | Hijack Execution Flow: DLL Side-Loading | Windows | gflags.exe side loads unsigned gflagsui.dll | Calibrated - Not Benign | Legitimate binary `gflags.exe` side-loads TONESHELL loader DLL | bitterbridge (10.26.4.103) | btully | [DLL exports](../Resources/...) | [21], [22]
 ```
 
-**Ý nghĩa từng cột:**
+**Column descriptions:**
 
-| Cột | Mô tả |
+| Column | Description |
 |---|---|
-| `Tactic` | MITRE tactic (viết đầy đủ) |
-| `Technique ID` | ID ATT&CK (e.g., `T1574.002`) |
-| `Technique Name` | Tên đầy đủ bao gồm sub-technique nếu có |
+| `Tactic` | MITRE tactic (written in full) |
+| `Technique ID` | ATT&CK ID (e.g., `T1574.002`) |
+| `Technique Name` | Full name including sub-technique if applicable |
 | `Platform` | `Windows`, `Linux`, `IaaS`, `Identity Provider`... |
-| `Detection Criteria` | **Điều kiện quan sát cụ thể** — phải là một event/artifact có thể check được (không phải mô tả chung) |
+| `Detection Criteria` | **Specific observable condition** — must be a checkable event/artifact (not a generic description) |
 | `Category` | `Calibrated - Not Benign` / `Not Calibrated - Not Benign` / `Calibrated - Benign` |
-| `Red Team Activity` | Mô tả ngắn hành vi red team từ góc nhìn bên ngoài |
-| `Hosts` | Hostname + IP cụ thể nơi hành vi xảy ra |
-| `Users` | Tài khoản thực hiện hành vi |
-| `Source Code Links` | Link đến code trong Resources/ (nếu là custom tool) |
-| `Relevant CTI Reports` | Số reference từ header (e.g., `[2], [9]`) |
+| `Red Team Activity` | Short description of red team behavior from an external viewpoint |
+| `Hosts` | Specific hostname + IP where the behavior occurs |
+| `Users` | Account performing the behavior |
+| `Source Code Links` | Link to code in Resources/ (if custom tool) |
+| `Relevant CTI Reports` | Reference numbers from the header (e.g., `[2], [9]`) |
 
-**Lưu ý quan trọng về Detection Criteria:**
-- Phải cụ thể đến mức process name + argument: `waitfor.exe executed netstat -anop tcp`
-- Không viết chung chung như "malware connects to C2"
-- Nếu một technique xảy ra nhiều lần ở các hosts khác nhau, tách thành nhiều row
+**Important notes on Detection Criteria:**
+- Must be specific down to process name + argument: `waitfor.exe executed netstat -anop tcp`
+- Do not write generic descriptions like "malware connects to C2"
+- If a technique occurs on multiple hosts, create a separate row per host
 
 ### 5. End of Test
 
@@ -119,37 +119,37 @@ Mỗi step kết thúc với một Reference Table ánh xạ hành vi vừa th�
 ### Voice Track
 This step includes the shutdown procedures for the end of this Protections Test
 ### Procedures
-- <Đóng sessions, dọn dẹp artifacts nếu cần>
+- <Close sessions, clean up artifacts if needed>
 ```
 
 ---
 
-## Cấu trúc Alternative Steps
+## Alternative Steps Structure
 
-`<Adversary>_Alternative_Steps.md` chứa các **bước thay thế** cho từng step trong main scenario, dùng khi:
-- Môi trường không hỗ trợ kỹ thuật gốc
-- Muốn test variant khác của cùng technique
-- Backup nếu payload chính bị block
+`<Adversary>_Alternative_Steps.md` contains **alternative steps** for each step in the main scenario, used when:
+- The environment does not support the original technique
+- A different variant of the same technique is being tested
+- A backup is needed in case the primary payload is blocked
 
-Format giống main scenario nhưng có header ghi rõ đây là thay thế cho Step nào.
-
----
-
-## Cấu trúc Protections Tests
-
-Mỗi `Protections_Test_<N>_Scenario.md` là một **kịch bản con độc lập**, không kế thừa state từ main scenario. Cấu trúc giống main scenario nhưng:
-- Chỉ có 2–4 steps (sub-chain cô lập)
-- Có thể dùng delivery vector khác (ví dụ: PIF dropper thay vì DOCX)
-- Môi trường lab khác (domain khác, hostname khác)
-- Số test không nhất thiết liên tục — chỉ một subset được gán cho mỗi adversary
+Format is the same as the main scenario but with a header indicating which Step it replaces.
 
 ---
 
-## Cấu trúc Cleanup Guide
+## Protections Tests Structure
 
-`<Adversary>_Cleanup_Guide.md` liệt kê từng artifact được tạo ra trong main scenario và cách xóa:
-- File/folder đã drop
-- Registry key đã tạo
-- Scheduled task đã tạo
-- Process đang chạy cần kill
-- Network connections cần terminate
+Each `Protections_Test_<N>_Scenario.md` is an **independent sub-scenario** that does not inherit state from the main scenario. Structure mirrors the main scenario but:
+- Only 2–4 steps (isolated sub-chain)
+- May use a different delivery vector (e.g., PIF dropper instead of DOCX)
+- Different lab environment (different domain, different hostnames)
+- Test numbers are not necessarily consecutive — only a subset is assigned to each adversary
+
+---
+
+## Cleanup Guide Structure
+
+`<Adversary>_Cleanup_Guide.md` lists every artifact created in the main scenario and how to remove it:
+- Dropped files/folders
+- Created registry keys
+- Created scheduled tasks
+- Running processes to kill
+- Network connections to terminate
