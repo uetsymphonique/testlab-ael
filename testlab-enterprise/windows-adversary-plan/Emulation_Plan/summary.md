@@ -70,7 +70,7 @@ flowchart LR
 
 ## Path 1 — HTML Smuggling (User-Driven)
 
-**Files:** [`html-smuggling-path/Plan.md`](html-smuggling-path/Plan.md),
+**Files:** [`html-smuggling-path/Phase 1.md`](html-smuggling-path/Phase 1.md),
 [`html-smuggling-path/Cleanup.md`](html-smuggling-path/Cleanup.md)
 
 **Entry point:** `upload.testlab.local` on `IIS01`  

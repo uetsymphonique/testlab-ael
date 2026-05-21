@@ -19,7 +19,7 @@ chunked download command and parsed offline on the attacker machine.
 
 ---
 
-## Step 4 - Credential Access: LSASS Memory Acquisition via Process Reflection
+## Step 1 - Credential Access: LSASS Memory Acquisition via Process Reflection
 
 ### Voice Track
 
@@ -259,7 +259,7 @@ for the attacker to capture and reassemble into the original dump.
 
 ---
 
-## Step 5 - Discovery: Host & Domain Reconnaissance
+## Step 2 - Discovery: Host & Domain Reconnaissance
 
 ### Voice Track
 
@@ -272,9 +272,12 @@ custom lightweight C++ binary — is staged to `C:\Windows\Temp` via the existin
 react2shell upload path and executed under the SYSTEM context. It queries
 `ROOT\SecurityCenter2` via WMI COM APIs (`IWbemLocator` → `IWbemServices::ExecQuery`
 with WQL `SELECT * FROM AntiVirusProduct`), returning the display name, instance GUID,
-paths, and product state of every registered antivirus product. This gives the attacker
-a precise picture of the endpoint protection posture before performing more visible
-discovery activity.
+paths, and product state of every registered antivirus product. On Windows Server
+systems where `SecurityCenter2` is unavailable, the tool transparently falls back to
+`ROOT\Microsoft\Windows\Defender` namespace, querying `MSFT_MpComputerStatus` to obtain
+antivirus state, real-time protection status, and product version. This gives the
+attacker a precise picture of the endpoint protection posture before performing more
+visible discovery activity.
 
 The remaining discovery steps rely solely on commands available natively on the IIS
 server. `whoami /all` confirms the SYSTEM token and privilege set. `nltest /dsgetdc:`
@@ -308,7 +311,7 @@ prerequisite for Pass-the-Hash lateral movement in Phase 3.
   C:\Windows\Temp> WmiAvQuery.exe
   ```
 
-  - ***Expected Output***
+  - ***Expected Output (Windows Client - SecurityCenter2)***
 
     ```text
     [*] Querying installed Antivirus products using WMI COM API...
@@ -326,6 +329,34 @@ prerequisite for Pass-the-Hash lateral movement in Phase 3.
     [+] Total antivirus products found: 1
 
     [*] Query completed.
+    ```
+
+  - ***Expected Output (Windows Server - Defender WMI fallback)***
+
+    ```text
+    [*] Querying installed Antivirus products using WMI COM API...
+
+    [!] Could not connect to ROOT\SecurityCenter2 namespace. Error code: 0x8004100e
+    [*] This is expected on Windows Server. Attempting fallback...
+    [!] Could not connect to ROOT\SecurityCenter namespace either. Error code: 0x8004100e
+    [*] Falling back to Windows Defender WMI query...
+    [+] Connected to ROOT\Microsoft\Windows\Defender namespace
+
+    === Antivirus Product #1 ===
+      displayName: Windows Defender Antivirus
+      instanceGuid: {D68DDC3A-831F-4fae-9E44-DA132C1ACF46}
+      pathToSignedProductExe: C:\Program Files\Windows Defender\MsMpEng.exe
+      pathToSignedReportingExe: C:\Program Files\Windows Defender\MpCmdRun.exe
+      productVersion: 4.18.26030.3011
+      productState: 0x001000
+      Product State (Raw): 0x001000
+      Status: ENABLED
+      Real-Time Protection: ENABLED
+      Signature Last Updated: 20260519230814.000000+000
+
+    [+] Total antivirus products found: 1
+
+    [*] Query completed (via WMI fallback).
     ```
 
 - ☣️ From the elevated dnscat2 C2 session (SYSTEM), confirm the SYSTEM token and privileges
@@ -420,7 +451,7 @@ prerequisite for Pass-the-Hash lateral movement in Phase 3.
 |  - | - | - | - | - | - | - | - | - | - | -
 | Command and Control | T1105 | Ingress Tool Transfer | Windows | Sequential POST requests to `react.testlab.local` RSC endpoint appending 2,000-char base64 blocks to `C:\Windows\Temp\WmiAvQuery.b64` via eval-based `fs.appendFileSync`; no child process spawned | Not Calibrated - Not Benign | react2shell `upload` command stages `WmiAvQuery.exe` (as `WmiAvQuery.b64`) to IIS server; identical eval-based chunked mechanism to Phase 1 Step 3 and Phase 2 Step 4 — already scored | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py upload()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
 | Defense Evasion | T1140 | Deobfuscate/Decode Files or Information | Windows | POST to RSC endpoint decodes `WmiAvQuery.b64` to `WmiAvQuery.bin` via `Buffer.from(..., 'base64')`; `WmiAvQuery.bin` subsequently renamed to `WmiAvQuery.exe` | Not Calibrated - Not Benign | react2shell `decode` and `rename` commands convert staged base64 to executable in-place with no child process or decoder binary - identical mechanism to Phase 1 Step 3, already scored | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py decode()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
-| Discovery | T1518.001 | Software Discovery: Security Software Discovery | Windows | `WmiAvQuery.exe` queries `ROOT\SecurityCenter2` WMI namespace executing WQL `SELECT * FROM AntiVirusProduct` via `IWbemServices::ExecQuery` | Calibrated - Not Benign | `WmiAvQuery.exe` enumerates installed AV products — display name, instance GUID, paths, and product state — by connecting to `ROOT\SecurityCenter2` via native WMI COM APIs (`IWbemLocator` → `IWbemServices`) | react.testlab.local | NT AUTHORITY\SYSTEM | [main.cpp](../../resources/payloads/WmiAvQuery/main.cpp) | -
+| Discovery | T1518.001 | Software Discovery: Security Software Discovery | Windows | `WmiAvQuery.exe` queries `ROOT\SecurityCenter2` WMI namespace executing WQL `SELECT * FROM AntiVirusProduct` via `IWbemServices::ExecQuery`; on Windows Server, transparently falls back to `ROOT\Microsoft\Windows\Defender` namespace querying `MSFT_MpComputerStatus` | Calibrated - Not Benign | `WmiAvQuery.exe` enumerates installed AV products — on Windows client via `ROOT\SecurityCenter2` (`IWbemLocator` → `IWbemServices`), on Windows Server via fallback to `ROOT\Microsoft\Windows\Defender` (`MSFT_MpComputerStatus`) | react.testlab.local | NT AUTHORITY\SYSTEM | [main.cpp](../../resources/payloads/WmiAvQuery/main.cpp) | -
 | Discovery | T1033 | System Owner/User Discovery | Windows | `RuntimeBroker.exe` (ghost process) spawns `cmd.exe` which executes `whoami.exe /all` on react.testlab.local | Not Calibrated - Not Benign | `whoami /all` dumps the full SYSTEM token - user SID, group memberships, privilege list, integrity level - confirming successful escalation and presence of `SeDebugPrivilege` | react.testlab.local | NT AUTHORITY\SYSTEM | - | -
 | Discovery | T1018 | Remote System Discovery | Windows | `RuntimeBroker.exe` (ghost process) spawns `cmd.exe` which executes `nltest.exe /dsgetdc:TESTLAB` to query Domain Controller information on react.testlab.local | Not Calibrated - Not Benign | `nltest /dsgetdc:TESTLAB` queries the Netlogon service to return DC hostname (`DC01`), IP (`10.12.10.10`), site, and role flags (PDC, GC, KDC) from the SYSTEM dnscat2 shell | react.testlab.local | NT AUTHORITY\SYSTEM | - | -
 | Discovery | T1069.002 | Permission Groups Discovery: Domain Groups | Windows | `RuntimeBroker.exe` (ghost process) spawns `cmd.exe` which executes `net.exe group "Domain Admins" /domain` on react.testlab.local | Not Calibrated - Not Benign | `net group "Domain Admins" /domain` enumerates DA members to identify high-value credential targets from the LSASS dump | react.testlab.local | NT AUTHORITY\SYSTEM | - | -
