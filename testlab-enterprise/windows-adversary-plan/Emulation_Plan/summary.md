@@ -8,7 +8,7 @@ cover different entry points, techniques, and host contexts. They share the
 same lab environment and the same post-exploitation chain once a SYSTEM C2
 session is established on `IIS01`.
 
-- **[`html-smuggling-path/`](html-smuggling-path/Plan.md)** — user-driven
+- **[`html-smuggling-path/`](html-smuggling-path/Phase%201.md)** — user-driven
   initial access via `upload.testlab.local`. The attacker abuses unrestricted
   file upload to host a malicious HTML lure. A domain user on `WS01` opens the
   page, receives `cert_bundle.txt` via HTML smuggling, executes the copy-paste
@@ -35,7 +35,12 @@ session is established on `IIS01`.
   `DC01`, installs multiple independent persistence mechanisms on the Domain
   Controller, then collects credential material and web configuration files,
   archives them via three independent methods, and exfiltrates via the
-  react2shell HTTP channel.
+  react2shell HTTP channel. After exfiltration, the attacker executes the
+  destructive final phase: stops services, deletes Volume Shadow Copies and
+  backup catalogs, disables Windows Recovery Console, defaces both the DC01
+  logon screen and the IIS01 web portal, encrypts files in a scoped test
+  directory using AES-256-CBC, and forces a reboot of IIS01 — modelling the
+  double-extortion ransomware termination sequence.
 
 ## Lab Environment
 
@@ -155,11 +160,12 @@ flowchart TD
 [`iis-apppool-escalation-path/Phase 2.md`](iis-apppool-escalation-path/Phase%202.md),
 [`iis-apppool-escalation-path/Phase 3.md`](iis-apppool-escalation-path/Phase%203.md),
 [`iis-apppool-escalation-path/Phase 4.md`](iis-apppool-escalation-path/Phase%204.md),
+[`iis-apppool-escalation-path/Phase 5.md`](iis-apppool-escalation-path/Phase%205.md),
 [`iis-apppool-escalation-path/Cleanup.md`](iis-apppool-escalation-path/Cleanup.md)
 
 **Entry point:** `react.testlab.local` on `IIS01`  
 **Primary hosts:** `IIS01` → `DC01`  
-**End state:** dnscat2 DNS C2 on `DC01`; five persistence mechanisms installed; NTDS credential material and IIS config files exfiltrated
+**End state:** dnscat2 DNS C2 on `DC01`; five persistence mechanisms installed; NTDS credential material and IIS config files exfiltrated; services stopped, VSS/backup catalog deleted, recovery disabled, logon screen and web portal defaced, test files AES-encrypted, IIS01 rebooted
 
 ### Attack Flow
 
@@ -205,16 +211,23 @@ flowchart TD
     S2 --> S3["Step 5: PowerShell XOR 0x5A<br/>certstore.tmp (T1560.003)"]
     S3 --> T1["Step 6: Stage to IIS01 C$<br/>react2shell download<br/>Exfil over HTTP C2 (T1041)"]
     T1 --> U["Offline: XOR decrypt + unzip<br/>impacket-secretsdump<br/>Full domain credential harvest"]
+
+    U --> V["Phase 5 — Impact"]
+    V --> V1["Step 1 (DC01): Service Stop + Inhibit Recovery<br/>sc/net stop spooler, WSearch<br/>vssadmin delete shadows /all<br/>wbadmin delete catalog<br/>bcdedit disable WinRE (T1489, T1490)"]
+    V --> V2["Step 2 (DC01+IIS01): Internal Defacement<br/>LegalNoticeCaption/Text registry (T1112)<br/>README_DECRYPT.txt on DC01<br/>react2shell overwrites IIS01 index.html (T1491.001)"]
+    V --> V3["Step 3 (DC01): Data Encrypted for Impact<br/>PowerShell AES-256-CBC loop<br/>RansomTest/*.docx → *.locked<br/>README_DECRYPT.txt co-located (T1486)"]
+    V --> V4["Step 4 (IIS01): System Shutdown/Reboot<br/>shutdown.exe /r /t 60 from SYSTEM dnscat2<br/>Terminates IIS01 C2 sessions (T1529)"]
 ```
 
 ### Phase Summary
 
 | Phase | File | Tactic | Key Behaviors |
 | - | - | - | - |
-| Phase 1 | `Phase 1.md` | Initial Access, Privilege Escalation, Defense Evasion, C2 | CVE-2025-55182 RCE → react2shell; Step 1A T1620 reflective load (no disk artifact); Step 1B EfsPotato token impersonation → SYSTEM; Herpaderping ghost process; dnscat2 DNS C2 |
+| Phase 1 | `Phase 1.md` | Initial Access, Execution, Privilege Escalation, Defense Evasion, C2 | CVE-2025-55182 RCE → react2shell; Step 1A T1620 reflective load (no disk artifact); Step 1B EfsPotato token impersonation → SYSTEM; Herpaderping ghost process; dnscat2 DNS C2; `shell` command spawns `cmd.exe` under ghost `RuntimeBroker.exe` (T1059.003) |
 | Phase 2 | `Phase 2.md` | Credential Access, Discovery | ReflectDump via `RtlCreateProcessReflection`; XOR-encrypted `f.elif`; chunked exfil; offline decrypt; WMI AV query; domain recon |
 | Phase 3 | `Phase 3.md` | Lateral Movement, Execution, Persistence | Pass the Hash via `go-thehash.exe`; WMI + SCM dual-path execution on DC01; 5 independent persistence mechanisms |
 | Phase 4 | `Phase 4.md` | Collection, Exfiltration | VSS/NTDS credential harvest (T1003.003, T1005); SMB network share collection from IIS01 (T1039); archive via `makecab` LOLBin (T1560.001), .NET ZipFile API (T1560.002), and XOR custom method (T1560.003); exfil via react2shell HTTP C2 (T1041) |
+| Phase 5 | `Phase 5.md` | Impact | Service stop via `sc.exe`/`net.exe` (T1489); VSS + backup catalog deletion + BCD recovery disable (T1490); logon-screen registry modification and ransom notes on DC01 + web root overwrite on IIS01 (T1491.001, T1112); AES-256-CBC PowerShell encryption loop on scoped test directory (T1486); IIS01 system reboot from SYSTEM dnscat2 session (T1529) |
 
 ## Key Hosts
 
