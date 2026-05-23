@@ -27,6 +27,7 @@ $phase1ServerFiles = @(
     "C:\Windows\Temp\CertEnrollSvc.bin",
     "C:\Windows\Temp\CertEnrollSvc.exe",
     "C:\Windows\Temp\dnscat2.b64",
+    "C:\Windows\Temp\dnscat2-disk.b64",
     "C:\Windows\Temp\CertEnrollAgent.b64",
     "C:\ProgramData\CertCA.bin",
     "C:\ProgramData\CertEnrollAgent.bin",
@@ -61,6 +62,26 @@ Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\dnscat2.b64" -Fo
 Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\CertEnrollAgent.b64" -Force -ErrorAction SilentlyContinue
 ```
 
+### 4. Optional Step 2 cleanup — Restore Windows Defender on IIS01
+
+Run only if Optional Step 2 (Disable Windows Defender) was executed.
+
+Run on `IIS01` as an administrator.
+
+```powershell
+Set-MpPreference -DisableRealtimeMonitoring 0 -DisableBehaviorMonitoring 0 -DisableScriptScanning 0
+
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" `
+    -Name "DisableAntiSpyware" -Force -ErrorAction SilentlyContinue
+```
+
+Verify:
+
+```powershell
+Get-MpPreference | Select-Object DisableRealtimeMonitoring,DisableBehaviorMonitoring,DisableScriptScanning
+Get-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Name DisableAntiSpyware -ErrorAction SilentlyContinue
+```
+
 ## Phase 2 - Discovery & Credential Access
 
 Phase 2 reuses the elevated dnscat2 session from Phase 1. Do not close that
@@ -72,7 +93,10 @@ Run on `IIS01` / `react.testlab.local` as an administrator.
 
 ```powershell
 $phase2ServerFiles = @(
-    "C:\Windows\Temp\WdiBoot.b64",
+    "C:\Windows\Temp\WmiAvQuery.b64",
+    "C:\Windows\Temp\WmiAvQuery.exe",
+    "C:\Windows\Temp\WdiBoot.gz.b64",
+    "C:\Windows\Temp\WdiBoot.gz",
     "C:\Windows\Temp\WdiBoot.bin",
     "C:\Windows\Temp\WdiBoot.exe",
     "C:\Windows\Temp\f.elif",
@@ -98,11 +122,52 @@ Remove local files generated or downloaded during the LSASS dump workflow if the
 operator no longer needs them.
 
 ```powershell
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\WdiBoot.b64" -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\WmiAvQuery.b64" -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\WdiBoot.gz.b64" -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\downloaded_f.elif" -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\lsass.dmp" -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\downloaded_f.elif" -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\lsass.dmp" -Force -ErrorAction SilentlyContinue
+```
+
+### 3. Optional Step 3B cleanup — comsvcs.dll LSASS dump
+
+Run only if Optional Step 3B (Rundll32 + comsvcs.dll MiniDump) was executed.
+
+Run on `IIS01` as an administrator.
+
+```powershell
+Remove-Item -LiteralPath "C:\Windows\Temp\g.dmp" -Force -ErrorAction SilentlyContinue
+```
+
+Remove from the attacker workspace:
+
+```bash
+rm -f downloaded_g.dmp
+```
+
+### 4. Optional Step 2B cleanup — compile-after-delivery (WmiQuery)
+
+Run only if Optional Step 2B (Compile After Delivery) was executed.
+
+Run on `IIS01` as an administrator.
+
+```powershell
+$phase2OptFiles = @(
+    "C:\Windows\Temp\WmiQuery.b64",
+    "C:\Windows\Temp\WmiQuery.cs",
+    "C:\Windows\Temp\WmiQuery.exe"
+)
+
+foreach ($path in $phase2OptFiles) {
+    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+}
+```
+
+Remove from the attacker workspace:
+
+```bash
+rm -f resources/payloads/react2shell-tool/WmiQuery.b64
 ```
 
 ## Phase 3 - Lateral Movement, C2 Establishment & Persistence
@@ -129,12 +194,17 @@ Run on `DC01` as a domain administrator.
 ```powershell
 Remove-ADGroupMember -Identity "Domain Admins" -Members "svcbackup" -Confirm:$false -ErrorAction SilentlyContinue
 Remove-ADUser -Identity "svcbackup" -Confirm:$false -ErrorAction SilentlyContinue
+
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList" `
+    -Name "svcbackup" -Force -ErrorAction SilentlyContinue
 ```
 
 Verify:
 
 ```powershell
 Get-ADUser -Identity "svcbackup" -ErrorAction SilentlyContinue
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList" `
+    -Name "svcbackup" -ErrorAction SilentlyContinue
 ```
 
 ### 3. Remove WMI permanent event subscription
@@ -284,8 +354,8 @@ Run on `DC01` as an administrator.
 $phase3DcFiles = @(
     "C:\ProgramData\CertCA.bin",
     "C:\ProgramData\CertEnrollAgent.exe",
-    "C:\ProgramData\dnscat2.exe",
-    "C:\ProgramData\dnscat-service.exe",
+    "C:\ProgramData\policyupdate.exe",
+    "C:\ProgramData\policysync.exe",
     "C:\ProgramData\ServiceInstaller.exe",
     "C:\ProgramData\NtServiceInstaller.exe",
     "C:\Windows\Temp\ls.txt"
@@ -319,13 +389,14 @@ $phase3IisFiles = @(
     "C:\Windows\Temp\go-thehash.b64",
     "C:\Windows\Temp\ServiceInstaller.b64",
     "C:\Windows\Temp\NtServiceInstaller.b64",
+    "C:\Windows\Temp\policyupdate.exe.b64",
+    "C:\Windows\Temp\policysync.exe.b64",
     "C:\ProgramData\CertCA.bin",
     "C:\ProgramData\CertEnrollAgent.bin",
     "C:\ProgramData\CertEnrollAgent.exe",
-    "C:\ProgramData\dnscat2.exe",
-    "C:\ProgramData\dnscat-service.exe",
-    "C:\ProgramData\go-thehash.bin",
     "C:\ProgramData\go-thehash.exe",
+    "C:\ProgramData\policyupdate.exe",
+    "C:\ProgramData\policysync.exe",
     "C:\ProgramData\ServiceInstaller.exe",
     "C:\ProgramData\NtServiceInstaller.exe"
 )
@@ -354,5 +425,202 @@ Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\CertEnrollAgent.
 Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\go-thehash.b64" -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\ServiceInstaller.b64" -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\NtServiceInstaller.b64" -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\policyupdate.exe.b64" -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\policysync.exe.b64" -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\ls.txt" -Force -ErrorAction SilentlyContinue
 ```
+
+## Phase 4 - Collection & Exfiltration
+
+Phase 4 does not create persistent C2 or persistence artifacts. All cleanup targets
+staged files on DC01 and IIS01. The `certstore.tmp` file in the IIS01 web root is
+deleted inline at the end of Phase 4 Step 3; run Section 3 below only if that inline
+step was skipped.
+
+### 1. Clean DC01 collection staging directory and archives
+
+Run on `DC01` as an administrator.
+
+```powershell
+$phase4DcFiles = @(
+    "C:\ProgramData\NtdsRawDump.exe",
+    "C:\ProgramData\certstore.ddf",
+    "C:\ProgramData\certstore.cab",
+    "C:\ProgramData\certstore.tmp"
+)
+
+foreach ($path in $phase4DcFiles) {
+    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+}
+
+Remove-Item -LiteralPath "C:\ProgramData\CertStore" -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+Verify:
+
+```powershell
+$phase4DcFiles | ForEach-Object {
+    [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
+}
+Test-Path -LiteralPath "C:\ProgramData\CertStore"
+```
+
+### 2. Clean IIS01 staged files
+
+Run on `IIS01` / `react.testlab.local` as an administrator.
+
+```powershell
+$phase4IisFiles = @(
+    "C:\Windows\Temp\NtdsRawDump.b64",
+    "C:\Windows\Temp\NtdsRawDump.exe"
+)
+
+foreach ($path in $phase4IisFiles) {
+    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+}
+
+Remove-Item -LiteralPath "C:\Windows\Temp\sysvol_collect" -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+Verify:
+
+```powershell
+$phase4IisFiles | ForEach-Object {
+    [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
+}
+Test-Path -LiteralPath "C:\Windows\Temp\sysvol_collect"
+```
+
+### 3. Clean IIS01 web root staging file (if inline cleanup was skipped)
+
+Run on `IIS01` as an administrator.
+
+```powershell
+Remove-Item -LiteralPath "C:\inetpub\react.testlab.local\certstore.tmp" -Force -ErrorAction SilentlyContinue
+```
+
+### 4. Optional attacker-side cleanup
+
+Remove the collection tool blob and downloaded archives from the attacker workspace.
+
+```bash
+rm -f resources/payloads/react2shell-tool/NtdsRawDump.b64
+rm -f certstore.tmp certstore.zip
+rm -rf certstore/
+```
+
+## Phase 5 - Impact: Service Disruption, Recovery Inhibition, Defacement & Encryption
+
+Phase 5 makes several changes that require manual reversal. Clean in this order:
+restart services → restore BCD settings → remove registry values → remove files →
+restore the defaced web page. Some changes (VSS shadows, Windows Backup catalog,
+cleared event logs if the Optional Step ran) cannot be reversed by command — restore
+those from a VM snapshot.
+
+### 1. Restart stopped services on DC01
+
+Run on `DC01` as an administrator.
+
+```powershell
+sc.exe start spooler
+net.exe start WSearch
+```
+
+Verify:
+
+```powershell
+Get-Service -Name spooler,WSearch | Select-Object Name,Status
+```
+
+### 2. Restore BCD recovery settings on DC01
+
+Run on `DC01` as an administrator.
+
+```powershell
+bcdedit.exe /set {default} bootstatuspolicy DisplayAllFailures
+bcdedit.exe /set {default} recoveryenabled yes
+```
+
+Verify:
+
+```powershell
+bcdedit.exe /enum {default} | Select-String "bootstatuspolicy|recoveryenabled"
+```
+
+### 3. Remove logon-screen registry defacement on DC01
+
+Run on `DC01` as an administrator.
+
+```powershell
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
+    -Name "LegalNoticeCaption" -Force -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
+    -Name "LegalNoticeText" -Force -ErrorAction SilentlyContinue
+```
+
+Verify:
+
+```powershell
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" |
+    Select-Object LegalNoticeCaption,LegalNoticeText
+```
+
+### 4. Remove ransom notes and encrypted test directory on DC01
+
+Run on `DC01` as an administrator.
+
+```powershell
+$phase5DcFiles = @(
+    "C:\README_DECRYPT.txt",
+    "C:\Users\Administrator\Desktop\README_DECRYPT.txt"
+)
+
+foreach ($path in $phase5DcFiles) {
+    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+}
+
+Remove-Item -LiteralPath "C:\ProgramData\RansomTest" -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+Verify:
+
+```powershell
+$phase5DcFiles | ForEach-Object {
+    [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
+}
+Test-Path -LiteralPath "C:\ProgramData\RansomTest"
+```
+
+### 5. Remove defaced web page on IIS01
+
+The react2shell eval channel created `index.html` in the upload portal web root. The
+original landing page is `Default.aspx`; deleting the attacker-created `index.html`
+restores IIS to serving `Default.aspx` as the default document.
+
+Run on `IIS01` as an administrator.
+
+```powershell
+Remove-Item -LiteralPath "C:\inetpub\upload.testlab.local\index.html" -Force -ErrorAction SilentlyContinue
+```
+
+Verify:
+
+```powershell
+Test-Path -LiteralPath "C:\inetpub\upload.testlab.local\index.html"
+Invoke-WebRequest -Uri "http://upload.testlab.local/" -UseBasicParsing |
+    Select-Object StatusCode,@{N="Title";E={($_.Content -split '<title>|</title>')[1]}}
+```
+
+### 6. Non-reversible changes — restore from VM snapshot if needed
+
+The following Phase 5 changes cannot be reversed by command:
+
+- **VSS shadows deleted** — `vssadmin delete shadows /all /quiet` cannot be undone
+- **Windows Backup catalog deleted** — `wbadmin delete catalog` cannot be undone
+- **Event logs cleared** (Optional Step only) — `wevtutil cl` cannot be undone; events
+  cleared from the local Windows event store before the clear event are gone from disk
+- **PSReadLine history deleted** (Optional Step only) — `ConsoleHost_history.txt` for
+  the Administrator account deleted; cannot be restored
+
+If a clean lab state is required for another run after Phase 5, restore `DC01` and
+`IIS01` from VM snapshots taken before Phase 5 execution.
