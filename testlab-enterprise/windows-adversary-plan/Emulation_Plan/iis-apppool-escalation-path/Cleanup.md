@@ -509,45 +509,76 @@ rm -f certstore.tmp certstore.zip
 rm -rf certstore/
 ```
 
-## Phase 5 - Impact: Service Disruption, Recovery Inhibition, Defacement & Encryption
+## Phase 5 - Impact: Data Encryption and Internal Defacement
 
 Phase 5 makes several changes that require manual reversal. Clean in this order:
-restart services → restore BCD settings → remove registry values → remove files →
-restore the defaced web page. Some changes (VSS shadows, Windows Backup catalog,
-cleared event logs if the Optional Step ran) cannot be reversed by command — restore
-those from a VM snapshot.
+restore encrypted database files from backup → restart MSSQL service → remove backup
+files → remove registry values → remove ransom notes → restore defaced web page.
 
-### 1. Restart stopped services on DC01
+VSS shadow copies deleted in Step 1 cannot be reversed by command — recreate them
+manually or restore from a VM snapshot if a clean recovery-test environment is required.
 
-Run on `DC01` as an administrator.
+### 1. Restore encrypted database files on IIS01
+
+Step 1 of Phase 5 overwrites `UploadPortalDB.mdf` and `UploadPortalDB_log.ldf` in
+place with AES-256 ciphertext. Backup copies were saved to `C:\Windows\Temp\` before
+encryption. Restore them before restarting the service.
+
+Run on `IIS01` as an administrator.
 
 ```powershell
-sc.exe start spooler
-net.exe start WSearch
+$dataPath = "C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA"
+
+Copy-Item "$env:windir\Temp\UploadPortalDB.mdf.backup"     "$dataPath\UploadPortalDB.mdf"     -Force
+Copy-Item "$env:windir\Temp\UploadPortalDB_log.ldf.backup" "$dataPath\UploadPortalDB_log.ldf" -Force
+```
+
+Verify the restored files match the original backup sizes (8,388,608 bytes):
+
+```powershell
+$dataPath = "C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA"
+
+Get-Item "$dataPath\UploadPortalDB.mdf", "$dataPath\UploadPortalDB_log.ldf" |
+    Select-Object Name, Length, LastWriteTime
+```
+
+### 2. Restart MSSQL service on IIS01
+
+Run on `IIS01` as an administrator.
+
+```powershell
+sc.exe start MSSQL`$SQLEXPRESS
+```
+
+Verify the service is running and `UploadPortalDB` is accessible:
+
+```powershell
+Get-Service -Name "MSSQL`$SQLEXPRESS" | Select-Object Name, Status
+
+& "C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\180\Tools\Binn\SQLCMD.EXE" `
+    -S "localhost\SQLEXPRESS" -E -C `
+    -Q "SELECT name, state_desc FROM sys.databases WHERE name = 'UploadPortalDB'"
+# Expected: state_desc = ONLINE
+```
+
+### 3. Remove backup files from IIS01
+
+Run on `IIS01` as an administrator.
+
+```powershell
+Remove-Item -LiteralPath "C:\Windows\Temp\UploadPortalDB.mdf.backup"     -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath "C:\Windows\Temp\UploadPortalDB_log.ldf.backup" -Force -ErrorAction SilentlyContinue
 ```
 
 Verify:
 
 ```powershell
-Get-Service -Name spooler,WSearch | Select-Object Name,Status
+Test-Path "C:\Windows\Temp\UploadPortalDB.mdf.backup"
+Test-Path "C:\Windows\Temp\UploadPortalDB_log.ldf.backup"
+# Both expected: False
 ```
 
-### 2. Restore BCD recovery settings on DC01
-
-Run on `DC01` as an administrator.
-
-```powershell
-bcdedit.exe /set {default} bootstatuspolicy DisplayAllFailures
-bcdedit.exe /set {default} recoveryenabled yes
-```
-
-Verify:
-
-```powershell
-bcdedit.exe /enum {default} | Select-String "bootstatuspolicy|recoveryenabled"
-```
-
-### 3. Remove logon-screen registry defacement on DC01
+### 4. Remove logon-screen registry defacement on DC01
 
 Run on `DC01` as an administrator.
 
@@ -562,10 +593,11 @@ Verify:
 
 ```powershell
 Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" |
-    Select-Object LegalNoticeCaption,LegalNoticeText
+    Select-Object LegalNoticeCaption, LegalNoticeText
+# Both expected: empty / not present
 ```
 
-### 4. Remove ransom notes and encrypted test directory on DC01
+### 5. Remove ransom notes on DC01
 
 Run on `DC01` as an administrator.
 
@@ -578,8 +610,6 @@ $phase5DcFiles = @(
 foreach ($path in $phase5DcFiles) {
     Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
 }
-
-Remove-Item -LiteralPath "C:\ProgramData\RansomTest" -Recurse -Force -ErrorAction SilentlyContinue
 ```
 
 Verify:
@@ -588,10 +618,10 @@ Verify:
 $phase5DcFiles | ForEach-Object {
     [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
 }
-Test-Path -LiteralPath "C:\ProgramData\RansomTest"
+# Both expected: False
 ```
 
-### 5. Remove defaced web page on IIS01
+### 6. Remove defaced web page on IIS01
 
 The react2shell eval channel created `index.html` in the upload portal web root. The
 original landing page is `Default.aspx`; deleting the attacker-created `index.html`
@@ -607,20 +637,20 @@ Verify:
 
 ```powershell
 Test-Path -LiteralPath "C:\inetpub\upload.testlab.local\index.html"
+# Expected: False
+
 Invoke-WebRequest -Uri "http://upload.testlab.local/" -UseBasicParsing |
-    Select-Object StatusCode,@{N="Title";E={($_.Content -split '<title>|</title>')[1]}}
+    Select-Object StatusCode, @{N="Title"; E={($_.Content -split '<title>|</title>')[1]}}
+# Expected: original upload portal title, not "ENCRYPTED"
 ```
 
-### 6. Non-reversible changes — restore from VM snapshot if needed
+### 7. Non-reversible changes — restore from VM snapshot if needed
 
-The following Phase 5 changes cannot be reversed by command:
+The following Phase 5 change cannot be reversed by command:
 
-- **VSS shadows deleted** — `vssadmin delete shadows /all /quiet` cannot be undone
-- **Windows Backup catalog deleted** — `wbadmin delete catalog` cannot be undone
-- **Event logs cleared** (Optional Step only) — `wevtutil cl` cannot be undone; events
-  cleared from the local Windows event store before the clear event are gone from disk
-- **PSReadLine history deleted** (Optional Step only) — `ConsoleHost_history.txt` for
-  the Administrator account deleted; cannot be restored
+- **VSS shadows deleted** — `vssadmin delete shadows /all /quiet` removes all volume
+  snapshots; they cannot be recreated retroactively. Recreate manually with
+  `vssadmin create shadow /for=C:` or restore `IIS01` from a pre-Phase-5 VM snapshot.
 
-If a clean lab state is required for another run after Phase 5, restore `DC01` and
-`IIS01` from VM snapshots taken before Phase 5 execution.
+If a fully clean lab state is required for another Phase 5 run, restore `IIS01` from a
+VM snapshot taken before Phase 5 execution.
