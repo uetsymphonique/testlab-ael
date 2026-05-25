@@ -52,7 +52,7 @@ domain-joined workstation used for the user-driven execution paths.
 | Role | Hostname | IP | Notes |
 | - | - | - | - |
 | Domain Controller / DNS | `DC01` | `10.12.10.10` | Hosts AD DS, DNS zone `testlab.local`, and conditional forwarder for `attacker.local` |
-| IIS Server | `IIS01` | `10.12.10.20` | Hosts `upload.testlab.local` and `react.testlab.local` |
+| IIS Server | `IIS01` | `10.12.10.20` | Hosts `upload.testlab.local` and `react.testlab.local`; SQL Server Express instance `MSSQL$SQLEXPRESS` (`localhost\SQLEXPRESS`) with database `UploadPortalDB` — T1489/T1486 target in Phase 5; data files at `C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\` |
 | Workstation | `WS01` | `10.12.10.30` | Domain-joined workstation used by the victim domain user |
 | Attacker machine | Operator controlled | `192.168.56.2` | Runs dnscat2 server and exploit tooling; receives DNS tunnel traffic for `attacker.local` and Toneshell TCP C2 |
 
@@ -77,6 +77,7 @@ flowchart LR
 
     IIS --> UPLOAD["IIS site:<br/>upload.testlab.local<br/>C:/inetpub/upload.testlab.local"]
     IIS --> REACT["IISNode site:<br/>react.testlab.local<br/>C:/inetpub/react.testlab.local"]
+    IIS --> MSSQL["SQL Server Express<br/>MSSQL$SQLEXPRESS / localhost\\SQLEXPRESS<br/>UploadPortalDB — T1489/T1486 target"]
 
     WS -->|"DNS queries"| DC
     IIS -->|"DNS queries"| DC
@@ -165,7 +166,7 @@ flowchart TD
 
 **Entry point:** `react.testlab.local` on `IIS01`  
 **Primary hosts:** `IIS01` → `DC01`  
-**End state:** dnscat2 DNS C2 on `DC01`; five persistence mechanisms installed; NTDS credential material and IIS config files exfiltrated; services stopped, VSS/backup catalog deleted, recovery disabled, logon screen and web portal defaced, test files AES-encrypted, IIS01 rebooted
+**End state:** dnscat2 DNS C2 on `DC01`; four persistence mechanisms installed (svcbackup account, WMI subscription, SYSVOL logon script, registry-backed service); NTDS credential material exfiltrated; VSS shadow copies deleted, `MSSQL$SQLEXPRESS` stopped, `UploadPortalDB` AES-256-CBC encrypted on IIS01; domain logon screen and `upload.testlab.local` web portal defaced
 
 ### Attack Flow
 
@@ -174,19 +175,20 @@ flowchart TD
     A["Attacker"] --> B["react.testlab.local<br/>CVE-2025-55182 React RSC RCE"]
     B --> C["react2shell eval shell<br/>IIS APPPOOL\\react.testlab.local"]
 
-    C --> D1["Step 1A — Reflective load<br/>T1620: node.exe pipes dnscat2 PE<br/>via stdin to CertEnrollAgent.exe<br/>No disk artifact for payload"]
-    C --> D2["Step 1B — File-based full chain<br/>Upload + decode CertEnrollSvc.exe,<br/>CertCA.bin via eval fs writes"]
+    C --> D1["Step 1A (Main) — File-based Full Chain<br/>Upload + decode CertEnrollSvc.exe,<br/>CertEnrollAgent.exe, CertCA.bin<br/>via eval fs writes"]
+    C --> D2["[ALT] Step 1B — Reflective Load Demo<br/>T1620: node.exe pipes dnscat2 PE<br/>via stdin to CertEnrollAgent.exe<br/>No disk artifact for payload"]
 
-    D2 --> E["eval detached spawn<br/>CertEnrollSvc.exe CertEnrollAgent.exe"]
+    D1 --> E["eval detached spawn<br/>CertEnrollSvc.exe → CertEnrollAgent.exe"]
     E --> F["EfsPotato: SeImpersonatePrivilege<br/>named-pipe token → SYSTEM"]
     F --> G["CertEnrollAgent.exe as SYSTEM<br/>Herpaderping ghost RuntimeBroker.exe<br/>IIS01 DNS C2 as NT AUTHORITY\\SYSTEM"]
 
-    D1 --> G
+    D2 -.-> G2["[Alt] Second C2 session<br/>IIS APPPOOL\\react.testlab.local<br/>(T1620 demo — no priv esc)"]
 
     G --> H["Phase 2 — Credential Access<br/>Upload WdiBoot.exe (ReflectDump)<br/>gzip+b64 compressed, hidden attrib"]
     H --> I["SYSTEM shell executes WdiBoot.exe<br/>RtlCreateProcessReflection forks LSASS<br/>MiniDumpWriteDump on fork<br/>XOR-encrypt → C:\\Windows\\Temp\\f.elif"]
     I --> J["react2shell download f.elif<br/>8192-byte chunked exfil"]
     J --> K["Offline XOR decrypt → lsass.dmp<br/>pypykatz / mimikatz<br/>Recover TESTLAB\\Administrator hash"]
+    H -.-> IA["[ALT] Step 3B — Disable Defender<br/>Set-MpPreference + reg add DisableAntiSpyware (T1562.001)<br/>rundll32 comsvcs.dll MiniDump → C:\\Windows\\Temp\\g.dmp (T1218.011, T1003.001)"]
 
     G --> L["Phase 2 — Discovery<br/>WmiAvQuery.exe: ROOT\\SecurityCenter2<br/>whoami /all, nltest, net group, net view"]
 
@@ -203,31 +205,26 @@ flowchart TD
     O --> P5["CertPolicyCache registry service<br/>via NtServiceInstaller.exe NT API"]
 
     O --> Q["Phase 4 — Collection & Exfiltration"]
-    Q --> R1["Step 1: VSS shadow copy<br/>ntds.dit + SYSTEM/SAM/SECURITY hives<br/>→ C:\\ProgramData\\CertStore\\"]
-    Q --> R2["Step 2: SMB sweep of IIS01 C$<br/>inetpub web config files<br/>→ C:\\ProgramData\\CertStore\\"]
-    R1 --> S1["Step 3: makecab LOLBin<br/>certstore.cab (T1560.001)"]
-    R2 --> S1
-    S1 --> S2["Step 4: .NET ZipFile API<br/>certstore.zip (T1560.002)"]
-    S2 --> S3["Step 5: PowerShell XOR 0x5A<br/>certstore.tmp (T1560.003)"]
-    S3 --> T1["Step 6: Stage to IIS01 C$<br/>react2shell download<br/>Exfil over HTTP C2 (T1041)"]
-    T1 --> U["Offline: XOR decrypt + unzip<br/>impacket-secretsdump<br/>Full domain credential harvest"]
+    Q --> R1["Step 1: NtdsRawDump.exe on DC01<br/>VSS shadow via WMI (T1047, T1006)<br/>ntds.dit + SYSTEM/SAM/SECURITY hives<br/>per-file AES-256-CBC → CertStore\<br/>in-memory ZIP + AES-256-CBC → certstore.tmp<br/>(T1003.003, T1005, T1560.002, T1560.003)"]
+    R1 -.-> R1B["[ALT] Step 1B: makecab LOLBin<br/>certstore.cab (T1560.001)"]
+    R1 --> S1["Step 2: NETLOGON relay staging<br/>DC01 copies certstore.tmp to SYSVOL scripts<br/>IIS01 SYSTEM pulls from \\DC01\NETLOGON\<br/>(T1039, T1074.001, T1021.002)"]
+    S1 --> T1["react2shell download certstore.tmp<br/>Exfil over HTTP C2 (T1041)"]
+    T1 --> U["Offline: AES-256-CBC decrypt + unzip<br/>impacket-secretsdump<br/>Full domain credential harvest"]
 
     U --> V["Phase 5 — Impact"]
-    V --> V1["Step 1 (DC01): Service Stop + Inhibit Recovery<br/>sc/net stop spooler, WSearch<br/>vssadmin delete shadows /all<br/>wbadmin delete catalog<br/>bcdedit disable WinRE (T1489, T1490)"]
-    V --> V2["Step 2 (DC01+IIS01): Internal Defacement<br/>LegalNoticeCaption/Text registry (T1112)<br/>README_DECRYPT.txt on DC01<br/>react2shell overwrites IIS01 index.html (T1491.001)"]
-    V --> V3["Step 3 (DC01): Data Encrypted for Impact<br/>PowerShell AES-256-CBC loop<br/>RansomTest/*.docx → *.locked<br/>README_DECRYPT.txt co-located (T1486)"]
-    V --> V4["Step 4 (IIS01): System Shutdown/Reboot<br/>shutdown.exe /r /t 60 from SYSTEM dnscat2<br/>Terminates IIS01 C2 sessions (T1529)"]
+    V --> V1["Step 1 (IIS01): CertMaint.exe<br/>VSS deletion via COM IVssBackupComponents (T1490)<br/>MSSQL$SQLEXPRESS stop via SCM API (T1489)<br/>AES-256-CBC encrypt UploadPortalDB.mdf/.ldf (T1486)"]
+    V --> V2["Step 2 (DC01 + IIS01): Internal Defacement<br/>LegalNoticeCaption/Text registry on DC01 (T1491.001, T1112)<br/>README_DECRYPT.txt on DC01<br/>react2shell overwrites upload.testlab.local index.html"]
 ```
 
 ### Phase Summary
 
 | Phase | File | Tactic | Key Behaviors |
 | - | - | - | - |
-| Phase 1 | `Phase 1.md` | Initial Access, Execution, Privilege Escalation, Defense Evasion, C2 | CVE-2025-55182 RCE → react2shell; Step 1A T1620 reflective load (no disk artifact); Step 1B EfsPotato token impersonation → SYSTEM; Herpaderping ghost process; dnscat2 DNS C2; `shell` command spawns `cmd.exe` under ghost `RuntimeBroker.exe` (T1059.003) |
-| Phase 2 | `Phase 2.md` | Credential Access, Discovery | ReflectDump via `RtlCreateProcessReflection`; XOR-encrypted `f.elif`; chunked exfil; offline decrypt; WMI AV query; domain recon |
-| Phase 3 | `Phase 3.md` | Lateral Movement, Execution, Persistence | Pass the Hash via `go-thehash.exe`; WMI + SCM dual-path execution on DC01; 5 independent persistence mechanisms |
-| Phase 4 | `Phase 4.md` | Collection, Exfiltration | VSS/NTDS credential harvest (T1003.003, T1005); SMB network share collection from IIS01 (T1039); archive via `makecab` LOLBin (T1560.001), .NET ZipFile API (T1560.002), and XOR custom method (T1560.003); exfil via react2shell HTTP C2 (T1041) |
-| Phase 5 | `Phase 5.md` | Impact | Service stop via `sc.exe`/`net.exe` (T1489); VSS + backup catalog deletion + BCD recovery disable (T1490); logon-screen registry modification and ransom notes on DC01 + web root overwrite on IIS01 (T1491.001, T1112); AES-256-CBC PowerShell encryption loop on scoped test directory (T1486); IIS01 system reboot from SYSTEM dnscat2 session (T1529) |
+| Phase 1 | `Phase 1.md` | Initial Access, Execution, Privilege Escalation, Defense Evasion, C2 | CVE-2025-55182 RCE → react2shell; Step 1A EfsPotato token impersonation → SYSTEM (main); [ALT] Step 1B T1620 reflective load via stdin (no disk artifact); Herpaderping ghost process; dnscat2 DNS C2; `shell` command spawns `cmd.exe` under ghost `RuntimeBroker.exe` (T1059.003) |
+| Phase 2 | `Phase 2.md` | Credential Access, Discovery | ReflectDump via `RtlCreateProcessReflection`; XOR-encrypted `f.elif`; chunked exfil; offline decrypt; WMI AV query; domain recon; [ALT] Step 3B: Defender disable (T1562.001) + `rundll32 comsvcs.dll MiniDump` (T1218.011, T1003.001) → `g.dmp` |
+| Phase 3 | `Phase 3.md` | Lateral Movement, Execution, Persistence | Pass the Hash via `go-thehash.exe`; WMI + SCM dual-path execution on DC01; 4 persistence mechanisms: svcbackup account, WMI subscription, SYSVOL logon script, registry-backed service (+ API-based service variant) |
+| Phase 4 | `Phase 4.md` | Collection, Exfiltration | `NtdsRawDump.exe`: VSS shadow via WMI (T1047), direct volume access (T1006), NTDS harvest (T1003.003, T1005), automated collection (T1119), in-memory ZIP + AES-256-CBC double encryption (T1560.002, T1560.003); [ALT] `makecab` LOLBin (T1560.001); NETLOGON relay staging (T1039, T1074.001, T1021.002); exfil via react2shell HTTP C2 (T1041) |
+| Phase 5 | `Phase 5.md` | Impact | `CertMaint.exe` (single binary): VSS deletion via COM `IVssBackupComponents` (T1490); `MSSQL$SQLEXPRESS` stop via SCM API (T1489); AES-256-CBC encrypt `UploadPortalDB.mdf`/`.ldf` on IIS01 (T1486); logon-screen registry modification and ransom notes on DC01 + `upload.testlab.local` web root overwrite (T1491.001, T1112) |
 
 ## Key Hosts
 

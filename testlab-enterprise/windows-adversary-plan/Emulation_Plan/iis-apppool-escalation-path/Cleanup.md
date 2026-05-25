@@ -465,33 +465,7 @@ $phase4DcFiles | ForEach-Object {
 Test-Path -LiteralPath "C:\ProgramData\CertStore"
 ```
 
-### 2. Clean IIS01 staged files
-
-Run on `IIS01` / `react.testlab.local` as an administrator.
-
-```powershell
-$phase4IisFiles = @(
-    "C:\Windows\Temp\NtdsRawDump.b64",
-    "C:\Windows\Temp\NtdsRawDump.exe"
-)
-
-foreach ($path in $phase4IisFiles) {
-    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
-}
-
-Remove-Item -LiteralPath "C:\Windows\Temp\sysvol_collect" -Recurse -Force -ErrorAction SilentlyContinue
-```
-
-Verify:
-
-```powershell
-$phase4IisFiles | ForEach-Object {
-    [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
-}
-Test-Path -LiteralPath "C:\Windows\Temp\sysvol_collect"
-```
-
-### 3. Clean IIS01 web root staging file (if inline cleanup was skipped)
+### 2. Clean IIS01 web root staging file (if inline cleanup was skipped)
 
 Run on `IIS01` as an administrator.
 

