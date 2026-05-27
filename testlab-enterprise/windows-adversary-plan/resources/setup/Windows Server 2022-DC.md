@@ -103,12 +103,12 @@ Add-DnsServerResourceRecordA -ZoneName "testlab.local" -Name "ws01" -IPv4Address
 
 ### Conditional Forwarder for dnscat2 C2
 
-The dnscat2 server listens for DNS queries under `attacker.local`. The DC must forward
+The dnscat2 server listens for DNS queries under `crl.ms-cert.net`. The DC must forward
 that zone to the attacker machine so DNS tunnelling traffic reaches the C2 listener.
 
 ```powershell
 Add-DnsServerConditionalForwarderZone `
-    -Name "attacker.local" `
+    -Name "crl.ms-cert.net" `
     -MasterServers "192.168.56.2" `
     -PassThru
 ```
@@ -119,8 +119,8 @@ Verify the forwarder is configured:
 Get-DnsServerZone | Where-Object ZoneType -eq "Forwarder"
 ```
 
-Expected output: `attacker.local` with `ZoneType: Forwarder`. A timeout on
-`Resolve-DnsName attacker.local` is normal at this stage — the forwarder is working
+Expected output: `crl.ms-cert.net` with `ZoneType: Forwarder`. A timeout on
+`Resolve-DnsName crl.ms-cert.net` is normal at this stage — the forwarder is working
 but the attacker's dnscat2 listener is not yet running.
 
 ---
