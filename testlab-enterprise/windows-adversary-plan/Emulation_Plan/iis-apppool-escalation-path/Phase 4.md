@@ -71,32 +71,6 @@ as UTF-16 literals in the compiled PE.
 The binary is staged to DC01 from IIS01 via the `C$` admin share using the existing
 react2shell upload path.
 
-### Setup
-
-- ☣️ Build `NtdsRawDump.exe` from source on the attacker machine (VS Developer Command Prompt)
-
-  ```powershell
-  cd resources\payloads\NtdsRawDump
-  csc /optimize+ /debug- /out:NtdsRawDump.exe NtdsRawDump.cs `
-      /r:System.Management.dll `
-      /r:System.IO.Compression.dll
-  ```
-
-  > **Note:** Requires VS BuildTools `csc`. Output: `resources\payloads\NtdsRawDump\NtdsRawDump.exe`
-
-- ☣️ Base64-encode `NtdsRawDump.exe` for react2shell upload
-
-  ```bash
-  cd resources/payloads/react2shell-tool
-  python -c "import base64; open('NtdsRawDump.b64','wb').write(base64.b64encode(open('../NtdsRawDump/NtdsRawDump.exe','rb').read()))"
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    (no output — NtdsRawDump.b64 created in resources/payloads/react2shell-tool/)
-    ```
-
 ### Procedures
 
 - ☣️ Launch the react2shell session and upload `NtdsRawDump.exe` to IIS01

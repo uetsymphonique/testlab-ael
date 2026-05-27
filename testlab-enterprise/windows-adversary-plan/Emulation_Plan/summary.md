@@ -51,10 +51,10 @@ domain-joined workstation used for the user-driven execution paths.
 
 | Role | Hostname | IP | Notes |
 | - | - | - | - |
-| Domain Controller / DNS | `DC01` | `10.12.10.10` | Hosts AD DS, DNS zone `testlab.local`, and conditional forwarder for `attacker.local` |
+| Domain Controller / DNS | `DC01` | `10.12.10.10` | Hosts AD DS, DNS zone `testlab.local`, and conditional forwarder for `crl.ms-cert.net` |
 | IIS Server | `IIS01` | `10.12.10.20` | Hosts `upload.testlab.local` and `react.testlab.local`; SQL Server Express instance `MSSQL$SQLEXPRESS` (`localhost\SQLEXPRESS`) with database `UploadPortalDB` — T1489/T1486 target in Phase 5; data files at `C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\` |
 | Workstation | `WS01` | `10.12.10.30` | Domain-joined workstation used by the victim domain user |
-| Attacker machine | Operator controlled | `192.168.56.2` | Runs dnscat2 server and exploit tooling; receives DNS tunnel traffic for `attacker.local` and Toneshell TCP C2 |
+| Attacker machine | Operator controlled | `192.168.56.2` | Runs dnscat2 server and exploit tooling; receives DNS tunnel traffic for `crl.ms-cert.net` and Toneshell TCP C2 |
 
 ### Lab Topology
 
@@ -73,7 +73,7 @@ flowchart LR
 
     DC --> DNS1["A record:<br/>upload.testlab.local maps to 10.12.10.20"]
     DC --> DNS2["A record:<br/>react.testlab.local maps to 10.12.10.20"]
-    DC --> DNS3["Conditional forwarder:<br/>attacker.local maps to 192.168.56.2"]
+    DC --> DNS3["Conditional forwarder:<br/>crl.ms-cert.net maps to 192.168.56.2"]
 
     IIS --> UPLOAD["IIS site:<br/>upload.testlab.local<br/>C:/inetpub/upload.testlab.local"]
     IIS --> REACT["IISNode site:<br/>react.testlab.local<br/>C:/inetpub/react.testlab.local"]
@@ -81,7 +81,7 @@ flowchart LR
 
     WS -->|"DNS queries"| DC
     IIS -->|"DNS queries"| DC
-    DC -->|"Forward attacker.local"| ATTACKER
+    DC -->|"Forward crl.ms-cert.net"| ATTACKER
     ATTACKER -->|"HTTP / exploit traffic"| IIS
 ```
 

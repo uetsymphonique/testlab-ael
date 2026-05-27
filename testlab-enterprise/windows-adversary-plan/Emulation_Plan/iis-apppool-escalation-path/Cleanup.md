@@ -473,6 +473,29 @@ Run on `IIS01` as an administrator.
 Remove-Item -LiteralPath "C:\inetpub\react.testlab.local\certstore.tmp" -Force -ErrorAction SilentlyContinue
 ```
 
+### 3. Clean IIS01 temp files
+
+Run on `IIS01` as an administrator.
+
+```powershell
+$phase4IisFiles = @(
+    "C:\Windows\Temp\NtdsRawDump.b64",
+    "C:\Windows\Temp\NtdsRawDump.exe"
+)
+
+foreach ($path in $phase4IisFiles) {
+    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+}
+```
+
+Verify:
+
+```powershell
+$phase4IisFiles | ForEach-Object {
+    [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
+}
+```
+
 ### 4. Optional attacker-side cleanup
 
 Remove the collection tool blob and downloaded archives from the attacker workspace.
@@ -552,7 +575,39 @@ Test-Path "C:\Windows\Temp\UploadPortalDB_log.ldf.backup"
 # Both expected: False
 ```
 
-### 4. Remove logon-screen registry defacement on DC01
+### 4. Remove CertMaint staged files from IIS01
+
+Run on `IIS01` as an administrator.
+
+```powershell
+$phase5IisCertMaint = @(
+    "C:\Windows\Temp\CertMaint.b64",
+    "C:\ProgramData\CertMaint.bin",
+    "C:\ProgramData\CertMaint.exe"
+)
+
+foreach ($path in $phase5IisCertMaint) {
+    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+}
+```
+
+Verify:
+
+```powershell
+$phase5IisCertMaint | ForEach-Object {
+    [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
+}
+```
+
+### 5. Optional attacker-side cleanup
+
+Remove the CertMaint payload blob from the attacker workspace.
+
+```powershell
+Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\CertMaint.b64" -Force -ErrorAction SilentlyContinue
+```
+
+### 6. Remove logon-screen registry defacement on DC01
 
 Run on `DC01` as an administrator.
 
@@ -571,7 +626,7 @@ Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Syste
 # Both expected: empty / not present
 ```
 
-### 5. Remove ransom notes on DC01
+### 7. Remove ransom notes on DC01
 
 Run on `DC01` as an administrator.
 
@@ -595,7 +650,7 @@ $phase5DcFiles | ForEach-Object {
 # Both expected: False
 ```
 
-### 6. Remove defaced web page on IIS01
+### 8. Remove defaced web page on IIS01
 
 The react2shell eval channel created `index.html` in the upload portal web root. The
 original landing page is `Default.aspx`; deleting the attacker-created `index.html`
@@ -618,7 +673,7 @@ Invoke-WebRequest -Uri "http://upload.testlab.local/" -UseBasicParsing |
 # Expected: original upload portal title, not "ENCRYPTED"
 ```
 
-### 7. Non-reversible changes — restore from VM snapshot if needed
+### 9. Non-reversible changes — restore from VM snapshot if needed
 
 The following Phase 5 change cannot be reversed by command:
 
