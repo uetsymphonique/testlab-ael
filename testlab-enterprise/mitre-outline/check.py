@@ -21,15 +21,18 @@ Usage:
     python check.py --reset --scope <Scenario.md>
 
 Options:
-    --folder  Directory containing Phase*.md plan files. All matching files
-              are collected and sorted automatically.
-    --reset   Undo all marks in the scope file: revert [x] → [ ] and
-              strip <!-- plan tactic: ... --> annotations.
-              Skips strikethrough ~~techniques~~.
+    --folder      Directory containing Phase*.md plan files. All matching files
+                  are collected and sorted automatically.
+    --exclude-alt Skip Reference Tables under headings containing [ALT] marker.
+                  Use this to ignore alternative steps when checking coverage.
+    --reset       Undo all marks in the scope file: revert [x] → [ ] and
+                  strip <!-- plan tactic: ... --> annotations.
+                  Skips strikethrough ~~techniques~~.
 
 Examples:
     python check.py --scope "Scenario 1.md" Phase1.md Phase2.md
     python check.py --scope "Scenario 2.md" --folder ../Emulation_Plan/iis-path
+    python check.py --scope "Scenario 1.md" --exclude-alt --folder ../Emulation_Plan/iis-path
     python check.py --reset --scope "Scenario 1.md"
 """
 
@@ -80,16 +83,35 @@ def _norm(s: str) -> str:
 # Parse plan files → covered sets
 # ---------------------------------------------------------------------------
 
-def extract_plan_techniques(filepath: Path) -> list[tuple[str, str, str, str]]:
+def extract_plan_techniques(filepath: Path, exclude_alt: bool = False) -> list[tuple[str, str, str, str]]:
     """
     Return list of (norm_tactic, tech_id, tech_name, category) from all Reference Tables.
     category is the raw value of the "Category" column (e.g. "Calibrated - Not Benign").
+    
+    If exclude_alt is True, skip Reference Tables under headings containing [ALT] marker.
     """
     lines = filepath.read_text(encoding="utf-8").splitlines()
     results = []
     i = 0
+    current_step_heading = ""  # Track the most recent ## heading
+    
     while i < len(lines):
+        # Track step headings (## level) to detect [ALT] sections
+        step_match = re.match(r"^##\s+(.+)$", lines[i])
+        if step_match:
+            current_step_heading = step_match.group(1).strip()
+        
         if re.match(r"#{1,4}\s+Reference\s+Tables", lines[i], re.IGNORECASE):
+            # Skip this Reference Table if exclude_alt is True and current step contains [ALT]
+            if exclude_alt and "[ALT]" in current_step_heading:
+                i += 1
+                # Skip until next non-table line
+                while i < len(lines) and not _is_table_row(lines[i]):
+                    i += 1
+                while i < len(lines) and _is_table_row(lines[i]):
+                    i += 1
+                continue
+            
             i += 1
             while i < len(lines) and not _is_table_row(lines[i]):
                 i += 1
@@ -327,6 +349,9 @@ def main():
 
     reset_mode = "--reset" in args
     args = [a for a in args if a != "--reset"]
+    
+    exclude_alt = "--exclude-alt" in args
+    args = [a for a in args if a != "--exclude-alt"]
 
     idx = args.index("--scope")
     if idx + 1 >= len(args):
@@ -381,6 +406,9 @@ def main():
             print(f"[!] Plan file not found: {p}", file=sys.stderr)
         sys.exit(1)
 
+    if exclude_alt:
+        print("[*] --exclude-alt enabled: skipping Reference Tables under [ALT] headings")
+
     # Parse all plan files
     covered: set[tuple[str, str]]          = set()
     covered_tids: dict[str, list[str]]     = defaultdict(list)
@@ -390,7 +418,7 @@ def main():
     total_unknown_cat  = 0
 
     for p in plan_files:
-        rows = extract_plan_techniques(p)
+        rows = extract_plan_techniques(p, exclude_alt=exclude_alt)
         cal = sum(1 for _, _, _, cat in rows if _is_calibrated(cat) is True)
         uncal = sum(1 for _, _, _, cat in rows if _is_calibrated(cat) is False)
         unk   = len(rows) - cal - uncal
@@ -411,7 +439,7 @@ def main():
 
     # Second pass: add parent techniques only if parent exists in scope
     for p in plan_files:
-        rows = extract_plan_techniques(p)
+        rows = extract_plan_techniques(p, exclude_alt=exclude_alt)
         for tac, tid, name, cat in rows:
             # If subtechnique (TXXXX.YYY), also tick parent technique (TXXXX) if it exists in scope
             parent_match = re.match(r"(T\d{4})\.\d{3}", tid)

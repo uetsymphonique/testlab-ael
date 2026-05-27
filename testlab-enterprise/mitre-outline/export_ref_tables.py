@@ -27,6 +27,8 @@ INPUT_HEADERS = [
 
 FILTERS = {"not-benign", "benign", "calibrated", "not-calibrated"}
 
+OUTPUT_HEADERS = ["Step"] + CANONICAL_HEADERS
+
 
 def split_row(line: str) -> list[str]:
     s = line.strip()
@@ -83,14 +85,27 @@ def is_next_heading(line: str) -> bool:
     return bool(re.match(r"#{1,6}\s+", line.strip()))
 
 
-def extract_reference_rows(filepath: Path) -> list[dict[str, str]]:
+def extract_reference_rows(filepath: Path, exclude_alt: bool = False) -> list[dict[str, str]]:
     lines = filepath.read_text(encoding="utf-8").splitlines()
     rows = []
     i = 0
+    current_step_heading = ""
 
     while i < len(lines):
+        step_match = re.match(r"^##\s+(.+)$", lines[i])
+        if step_match:
+            current_step_heading = step_match.group(1).strip()
+
         if not is_reference_tables_heading(lines[i]):
             i += 1
+            continue
+
+        if exclude_alt and "[ALT]" in current_step_heading:
+            i += 1
+            while i < len(lines) and not is_table_row(lines[i]):
+                i += 1
+            while i < len(lines) and is_table_row(lines[i]):
+                i += 1
             continue
 
         i += 1
@@ -116,6 +131,7 @@ def extract_reference_rows(filepath: Path) -> list[dict[str, str]]:
             row = {header: cells[idx] if idx < len(cells) else "" for idx, header in enumerate(headers)}
             if any(row.values()):
                 row = {header: row.get(header, "") for header in CANONICAL_HEADERS}
+                row["Step"] = current_step_heading
                 rows.append(row)
             i += 1
 
@@ -147,7 +163,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Export Reference Tables from one or more emulation plan Markdown files to CSV."
     )
-    parser.add_argument("plans", nargs="+", type=Path, help="Plan Markdown file(s) to parse.")
+    parser.add_argument("plans", nargs="*", type=Path, help="Plan Markdown file(s) to parse.")
+    parser.add_argument("--folder", type=Path, help="Directory containing Phase*.md plan files.")
     parser.add_argument("--out", type=Path, help="CSV output path. Defaults to stdout.")
     parser.add_argument(
         "--filter",
@@ -156,24 +173,51 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="Category filter(s): not-benign, benign, calibrated, not-calibrated.",
     )
+    parser.add_argument(
+        "--exclude-alt",
+        action="store_true",
+        default=False,
+        help="Skip Reference Tables under headings containing [ALT] marker.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    missing = [path for path in args.plans if not path.exists()]
+
+    plan_files = list(args.plans)
+
+    if args.folder is not None:
+        if not args.folder.is_dir():
+            print(f"[!] Folder not found: {args.folder}", file=sys.stderr)
+            return 1
+        phase_files = sorted(args.folder.rglob("Phase*.md"))
+        if not phase_files:
+            print(f"[!] No Phase*.md files found in {args.folder}", file=sys.stderr)
+            return 1
+        print(f"[*] Folder {args.folder}: found {len(phase_files)} Phase*.md file(s)", file=sys.stderr)
+        plan_files = phase_files + plan_files
+
+    if not plan_files:
+        print("[!] No plan files specified. Provide at least one plan .md file or use --folder.", file=sys.stderr)
+        return 1
+
+    missing = [path for path in plan_files if not path.exists()]
     if missing:
         for path in missing:
             print(f"[!] Plan file not found: {path}", file=sys.stderr)
         return 1
 
+    if args.exclude_alt:
+        print("[*] --exclude-alt enabled: skipping Reference Tables under [ALT] headings", file=sys.stderr)
+
     rows = []
     filters = set(args.filter)
-    for path in args.plans:
-        extracted = extract_reference_rows(path)
+    for path in plan_files:
+        extracted = extract_reference_rows(path, exclude_alt=args.exclude_alt)
         rows.extend(row for row in extracted if category_matches(row.get("Category", ""), filters))
 
-    fieldnames = CANONICAL_HEADERS
+    fieldnames = OUTPUT_HEADERS
 
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
