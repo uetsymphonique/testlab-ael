@@ -1,5 +1,7 @@
 # Protections Methodology Overview
 
+> **Consumed by:** `/write-phase` — see [pipeline.md](pipeline.md)
+
 ## Objective
 
 **Protections** scenarios evaluate a security product's ability to block, disrupt, or reduce the impact of a specific adversary behavior. The focus is on protection outcome at or near execution time — unlike Detections, which focus on observability and investigation.

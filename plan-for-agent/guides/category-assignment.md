@@ -1,6 +1,10 @@
-# Guide: Assigning Category Labels and Verifying Detection Criteria
+# Guide: Assigning Category Labels
 
-How to determine the `Calibrated`/`Not Calibrated` label for each Reference Table row, and verify that Detection Criteria meet the required standard. This is the operational process; `attack-behavior-methodology.md` is the extended commentary with examples from past MITRE scenarios.
+> **Consumed by:** `/assign-category` — see [pipeline.md](../pipeline.md)
+
+How to determine the `Calibrated`/`Not Calibrated` label for each Reference Table row. **Detection Criteria is written first** (`detection-criteria.md` / `write-detection-criteria`, run before this step); this guide **reads** that column as evidence and decides the label from it — it does not author or verify criteria. This is the operational process; `attack-behavior-methodology.md` is the extended commentary with examples from past MITRE scenarios.
+
+> **Criteria is the evidence, not something you imagine here.** Every row already carries a Detection Criteria: either a concrete signal, or a documented `N/A — <Cx>: <reason>` absence. A concrete signal means Conditions 1–3 hold in practice; a documented absence names the failing condition. Read it — do not re-derive observability/reproducibility/verifiability by guessing whether a criteria *could* be written.
 
 ---
 
@@ -83,6 +87,8 @@ Two independent questions, in order. Stop immediately when you get "Yes":
 
 ### Layer 2 — 4-condition checklist for Calibrated
 
+**Read Conditions 1–3 off the written Detection Criteria; do not imagine them.** A concrete signal in the criteria column = Conditions 1–3 hold. A documented `N/A — <Cx>: <reason>` absence = that condition fails. Layer 2 is mostly a *read* of upstream evidence; only Condition 4 (surface fit) is judged fresh here against Layer 0.
+
 A substep is **Calibrated** if and only if it satisfies **all 4** conditions:
 
 | # | Condition | Exclusions |
@@ -122,47 +128,20 @@ After labeling, check for the following patterns — these commonly warrant re-r
 - **Calibrated ratio ~100% in a Detections scenario with heavy custom implant use** → suspicious; implant-heavy chains typically have many evasion mechanisms that fail Condition 1 or 3.
 - **Two rows with the same technique and same physical event** → double-count; one is likely an implementation detail of the other.
 - **Not Calibrated but artifact is clear, on the measurement surface, with no other row representing it** → re-check Layer 1; if it is genuinely not a setup/implementation detail → consider upgrading to Calibrated.
-- **Calibrated but Detection Criteria cannot be written specifically** → artifact is not truly observable or reproducible; consider downgrading to Not Calibrated.
+- **Calibrated but its Detection Criteria is a documented `N/A — <reason>` absence** → contradiction; the absence names a failing condition — Not Calibrate it.
 - **Entire step has 0 Calibrated rows** → write one explicit justification sentence before proceeding (e.g., "all artifacts are in-memory inside a ghost process" or "all artifacts are on attacker infrastructure"). If a clear justification cannot be written, re-evaluate the entire step.
 - **T1071 and T1573 (or similar multi-technique rows) cite the same process and destination without distinct criteria** → apply the same-level capability check from Question B; keep both rows only if Detection Criteria explicitly require different telemetry depth (e.g., raw netconn vs. TLS/JA3 fingerprint).
 
 ---
 
-## Verifying Detection Criteria
+## Reading Detection Criteria as evidence
 
-After labeling, verify the `Detection Criteria` column for every **Calibrated** row:
+The `Detection Criteria` column is written **before** labeling, by its own guide **`detection-criteria.md`** (`write-detection-criteria` skill). This guide does not author or verify criteria — it reads the column:
 
-**Required format:** `<process|principal> <action> <artifact|target> [on <host>]`
+- **Concrete signal present** → Conditions 1–3 are satisfied in practice. Proceed on scope (Q-A), redundancy (Q-B), and Condition 4.
+- **Documented `N/A — <Cx>: <reason>` absence** → that condition fails → **Not Calibrated**, no further imagination needed.
 
-| | Example |
-|---|---|
-| ✅ Correct | `waitfor.exe connects to 191.44.44.199 over TCP port 443` |
-| ✅ Correct | `EssosUpdate.exe side-loads unsigned wsdapi.dll from C:\Users\Public\` |
-| ❌ Incorrect | `Malware connects to C2` |
-| ❌ Incorrect | `Loader decrypts payload` |
-
-**Behavioral pattern format (alternative when no single artifact is sufficient):**
-
-When a detection depends on a combination of observable conditions rather than one specific artifact, behavioral criteria are acceptable and preferred:
-
-`[process | process class] <condition> [and <condition>…]`
-
-| | Example |
-|---|---|
-| ✅ Correct | `any process loads unsigned DLL from user-writable path and creates outbound network connection` |
-| ✅ Correct | `EssosUpdate.exe spawns child process not matching known-good child list` |
-| ❌ Incorrect | `suspicious process does something malicious` |
-
-> Behavioral criteria must still satisfy the checklist below: each condition must be independently verifiable in telemetry without relying on red team claims.
-
-**Detection Criteria checklist:**
-- [ ] Has a specific process/principal (filename, not just "malware")
-- [ ] Has a specific action (loads, executes, connects, writes, reads...)
-- [ ] Has a specific artifact/target (full path, IP:port, filename, registry key)
-- [ ] Can be used to query directly in SIEM/EDR without additional information
-- [ ] If behavior occurs on multiple hosts → split into multiple rows, each with a specific host
-
-> If Detection Criteria cannot be written specifically enough → this is a signal the substep is actually Not Calibrated (fails Condition 1 or 2). Revisit the label before attempting to force a criteria.
+Never edit the criteria from here. If a row's written signal makes you doubt the label, change the **label**; if you doubt the **signal**, send the row back to `write-detection-criteria`.
 
 ---
 
@@ -175,6 +154,6 @@ Stop immediately on "No":
 3. Does the artifact **reproduce consistently** across runs? (No → Not Calibrated)
 4. Can the evaluator **independently verify** the artifact? (No → Not Calibrated)
 5. Is there another Calibrated row that **already represents this information better**? (Yes → Not Calibrated)
-6. Can Detection Criteria be written in specific form? (No → rewrite or Not Calibrated)
+6. Is the **written** Detection Criteria a concrete signal (not a documented `N/A — <reason>` absence)? (No → Not Calibrated)
 
 → All 6 pass: **Calibrated - Not Benign**.

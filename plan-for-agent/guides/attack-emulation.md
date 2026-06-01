@@ -1,5 +1,7 @@
 # Guide: Writing an Attack Emulation Step
 
+> **Consumed by:** no skill wrapper — used directly per the CLAUDE.md workflow. See [pipeline.md](../pipeline.md)
+
 How to build a step in the emulation plan — from an attack idea to complete procedures and reference table. Two branches depending on the input.
 
 ---
@@ -53,13 +55,15 @@ Use when: a document describing adversary behavior is already available (CTI rep
 
 ### Step 1 — Read source, extract behaviors
 
-Read the source to extract a list of specific behaviors:
-- What does the adversary do?
+> See `behavior-breakdown.md` (skill: `extract-behaviors`) for the full extraction method — the atomic-unit contract, granularity rules, the six-class observable filter, and the three input adapters (description / source code / command sequence).
+
+Extract an ordered list of specific behaviors, each as a neutral `<actor> <action> <target/artifact>` line:
+- What does the adversary do, and which process/principal performs it?
 - Which tools or binaries are used?
-- What artifacts are created (file, registry, network, process)?
+- What artifacts are created (file, registry, network, process, memory, identity)?
 - What is the execution sequence?
 
-Record behaviors clearly in order.
+Stay inclusive (extract setup/implementation actions too) and record behaviors in temporal order.
 
 ### Step 2 — Map tactics
 

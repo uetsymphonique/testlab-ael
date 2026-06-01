@@ -1,5 +1,7 @@
 # Guide: Dev CLI Execution Constraints
 
+> **Consumed by:** `/craft-payload` — see [pipeline.md](../pipeline.md)
+
 This file describes the **development environment used to compose, test, or support procedure writing in this repo**.
 
 This is **not** a description of the test execution environment, victim host, attack host, or lab target. When writing `Procedures` in the emulation plan, do not infer that a tool is available on the test machine just because it is or is not listed here. Lab capabilities must be derived from `resources/setup/`, Phase file content, or plan-specific setup documentation.

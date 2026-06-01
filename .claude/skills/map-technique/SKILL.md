@@ -1,31 +1,33 @@
 ---
 name: map-technique
-description: Map a described adversary behavior to the correct ATT&CK tactic, technique, and sub-technique, and verify scope membership
-model: claude-haiku-4-5-20251001
-allowed-tools: Read, Grep
+description: Map a described adversary behavior to the correct ATT&CK tactic, technique, and sub-technique — and fill the mapping column when the behaviors came from a Flow.md or Phase Reference Table
+model: claude-sonnet-4-6
+effort: medium
+allowed-tools: Read, Grep, Edit
 ---
 
-Map a described adversary behavior to the correct ATT&CK tactic, technique, and sub-technique. Verify scope membership.
+Map a described adversary behavior to the correct ATT&CK tactic, technique, and sub-technique.
 
 ## Before starting
 
-Read `plan-for-agent/guides/technique-mapping.md` — it contains the full 4-step process and lookup tables.
+Read `plan-for-agent/guides/technique-mapping.md` — it contains the full mapping process and lookup tables.
 
 ## Steps
 
-1. Ask the user to describe the behavior (or read from the current file context / selection).
-2. Follow the 4-step process in `technique-mapping.md`:
-   - Step 1: identify tactic from behavior intent
-   - Step 2: open the relevant `mitre-knowledge-base/techniques/<tactic>.md`
-   - Step 3: find the technique and sub-technique (prefer sub-technique when one fits)
-   - Step 4: cross-reference against `testlab-enterprise/mitre-outline/Scenario 1.md` or `Scenario 2.md`
-3. Report:
+1. Ask the user to describe the behavior (or read from the current file context / selection). When the input is unstructured (source code, command sequence, CTI), a behavior list from `extract-behaviors` is the cleanest input — one observable action per line, with distinct actions already unbundled. Note a single behavior may still map to multiple tactics → multiple rows (see step 4); the list keeps actions separate, not techniques.
+2. Identify tactic from behavior intent.
+3. Open the relevant `mitre-knowledge-base/techniques/<tactic>.md` and find the technique and sub-technique.
+4. Report:
    - Tactic, Technique ID (with sub-technique if applicable), Technique Name, Platform
-   - Whether the technique is in scope for Scenario 1 / Scenario 2
    - If multiple tactics apply (e.g. DLL Side-Loading = Execution + Defense Evasion), list all rows
+5. **Write back** (when the behaviors came from a file with a mapping column to fill):
+   - `Flow.md` (from `document-flow`): fill the `Tactic / TID` column on each behavior row. When one behavior maps to multiple tactics, split it into one row per tactic, keeping the same `#`/edge/context (e.g. `#3` → `#3a`, `#3b`).
+   - Phase Reference Table (from `write-phase`): fill the `Tactic`, `Technique ID`, `Technique Name` columns, replacing the `—` placeholders.
+   - Edit only the mapping columns — do not touch behavior text, edges, Category, or Detection Criteria. If no target file is in context, just report (step 4) and stop.
 
 ## Notes
 
 - Always prefer sub-technique over parent when behavior is specific enough
 - If behavior maps to multiple tactics, create a separate Reference Table row for each
-- If no in-scope technique matches, report that and do not assign the nearest guess
+- Do not check scope membership — mapping correctness is the only goal
+- When writing back, only the mapping columns are yours to edit. Behavior text, produces→consumes edges, Category, and Detection Criteria belong to other skills — leave them untouched.

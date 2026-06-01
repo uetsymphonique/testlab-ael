@@ -1,5 +1,7 @@
 # Detections Methodology Overview
 
+> **Consumed by:** `/write-phase` — see [pipeline.md](pipeline.md)
+
 ## Objective
 
 **Detections** scenarios evaluate a security product's ability to detect, record, correlate, and support investigation of adversary behavior chains in an Enterprise environment. The focus is on observing attack behavior through telemetry and detection logic — blocking at execution time is not required.

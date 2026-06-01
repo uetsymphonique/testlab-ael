@@ -1,5 +1,7 @@
 # Guide: Technique Mapping
 
+> **Consumed by:** `/map-technique` — see [pipeline.md](../pipeline.md)
+
 How to identify the ATT&CK tactic and technique corresponding to a specific adversary behavior, for use in filling Reference Tables in the emulation plan.
 
 > **Scope of this guide:** Identify the correct Tactic, Technique ID, Technique Name, and Platform for a behavior. This guide does **not** handle the `Detection Criteria` or `Category` columns — those are covered separately in `category-assignment.md`.

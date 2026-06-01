@@ -36,14 +36,17 @@ This file is the top-level entry point for agent guidance. When a task touches a
 
 | File | Read when |
 |---|---|
+| [`pipeline.md`](plan-for-agent/pipeline.md) | Need the skill pipeline DAG and the skill ↔ guide ↔ artifact map (which skill runs when, which guide backs it, which column it owns) |
 | [`detections-overview.md`](plan-for-agent/detections-overview.md) | Need to distinguish goals, flow depth, and expectations of **Detections** scenarios |
 | [`protections-overview.md`](plan-for-agent/protections-overview.md) | Need to design or review **Protections** scenarios and protection outcomes |
 | [`emulation-plan-structure.md`](plan-for-agent/emulation-plan-structure.md) | Writing or editing any file in `Emulation_Plan/`: Step structure, Voice Track, Procedures, Reference Tables |
 | [`chain-breakdown.md`](plan-for-agent/chain-breakdown.md) | Need a phase/attack chain template when building a new plan or reorganizing flow |
 | [`attack-behavior-methodology.md`](plan-for-agent/attack-behavior-methodology.md) | Need deep methodology: behavior, Category, CTI grounding, detection criteria, Detections vs Protections differences |
 | [`guides/attack-emulation.md`](plan-for-agent/guides/attack-emulation.md) | Turning an idea or CTI source into a complete attack emulation step |
+| [`guides/behavior-breakdown.md`](plan-for-agent/guides/behavior-breakdown.md) | Breaking an unstructured input (chain description, payload source code, command sequence) into an ordered list of atomic behaviors |
 | [`guides/technique-mapping.md`](plan-for-agent/guides/technique-mapping.md) | Identifying tactic, technique, sub-technique, platform, and verifying scope membership |
-| [`guides/category-assignment.md`](plan-for-agent/guides/category-assignment.md) | Assigning `Calibrated` / `Not Calibrated` or checking Detection Criteria |
+| [`guides/detection-criteria.md`](plan-for-agent/guides/detection-criteria.md) | Writing the `Detection Criteria` for **every** row (concrete signal or documented `N/A — <Cx>` absence) — the evidence base, written **before** labeling |
+| [`guides/category-assignment.md`](plan-for-agent/guides/category-assignment.md) | Assigning `Calibrated` / `Not Calibrated` labels by **reading** the written Detection Criteria (the scoring decision; runs **after** criteria) |
 | [`guides/cli-execution.md`](plan-for-agent/guides/cli-execution.md) | CLI/toolchain constraints of the **dev environment used to compose procedures** — do not use this to infer lab or victim host capabilities |
 | [`appendix/calibrated-assign-mindmap.md`](plan-for-agent/appendix/calibrated-assign-mindmap.md) | Visual summary of the Category labeling flow |
 
@@ -51,8 +54,8 @@ This file is the top-level entry point for agent guidance. When a task touches a
 
 1. `detections-overview.md` or `protections-overview.md`
 2. `emulation-plan-structure.md`
-3. When selecting or verifying behavior: `chain-breakdown.md`, `guides/technique-mapping.md`, `guides/attack-emulation.md`
-4. Before finalizing the Reference Table: `guides/category-assignment.md`, then `attack-behavior-methodology.md` for deeper grounding
+3. When selecting or verifying behavior: `chain-breakdown.md`, `guides/behavior-breakdown.md` (to extract behaviors from a chain/code/commands), `guides/technique-mapping.md`, `guides/attack-emulation.md`
+4. Before finalizing the Reference Table: `guides/detection-criteria.md` to write Detection Criteria for **every** row first (the evidence base), then `guides/category-assignment.md` to label rows by reading that evidence; `attack-behavior-methodology.md` for deeper grounding
 
 ---
 
@@ -227,9 +230,9 @@ python check.py --reset --scope "Scenario 1.md"
 
 1. Identify whether the task is **Detections** or **Protections**; read the corresponding overview.
 2. If building or restructuring a large flow, consult `chain-breakdown.md`.
-3. **Select techniques** from Scenario 1 / Scenario 2 scope; use `guides/technique-mapping.md` to map tactic / technique / sub-technique.
+3. **Select techniques** from Scenario 1 / Scenario 2 scope; if starting from an unstructured input (chain description, payload source code, command sequence), first run `extract-behaviors` (`guides/behavior-breakdown.md`) to get the ordered behavior list, then use `guides/technique-mapping.md` to map tactic / technique / sub-technique.
 4. **Look up theory** in `mitre-knowledge-base/techniques/` and **consult ART** in `atomic-red-team/atomics/` to understand real behavior.
 5. To create a new step, use `guides/attack-emulation.md`; to run commands in the dev environment to support procedure writing, check `guides/cli-execution.md`. Do not use this file to infer what tools are available on the lab or victim host.
 6. **Build payload** — place in `resources/payloads/<tool-or-technique>/` with a `README.md`.
 7. **Write / update Phase file** per `emulation-plan-structure.md`, referencing payloads with relative paths to `../resources/payloads/`.
-8. Before finalizing the Reference Table, use `guides/category-assignment.md`; for deeper methodological reasoning, cross-reference `attack-behavior-methodology.md`.
+8. Before finalizing the Reference Table, write Detection Criteria for **every** row first with `guides/detection-criteria.md` (concrete signal, or a documented `N/A — <Cx>` absence) — this is the stable evidence base; then label rows with `guides/category-assignment.md` by **reading** that criteria (Category is the heuristic verdict, re-runnable without rewriting criteria); for deeper methodological reasoning, cross-reference `attack-behavior-methodology.md`.

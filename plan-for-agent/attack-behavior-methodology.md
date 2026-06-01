@@ -1,5 +1,7 @@
 # Attack Behavior Methodology
 
+> **Consumed by:** `/assign-category` (deeper methodology / edge cases) — see [pipeline.md](pipeline.md)
+
 Derived from [`Enterprise/mustang_panda/Emulation_Plan/`](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) and [`Enterprise/scattered_spider/Emulation_Plan/`](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md).
 
 This file is the **extended commentary** for the operational process in [`guides/category-assignment.md`](./guides/category-assignment.md): it uses published MITRE scenarios to explain why those rules are sound and how they manifest in practice. When you need to assign a label to a specific row, use `guides/category-assignment.md` as the operational standard; use this file for background, examples, and reasoning.

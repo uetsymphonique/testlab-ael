@@ -1,5 +1,7 @@
 # Emulation Plan Presentation Format
 
+> **Consumed by:** `/write-phase` — see [pipeline.md](pipeline.md)
+
 Derived from `Enterprise/mustang_panda/` and `Enterprise/scattered_spider/`.
 
 ---

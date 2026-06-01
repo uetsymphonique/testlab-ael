@@ -1,5 +1,7 @@
 # Attack Chain Templates
 
+> **Consumed by:** no skill wrapper — used directly per the CLAUDE.md workflow. See [pipeline.md](pipeline.md)
+
 Reference templates for common attack chain patterns. Since the specific MITRE ATT&CK Evaluation scenarios have not been fully published, these templates are drawn from observed past scenarios to help predict likely cases from the published technique list.
 
 ## Phase 1

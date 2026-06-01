@@ -1,6 +1,6 @@
 ---
 name: assign-acw
-description: Assign Attack Chain Weighting (ACW) to every technique row in a plan CSV file. Reads attack chain context from summary.md, applies criticality weights per unique Technique ID, and writes an ACW column back to the CSV.
+description: Assign Attack Chain Weighting (ACW) to every behavior row in a plan CSV file. Reads attack chain context from summary.md, weights each behavior by its role in the attack chain, and writes an ACW column back to the CSV.
 model: claude-sonnet-4-6
 effort: medium
 allowed-tools: Read, Write, Grep, Glob
@@ -8,13 +8,43 @@ allowed-tools: Read, Write, Grep, Glob
 
 Assign ACW (Attack Chain Weighting) to all rows in a plan CSV, regardless of Calibrated/Not Calibrated status. Calibrated labels may change later; weighting all rows now ensures scores are ready as soon as labels are finalized.
 
+ACW originates from `testlab-enterprise/mitre-outline/Scoring Specification.md` as a scoring axis of its own — the *importance* multiplier on Detection Coverage. It is not a calibration decision.
+
 ---
+
+## What ACW measures — the role of a *behavior* in the chain
+
+**The scored unit is the behavior, not the technique.** DC is scored per behavior; ACW is therefore assigned **per behavior (per row)**, not per Technique ID. The same technique can appear under several behaviors at different points in the chain and **each occurrence gets its own ACW**, because its role differs each place it appears (e.g., `T1003` dumping a local cache to move sideways vs. dumping the domain credential store as the terminal objective — same TID, different weight).
+
+> MITRE's per-technique examples (below) are a condensed illustration that does **not** cover the one-technique-many-roles case. Do not build the weighting purely from them — weight by the behavior's role in *this* chain.
+
+ACW asks: **how much does this behavior matter to the attacker's progress through the chain?** Three lenses, strongest first:
+
+- **Terminal objective** — the behavior is the goal the step-cluster / whole chain is driving toward (ransomware encryption, domain takeover, the credential harvest that unlocks the crown jewels). → **Critical**.
+- **Bottleneck** — the chain is *forced* through this behavior; remove it and the downstream steps collapse, and there is no cheap alternative path. → **Critical / High**.
+- **Value-to-attacker** — the leverage the behavior hands the attacker. The greater the capability gained, the higher the weight; preparatory / staging / standalone recon yields little leverage on its own. → **Medium / Low**.
+
+## ACW vs Category — two independent axes
+
+ACW and the `Category` (Calibrated / Not Calibrated) label answer different questions and **do not govern each other**. Conflating them is the most common error when this skill is run alongside `assign-category`.
+
+| Axis | Question it answers | Owner skill | Source |
+|---|---|---|---|
+| **ACW** | *What role does this behavior play in the attack chain?* (terminal objective, bottleneck, value-to-attacker) | `assign-acw` | Scoring Specification → ACW |
+| **Category** | *Is this behavior a fair, scoreable detection point?* (observable, reproducible, independently verifiable) | `assign-category` | calibration methodology |
+
+Rules that follow:
+
+- Assign ACW from **chain criticality alone**. Do **not** lower an ACW because a row is (or might become) Not Calibrated, and do **not** treat a high ACW as a reason to keep a row Calibrated.
+- **All four combinations are valid.** A Critical pivot that happens to be an unobservable in-memory step is still **Critical ACW *and* Not Calibrated**. A noisy, easily-detected recon command can be **Calibrated *and* Low ACW**.
+- Either label can be wrong **independently**. Re-checking or correcting one never forces a change to the other.
+- The two axes only combine **later, in scoring** — a separate script multiplies each behavior's DC by its ACW and sums over the Calibrated behaviors. That computation is **out of scope here**: this skill only writes the ACW label. Score each axis on its own merits and leave the formula to the scorer.
 
 ## Inputs to gather
 
 Ask the user (combine into one message):
 
-1. **CSV file path** — the plan CSV to update (e.g., `testlab-enterprise/mitre-outline/iisprivileged-escalation-to-DC.csv`)
+1. **CSV file path** — the plan CSV to update (e.g., `testlab-enterprise/mitre-outline/iis-apppool-elevation.csv`)
 2. **Summary file** — the attack chain summary to read for chain-level context (default: `testlab-enterprise/windows-adversary-plan/Emulation_Plan/summary.md`)
 3. **Write-back** — should the CSV be updated in-place, or output a new file? (default: in-place)
 
@@ -33,7 +63,7 @@ From `testlab-enterprise/mitre-outline/Scoring Specification.md` and `testlab-en
 | **Medium** | 0.5× | Moderate impact; typically preparatory or intermediate steps (discovery, staging, tool transfer) |
 | **Low** | 0.25× | Easy to detect; limited strategic value in isolation; reconnaissance or enumeration with no direct impact |
 
-MITRE's stated examples:
+MITRE's stated examples — these are the **typical level of the technique standing alone**, not a fixed value. When the same technique plays a bottleneck or terminal-objective role in this chain, weight it up by that role:
 - Critical: T1003 (Credential Dumping), T1486 (Ransomware encryption)
 - High: T1105 (Ingress Tool Transfer)
 - Medium: T1082 (System Information Discovery)
@@ -45,53 +75,55 @@ MITRE's stated examples:
 
 ### Step 1 — Read chain context
 
-Read the summary file. Identify:
-- The overall attack chain phases and their objectives
-- Which techniques are **chain-enabling** (without this, the next phase cannot proceed)
-- Which techniques are **chain-ending** (ransomware, domain compromise, credential harvest)
-- Which techniques are **preparatory** (staging, upload, decode steps)
-- Which techniques are **evasion-only** (no independent impact if removed from chain)
+Read the summary file. Identify, at the **behavior** level:
+- The overall attack chain phases and the objective each step-cluster drives toward
+- Which behaviors are **terminal objectives** (ransomware, domain compromise, the decisive credential harvest)
+- Which behaviors are **bottlenecks** (the chain is forced through them; no cheap alternative path)
+- Which behaviors are **preparatory** (staging, upload, decode steps)
+- Which behaviors are **evasion-only** (little independent leverage if removed from chain)
 
 ### Step 2 — Read the CSV
 
-Read the CSV file. Extract all unique Technique IDs and their associated steps, tactics, and red team activity descriptions.
+Read the CSV file. Each **row is one behavior** — extract every row with its step, tactic, technique, and red team activity description. Do not collapse rows by Technique ID; the same TID on two rows is two behaviors.
 
 **Expected CSV columns:** `Step`, `Tactic`, `Technique ID`, `Technique Name`, `Platform`, `Detection Criteria`, `Category`, `Red Team Activity`, `Hosts`, `Users`
 
-### Step 3 — Assign ACW per unique Technique ID
+### Step 3 — Assign ACW per behavior (per row)
 
-ACW is assigned **per Technique ID** (e.g., T1003.001), not per row. If the same TID appears in multiple steps or rows, it receives the same ACW everywhere.
+ACW is assigned **per behavior**, i.e. **per row** — not per Technique ID. The same TID appearing on multiple rows can receive **different** ACW, because its role in the chain differs each place it appears. Weight each row on *its* role, not on its technique label.
 
-For each unique TID, reason through the following questions in order:
+For each behavior row, reason through the following questions in order (**first match wins, top-down**):
 
-1. **Is this technique chain-ending or the terminal impact?**
-   - Ransomware (T1486), credential harvest enabling domain-wide compromise (T1003.003 + T1550.002 chain), VSS deletion blocking recovery (T1490) → **Critical**
+1. **Is this behavior a terminal objective of its step-cluster or the whole chain?**
+   - Ransomware encryption (T1486), the credential harvest that enables domain-wide compromise, VSS deletion blocking recovery (T1490) → **Critical**
 
-2. **Is this technique chain-enabling — does it directly unlock the next major phase?**
-   - Technique without which lateral movement, privilege escalation, or persistence cannot proceed → **Critical**
-   - Technique that significantly advances the objective but has alternatives → **High**
+2. **Is this behavior a bottleneck — is the chain forced through it with no cheap alternative?**
+   - Remove it and lateral movement / privilege escalation / persistence cannot proceed → **Critical**
+   - It advances the objective significantly but a redundant path exists that lowers its pivotality → **High**
 
-3. **Is this technique a significant standalone behavior with real-world prevalence?**
-   - Commonly observed in threat actor campaigns, significant artifact, but not chain-ending → **High**
+3. **Is this behavior high-value-to-attacker on its own, with real-world prevalence?**
+   - Commonly seen in threat-actor campaigns, hands the attacker significant capability, but not the terminal objective → **High**
+   - Bias up when the behavior is **hard to detect** (one of MITRE's Critical traits — missing it costs the defender more)
 
-4. **Is this technique preparatory or staging?**
-   - Ingress tool transfer, decode, staging files for later use → **High** (if directly enables Critical next step) or **Medium** (if generic infrastructure)
+4. **Is this behavior preparatory or staging?**
+   - Ingress tool transfer, decode, staging files for later use → **High** (if it directly feeds a Critical next behavior) or **Medium** (generic infrastructure)
 
-5. **Is this technique purely evasion or obfuscation with no independent impact?**
-   - Stripped payloads, dynamic API resolution, hidden window, masquerading names only → **Medium** or **Low**
+5. **Is this behavior evasion/obfuscation whose leverage *in the chain* is low on its own?**
+   - Stripped payloads, dynamic API resolution, hidden window, masquerading names → **Medium** or **Low** *by chain role*.
+   - Judge role only. Whether the row is also Not Calibrated is a separate axis (see "ACW vs Category") and must not push this score up or down.
 
-6. **Is this technique pure reconnaissance or enumeration?**
-   - Discovery of users, groups, shares, software → **Low** to **Medium** depending on whether the output directly enabled a Critical next step
+6. **Is this behavior pure reconnaissance or enumeration?**
+   - Discovery of users, groups, shares, software → **Low** to **Medium** depending on whether its output directly enabled a Critical next behavior
 
-> **Note on sub-techniques:** T1003.001 (LSASS) and T1003.003 (NTDS) may receive different ACW if their chain roles differ. Evaluate each sub-technique independently.
+> **Same technique, different role:** the LSASS-cache dump used to pivot once and the NTDS dump that is the terminal credential harvest are two behaviors — weight each on its own role even when the TID (or its parent T1003) repeats. Sub-techniques are no exception.
 
 ### Step 4 — Consistency check
 
 Before writing:
-- Verify all rows with the same Technique ID have the same ACW
-- Verify at least one Critical technique exists in the chain
-- Verify chain-terminal techniques (ransomware, domain takeover) are Critical
-- Flag any technique assigned Critical that is purely evasion/obfuscation — re-evaluate
+- Verify each behavior is weighted on **its own** chain role — do **not** force rows that share a Technique ID to the same ACW
+- Verify at least one Critical behavior exists in the chain
+- Verify chain-terminal behaviors (ransomware, domain takeover) are Critical
+- Flag any behavior assigned Critical that is purely evasion/obfuscation — re-evaluate against the three lenses
 
 ### Step 5 — Write output
 
@@ -103,29 +135,30 @@ Format:
 - `Medium`
 - `Low`
 
-**In the terminal:** Output a summary table:
+**In the terminal:** Output a summary table — **one line per behavior row**, not per Technique ID:
 
 ```
-| Technique ID | Technique Name | ACW | Rationale |
-|---|---|---|---|
-| T1003.001 | LSASS Memory | Critical | Enables TESTLAB\Administrator hash recovery → PtH → DC01 lateral movement chain |
-| T1105 | Ingress Tool Transfer | High | ... |
+| Step | Behavior (Red Team Activity) | Technique ID | ACW | Role / Rationale |
+|---|---|---|---|---|
+| Step 2 | Dump LSASS for TESTLAB\Administrator hash | T1003.001 | Critical | Bottleneck → PtH → DC01 lateral movement |
+| Step 4 | Dump NTDS.dit domain credential store | T1003.003 | Critical | Terminal objective of the credential-harvest cluster |
+| Step 1 | Ingress-transfer dnscat2 implant | T1105 | High | Staging that feeds Critical C2 |
 ```
 
-Group by ACW level (Critical first), then by Technique ID within each group.
+When the same TID recurs with different ACW, keep both lines so the role difference is visible. Group by ACW level (Critical first), then by step order within each group.
 
-Also report:
-- Total rows processed
-- Calibrated rows that will be scored (ACW counts in formula)
-- Not Calibrated rows also weighted (tracked, will count when label changes)
-- Weighted DC denominator estimate: `Σ ACW_weight × 3.0` for Calibrated rows only
+Also report a brief tally:
+- Total behavior rows processed
+- Count per ACW level (Critical / High / Medium / Low)
+
+Do **not** compute any score, denominator, or Weighted_DC here — that is the separate scoring script's job. This skill's output is the populated `ACW` column plus the summary tally above.
 
 ---
 
 ## Notes
 
 - Do **not** skip Not Calibrated rows — weight all rows; the Calibrated distinction is tracked separately in the Category column
-- If a technique appears in an ALT step only, assign ACW as if it were the main path unless the user specifies otherwise
-- If the same TID appears in different phases with meaningfully different chain roles, use the highest ACW that applies
-- Do not assign Critical to techniques that are purely evasion mechanisms with no direct impact objective, even if they are technically sophisticated
-- T1059.003 (cmd.exe shell) and T1106 (Native API) are typically **Not Calibrated** implementation details — their ACW still should be assigned, but note in the summary that they are unlikely to accumulate scoring weight
+- If a behavior appears in an ALT step only, assign ACW as if it were the main path unless the user specifies otherwise
+- If the same TID appears in different rows with different chain roles, give **each its own ACW** by role — do not collapse them to one weight
+- Do not assign Critical to behaviors that are purely evasion mechanisms with no terminal/bottleneck role, even if they are technically sophisticated
+- T1059.003 (cmd.exe shell) and T1106 (Native API) are typically **Not Calibrated** implementation details — their ACW still should be assigned (Category is a separate axis), but note they are unlikely to accumulate scoring weight
