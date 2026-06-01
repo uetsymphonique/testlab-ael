@@ -16,8 +16,10 @@ flowchart TD
     A[Service account with SeImpersonatePrivilege] --> B[Create named pipe\n\\.\pipe\{guid}\pipe\srvsvc]
     B --> C[Trigger EfsRpcEncryptFileSrv RPC call\nto \\localhost/PIPE/{guid}/...]
     C --> D[LSASS connects to attacker pipe\nwith SYSTEM token]
-    D --> E[ImpersonateNamedPipeClient\nAcquire SYSTEM impersonation token]
-    E --> F[CreateProcessAsUser\nSpawn target process as SYSTEM]
+    D --> E[NtFsControlFile FSCTL_PIPE_IMPERSONATE\nindirect syscall — no advapi32 hook fires]
+    E --> F[NtOpenThreadToken indirect syscall\nCapture SYSTEM impersonation token]
+    F --> G[NtDuplicateToken indirect syscall\nDuplicate impersonation → primary token]
+    G --> H[CreateProcessWithTokenW via seclogon\nSpawn target process as SYSTEM]
 ```
 
 ### Key APIs
@@ -29,9 +31,13 @@ All Win32 APIs are resolved at runtime via delegates — none appear in the PE I
 | `CreateNamedPipeW` | kernel32 | Create attacker-controlled pipe endpoint |
 | `ConnectNamedPipe` | kernel32 | Block until LSASS connects |
 | `EfsRpcEncryptFileSrv` (via `NdrClientCall2`) | Rpcrt4 | Coerce LSASS to connect to pipe |
-| `ImpersonateNamedPipeClient` | advapi32 | Elevate thread to SYSTEM impersonation |
+| `VirtualAlloc` / `VirtualProtect` | kernel32 | Allocate and flip RX trampoline page for indirect syscalls |
+| `NtFsControlFile` (indirect syscall) | ntdll | FSCTL_PIPE_IMPERSONATE — impersonate without advapi32 hook entry point |
+| `NtOpenThreadToken` (indirect syscall) | ntdll | Capture SYSTEM impersonation token from thread context |
+| `NtDuplicateToken` (indirect syscall) | ntdll | Convert impersonation token → primary token for spawn |
 | `AdjustTokenPrivileges` | advapi32 | Enable `SeImpersonatePrivilege` on caller token |
-| `CreateProcessAsUserW` | advapi32 | Spawn target process under SYSTEM token |
+| `CreateProcessWithTokenW` | advapi32 | Spawn target process as SYSTEM via seclogon (needs only SeImpersonate) |
+| `ImpersonateNamedPipeClient` | advapi32 | Win32 fallback path — only resolved when indirect syscalls unavailable |
 
 ### Prerequisites
 
@@ -133,11 +139,15 @@ static extern IntPtr G(string m);
 static extern IntPtr P(IntPtr h, string p);
 ```
 
-`X.Init()` resolves 18 function pointers at startup. DLL names and all API name strings are themselves XOR-encoded (fields `_k32`, `_adv`, `_rpc`, `_fn_*`):
+`X.Init()` resolves function pointers at startup. DLL names and all API name strings are themselves XOR-encoded (fields `_k32`, `_adv`, `_rpc`, `_ntdll`, `_fn_*`).
+
+**Win32 delegates** — resolved via `GetProcAddress` + `Marshal.GetDelegateForFunctionPointer`:
 
 | Field | Plaintext API name | DLL |
 | ----- | ------------------ | --- |
 | `_fn_ll` | `LoadLibraryW` | kernel32 |
+| `_fn_va` | `VirtualAlloc` | kernel32 |
+| `_fn_vp` | `VirtualProtect` | kernel32 |
 | `_fn_gsh` | `GetStdHandle` | kernel32 |
 | `_fn_gft` | `GetFileType` | kernel32 |
 | `_fn_cfw` | `CreateFileW` | kernel32 |
@@ -148,13 +158,25 @@ static extern IntPtr P(IntPtr h, string p);
 | `_fn_inp` | `ImpersonateNamedPipeClient` | advapi32 |
 | `_fn_atp` | `AdjustTokenPrivileges` | advapi32 |
 | `_fn_lpv` | `LookupPrivilegeValueW` | advapi32 |
-| `_fn_cpau` | `CreateProcessAsUserW` | advapi32 |
+| `_fn_cpwt` | `CreateProcessWithTokenW` | advapi32 |
 | `_fn_rbfsb` | `RpcBindingFromStringBindingW` | Rpcrt4 |
 | `_fn_rbsai` | `RpcBindingSetAuthInfoW` | Rpcrt4 |
 | `_fn_ncc2` | `NdrClientCall2` | Rpcrt4 |
 | `_fn_rbf` | `RpcBindingFree` | Rpcrt4 |
 | `_fn_rsbcw` | `RpcStringBindingComposeW` | Rpcrt4 |
 | `_fn_rbso` | `RpcBindingSetOption` | Rpcrt4 |
+
+Note: `_fn_inp` (`ImpersonateNamedPipeClient`) is resolved only when indirect syscalls are unavailable (non-x64, or SSN resolution failure) — Win32 fallback path.
+
+**Indirect syscall trampolines** — SSN resolved via Halo's Gate, trampolines written into a dedicated `PAGE_EXECUTE_READ` page:
+
+| Field | Plaintext API name | DLL | SSN source |
+| ----- | ------------------ | --- | ---------- |
+| `_fn_ntfc` | `NtFsControlFile` | ntdll | GetProcAddress → walk 0x20-byte neighbors |
+| `_fn_ntot` | `NtOpenThreadToken` | ntdll | GetProcAddress → walk 0x20-byte neighbors |
+| `_fn_ndt` | `NtDuplicateToken` | ntdll | GetProcAddress → walk 0x20-byte neighbors |
+
+Delegates for the three trampolines (`pfNtFsControlFile`, `pfNtOpenThreadToken`, `pfNtDuplicateToken`) are bound to the trampoline page, not to the ntdll stubs — so EDR hooks on the original stubs are bypassed.
 
 Verification: `dumpbin /imports CertEnrollSvc.exe` shows only `GetModuleHandleW` and `GetProcAddress`.
 
@@ -188,7 +210,7 @@ if (X.pfGetFileType(hStdin) == FILE_TYPE_PIPE)
     File.WriteAllBytes(tempFilePath, peBytes);
     targetCmdLine = tempFilePath;
 }
-// ...CreateProcessAsUser → WaitOne(-1) → then:
+// ...CreateProcessWithTokenW → WaitOne(-1) → then:
 if (tempFilePath != null)
     try { File.Delete(tempFilePath); } catch { }
 ```
@@ -206,9 +228,10 @@ The temp file is on disk for the lifetime of the spawned process. If stdin is no
 | MIDL stub arrays XOR-encoded | ✅ Done |
 | All string constants XOR-encoded | ✅ Done |
 | Interface GUIDs XOR-encoded | ✅ Done |
-| Dynamic API resolution (18 delegates) | ✅ Done |
+| Dynamic API resolution (20 Win32 + 3 indirect syscall) | ✅ Done |
 | Legitimate code padding (4 classes) | ✅ Done |
 | Stdin PE delivery | ✅ Done |
+| Indirect syscall — NtFsControlFile + NtOpenThreadToken + NtDuplicateToken (Tier 1) | ✅ Done — Halo's Gate SSN + `syscall;ret` gadget trampoline page; CPWT replaces CPAU (seclogon parent, covered downstream by CWLHerpaderping PPID spoof) |
 | ETW suppression (`EtwEventWrite` patch) | ⬜ Pending — see `evasion-roadmap.md` Phase 4 |
 
 ---
