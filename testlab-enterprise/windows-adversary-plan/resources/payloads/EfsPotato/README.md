@@ -236,15 +236,12 @@ The temp file is on disk for the lifetime of the spawned process. If stdin is no
 
 ---
 
-## Build
+## Target context
 
-```cmd
-# CertEnrollSvc (obfuscated variant, x64)
-csc /target:exe /platform:x64 /optimize+ /out:CertEnrollSvc.exe CertEnrollSvc.cs -nowarn:1691,618
-
-# Original EfsPotato (reference, x64)
-csc /target:exe /platform:x64 /out:EfsPotato.exe EfsPotato.cs -nowarn:1691,618
-```
+- **Host / OS / arch:** IIS01 — Windows Server 2022, x64
+- **Privilege required:** IIS AppPool identity (any account holding `SeImpersonatePrivilege`)
+- **Escalates to:** `NT AUTHORITY\SYSTEM`
+- **Local only:** RPC coercion targets `localhost`; EFSSVC must be running on the host
 
 ## Usage
 
@@ -266,4 +263,10 @@ CertEnrollSvc.exe <target_cmd> [pipe]
 ```
 
 Spawns `<target_cmd>` as `NT AUTHORITY\SYSTEM`.
+
+---
+
+## See also
+
+- Build: `Build.md` · Code flow & ATT&CK mapping: `Flow.md`
 
