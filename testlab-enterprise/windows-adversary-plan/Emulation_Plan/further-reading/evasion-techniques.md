@@ -22,11 +22,11 @@ This document collects and cross-references the evasion techniques used across a
 
 **Payload: CWLHerpaderping**
 
-`obfstr.h` provides `OBFSTR()` / `OBFWSTR()` macros that XOR-obfuscate string literals at compile time. Sensitive strings — `svchost.exe`, `wininit.exe`, `kernel32.dll`, `C:\Windows\System32\RuntimeBroker.exe`, `C:\Windows\System32` — are stored as encrypted byte arrays in the binary. Each string is decrypted into a `thread_local` buffer at the call site and immediately discarded. No plaintext sensitive string appears as a contiguous literal in the PE on disk.
+`obfstr.h` provides `OBFSTR()` / `OBFWSTR()` macros that XOR-obfuscate string literals at compile time using a position-dependent key: `key(i) = (0xA3 + i × 0x5B) & 0xFF` — single-byte brute-force (FLOSS) cannot recover the plaintext. Sensitive strings — `svchost.exe`, `wininit.exe`, `kernel32.dll`, `C:\Windows\System32\RuntimeBroker.exe`, `C:\Windows\System32` — are stored as encrypted byte arrays in the binary. Each string is decrypted into a `thread_local` buffer at the call site. In Release builds (`/p:CWLDebug` not set), `perror` is suppressed via macro (`#define perror(x) ((void)0)`) — all error-path string literals are unreferenced and omitted from `.rdata`. No plaintext sensitive string appears as a contiguous literal in the PE on disk.
 
 **Payload: EfsPotato/CertEnrollSvc**
 
-Sensitive strings are built at runtime via `new string(new char[]{...})` char-array construction. This includes `SeImpersonatePrivilege`, `\\localhost/PIPE/`, `WinSta0\Default`, and the EFSRPC method name. Full GUID strings are split across string concatenation fragments rather than used as contiguous literals. The approach prevents signature matching against known GUID/privilege/pipe patterns at the source level.
+Sensitive strings are stored as XOR-encoded byte arrays in class `X` and decoded at runtime via `X.S()`. Key formula: `plaintext[i] = encoded[i] ^ ((0xA3 + i × 0x5B) & 0xFF)` — same position-dependent formula as CWLHerpaderping and NtdsRawDump; single-byte brute-force yields nothing. Encoded strings include `SeImpersonatePrivilege`, `\\localhost/PIPE/`, `WinSta0\Default`, the EFSRPC endpoint names, both MS-EFSR interface GUIDs, and all DLL/API name strings. The approach prevents signature matching against known EfsPotato strings at the binary level.
 
 **Payload: NtdsRawDump**
 
@@ -40,7 +40,7 @@ All IOC strings are stored as XOR-encoded byte arrays with a position-dependent 
 
 **Payload: EfsPotato/CertEnrollSvc**
 
-The MIDL format strings for the `EfsRpcEncryptFileSrv`-compatible RPC call are XOR-encoded with `0x41` in the binary. They are exposed through properties (`MIDL_ProcFormatStringx86`, `MIDL_TypeFormatStringx86`, etc.) that call `Xd()` to decode at runtime. Static signatures tuned to the known public EfsPotato MIDL byte sequences will not match the encoded variant.
+The MIDL format strings for the `EfsRpcEncryptFileSrv`-compatible RPC call are XOR-encoded with the position-dependent key `(0xA3 + i × 0x5B) & 0xFF` and stored as byte array fields (`_mps86`, `_mps64`, `_mts86`, `_mts64`) in class `X`. They are decoded at runtime via `X.D()` before being pinned for the RPC stub. Static signatures tuned to the known public EfsPotato MIDL byte sequences will not match the encoded variant.
 
 **ATT&CK:** `T1027` Obfuscated Files or Information
 
@@ -120,7 +120,7 @@ The SSN is read directly from the ntdll stub. If the stub is hooked (first bytes
 
 During the syscall, a kernel-mode stack walk or ETW provider inspecting the call chain sees `kernel32.dll` as the return target rather than the loader's own code region.
 
-Wrapped calls: `NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx`.
+Wrapped calls: `NtCreateProcessEx` only. The other four indirect syscalls (`NtCreateSection`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx`) are not stack-spoofed.
 
 **ATT&CK:** `T1106` Native API (stack masking behavior)
 
@@ -226,12 +226,12 @@ It allocates remote memory in the ghost process with `NtAllocateVirtualMemory`, 
 
 The core herpaderping technique:
 
-1. The PE payload is written to a temp file (`%TEMP%\HD*.tmp`).
+1. The PE payload is written to a temp file (`%TEMP%\HD*.tmp`), created with `FILE_ATTRIBUTE_HIDDEN` — hidden from Explorer and basic `dir` output; MFT enumeration required to observe.
 2. `NtCreateSection(..., SEC_IMAGE, hTemp)` maps the PE as an image section.
 3. `NtCreateProcessEx(section, parent)` creates the ghost process from the section.
-4. The temp file is then overwritten with junk (`Hello From CyberWarFare Labs\n` loop).
+4. The temp file is then overwritten in-place with rotating IIS W3SVC log lines via the pre-held `hTemp` handle (`loop until totalWritten >= payloadSize`) — no file reopen needed. The file stays on disk after `CloseHandle(hTemp)` because the active `SEC_IMAGE` section blocks deletion (`STATUS_CANNOT_DELETE 0xC0000121`).
 
-Because the process is created from the section before the file is overwritten, the in-memory image still contains the original PE payload while the backing file on disk contains junk. Security products that scan a process by re-reading its image file from disk will not see the real payload.
+Because the process is created from the section before the file is overwritten, the in-memory image still contains the original PE payload while the backing file on disk contains IIS log content. Security products that scan a process by re-reading its image file from disk will not see the real payload.
 
 **ATT&CK:** `T1055` Process Injection (process herpaderping variant)
 
@@ -241,7 +241,7 @@ Because the process is created from the section before the file is overwritten, 
 
 **Payload: EfsPotato/CertEnrollSvc**
 
-The exploit creates a named pipe at `\\.\pipe\{GUID}\pipe\srvsvc` and coerces the Windows EFSRPC service to connect to it by calling the renamed `EfsRpcEncryptFileSrv`-compatible method with the attacker-controlled pipe path. When the RPC server connects, `ImpersonateNamedPipeClient()` gives the thread a SYSTEM-level token. `CreateProcessAsUser()` then spawns the requested command with that token. The `SeImpersonatePrivilege` is required and is enabled via `AdjustTokenPrivileges` (it is already present on IIS AppPool accounts).
+The exploit creates a named pipe at `\\.\pipe\{GUID}\pipe\srvsvc` and coerces the Windows EFSRPC service to connect to it by calling the renamed `EfsRpcEncryptFileSrv`-compatible method with the attacker-controlled pipe path. When the RPC server connects, the impersonation sequence uses indirect syscalls to avoid advapi32 hooks: `NtFsControlFile(FSCTL_PIPE_IMPERSONATE)` → `NtOpenThreadToken` → `NtDuplicateToken` (impersonation → primary token). `CreateProcessWithTokenW()` then spawns the requested command with the duplicated SYSTEM token via seclogon. `ImpersonateNamedPipeClient` is only a Win32 fallback path (non-x64 or SSN resolution failure). The `SeImpersonatePrivilege` is required and is enabled via `AdjustTokenPrivileges` (it is already present on IIS AppPool accounts).
 
 **ATT&CK:** `T1134.001` Access Token Manipulation: Token Impersonation/Theft; `T1134.002` Create Process with Token
 
@@ -367,11 +367,11 @@ Binary payloads are uploaded through the exploit channel as base64 text (`.b64`)
 
 | Evasion Technique | CWLHerpaderping | EfsPotato/CertEnrollSvc | react2shell-tool | go-thehash | dnscat2 | LsassReflectDumping | NtdsRawDump |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Compile-time string obfuscation | ✓ | ✓ (char array) | — | — | — | — | ✓ (XOR position-key) |
+| Compile-time string obfuscation | ✓ | ✓ (XOR position-key) | — | — | — | — | ✓ (XOR position-key) |
 | Runtime MIDL/byte decoding | — | ✓ (XOR 0x41) | — | — | — | — | — |
 | Payload compression (gzip) | — | — | ✓ | — | — | — | — |
 | IAT reduction / dynamic resolution | ✓ (DJB2 hash) | — | — | — | — | — | ✓ (GetProcAddress) |
-| Indirect syscalls | ✓ (Halo's Gate) | — | — | — | — | — | — |
+| Indirect syscalls | ✓ (Halo's Gate, 5 NT APIs) | ✓ (3 trampolines: NtFsControlFile, NtOpenThreadToken, NtDuplicateToken) | — | — | — | — | — |
 | Stack spoofing | ✓ | — | — | — | — | — | — |
 | ETW patch | ✓ | — | — | — | — | — | — |
 | File-system minifilter bypass | — | — | — | — | — | — | ✓ (raw VSS read) |
@@ -391,6 +391,7 @@ Binary payloads are uploaded through the exploit channel as base64 text (`.b64`)
 | Output via HTTP response header | — | — | ✓ | — | — | — | — |
 | In-process recon (no child process) | — | — | ✓ | — | — | — | — |
 | File deletion after payload read | ✓ (Mode 2) | — | — | — | — | — | — |
+| Hidden file attribute (`FILE_ATTRIBUTE_HIDDEN`) | ✓ (HD*.tmp) | — | — | — | — | — | — |
 | Transient service deletion | — | — | — | ✓ | — | — | — |
 | Base64 staging (no raw PE on wire) | — | — | ✓ | — | — | — | — |
 
@@ -412,13 +413,14 @@ Binary payloads are uploaded through the exploit channel as base64 text (`.b64`)
 | `T1055` | Process Injection (herpaderping) | CWLHerpaderping |
 | `T1059.007` | Command and Scripting Interpreter: JavaScript | react2shell-tool |
 | `T1071.004` | Application Layer Protocol: DNS | dnscat2 |
-| `T1106` | Native API | CWLHerpaderping |
+| `T1106` | Native API | CWLHerpaderping, EfsPotato/CertEnrollSvc |
 | `T1112` | Modify Registry (C2 config) | dnscat2 |
 | `T1134.001` | Token Impersonation/Theft | EfsPotato/CertEnrollSvc |
 | `T1134.002` | Create Process with Token | EfsPotato/CertEnrollSvc |
 | `T1134.004` | Parent PID Spoofing | CWLHerpaderping |
 | `T1550.002` | Pass the Hash | go-thehash |
 | `T1562.006` | Impair Defenses: Indicator Blocking (ETW) | CWLHerpaderping |
+| `T1564.001` | Hide Artifacts: Hidden Files and Directories | CWLHerpaderping (HD*.tmp) |
 | `T1564.010` | Process Argument Spoofing | CWLHerpaderping |
 | `T1573.001` | Encrypted Channel: Symmetric Cryptography | dnscat2 |
 | `T1573.002` | Encrypted Channel: Asymmetric Cryptography | dnscat2 |

