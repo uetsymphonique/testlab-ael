@@ -1,6 +1,4 @@
 #pragma once
-#include <format>
-#include <iostream>
 #include <Windows.h>
 #include <ntstatus.h>
 
