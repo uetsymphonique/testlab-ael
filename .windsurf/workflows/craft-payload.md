@@ -19,20 +19,7 @@ Ask the user (combine into one message if multiple questions apply):
 3. **Target context**: where will this run on the lab host? (architecture, OS, privilege level)
 4. **Placement**: which plan and directory should the payload go into? (defaults to `testlab-enterprise/windows-adversary-plan/resources/payloads/`)
  
-## Toolchain constraints
- 
-From `cli-execution.md`, the dev environment provides:
- 
-| Tool | Available | Notes |
-|---|---|---|
-| Go | ✅ | `go.exe` directly in PATH |
-| Python | ✅ | venv at `D:\vcs\ael\venv\` — activate before running |
-| PowerShell | ✅ | Available directly |
-| cmd | ✅ | Available directly |
-| Visual Studio / MSBuild / csc | ⚠️ | Installed but only usable via VS Developer Command Prompt — requires specific invocation |
-| g++ | ❌ | Not installed |
- 
-If the user requests a language not available above, say so and propose the closest available alternative.
+Note: `cli-execution.md` describes the **dev environment** used to compose payloads — not the lab/victim host. Do not infer target-host capabilities from it. If the user requests a language the guide does not list as available, say so and propose the closest available alternative.
  
 ## Build steps
  
@@ -52,12 +39,64 @@ If the user requests a language not available above, say so and propose the clos
 | Coupled to a specific technique | `payloads/<TID>/` (e.g. `T1055/`) |
 | Named tool or framework | `payloads/<tool-name>/` (e.g. `dnscat2/`) |
 | Exploit PoC | `payloads/<CVE-or-exploit-name>/` |
-| Custom implant / multi-file | `payloads/<project-name>/` with a `README.md` |
+| Custom implant / multi-file | `payloads/<project-name>/` with documentation |
  
-5. **README.md**: create one if the payload directory has more than one file, or if build steps are non-obvious. Include: purpose, build command, usage, target context.
+5. **Document**: write the payload's documentation files (see `## Payload documentation`).
+ 
+## Payload documentation
+ 
+A payload directory uses up to **three** documentation files, each with a single responsibility — do not let their contents overlap:
+ 
+| File | Owns | Produced by |
+|---|---|---|
+| `README.md` | **What / why** — tool purpose, high-level behavior, target context, how to run it | this skill |
+| `Build.md` | **How to build** — toolchain, build command, build options/variants, output artifact | this skill |
+| `Flow.md` | **Internal mechanics** — codeflow broken into behaviors + ATT&CK mapping | `/document-flow` skill |
+ 
+Always write `README.md`. Write `Build.md` when the payload is compiled or has non-obvious build options (skip for a single trivial script). Produce `Flow.md` by running `/document-flow` — do **not** author it here.
+ 
+### `README.md` template
+ 
+````markdown
+# <tool-name>
+ 
+**Purpose:** <one line — what this payload does and which technique/Phase step it serves>
+ 
+## Overview
+<2–4 sentences of insight: high-level behavior, the mechanism that makes it work>
+ 
+## Target context
+- **Host / OS / arch:** <where it runs on the lab>
+- **Privilege required:** <e.g. SYSTEM, domain user>
+ 
+## Usage
+<exact invocation in the lab; ☣️ on dangerous steps>
+ 
+## See also
+- Build: `Build.md`  ·  Code flow & ATT&CK mapping: `Flow.md`
+````
+ 
+### `Build.md` template
+ 
+````markdown
+# <tool-name> — Build
+ 
+**Toolchain:** <e.g. Go 1.x — see plan-for-agent/guides/cli-execution.md>
+ 
+## Build
+```<exact build command from the payload directory>```
+ 
+## Options
+<build flags / variants and what each changes — omit if none>
+ 
+## Output
+- **Artifact:** <output.exe and where it lands>
+- **Dev-env verify:** <benign `--help`/dry-run command>
+````
  
 ## Notes
  
-- Do not run live attack behavior in the dev environment — compile and do a dry-run only
-- If the payload is already built (user provides source), skip to the place/verify step
-- If the user needs the payload referenced from a Phase file, provide the relative path from `Emulation_Plan/` to `../resources/payloads/<dir>/`
+- **Input handoff**: when the approach is unclear or has alternatives, `/emulate-technique` is the upstream skill that decides it; this skill builds what it recommends.
+- **Output handoff**: when the payload is referenced from a Phase file, give `/write-phase` the relative path from `Emulation_Plan/` to `../resources/payloads/<dir>/`. To break the payload's source into behaviors + ATT&CK mapping (`Flow.md`), run `/document-flow`.
+- Do not run live attack behavior in the dev environment — compile and dry-run only.
+- If the payload is already built (user provides source), skip to the place/verify step.

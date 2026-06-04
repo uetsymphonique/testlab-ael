@@ -8,15 +8,22 @@ How to write the `Detection Criteria` column for **every** Reference Table row, 
 
 ---
 
-## Core principle: name the anomaly
+## Core principle: define the vendor accountability signal
 
-A Detection Criteria does not describe "process X did action Y." It **names the anomaly axis — how this behavior deviates from the environment's baseline** — in a form a security product can key a rule on, feed into risk scoring, or weight inside a correlation context. That deviation is the only thing a product can actually detect on; everything else in the row is narrative.
+A Detection Criteria does not describe "process X did action Y." It **names the signal that, if absent from a product's output, constitutes an attributable detection gap** — expressed as the anomaly axis (how the behavior deviates from baseline) on the declared telemetry surface, in a form a product can key a rule on or feed into risk scoring.
 
-**Criteria is the evidence the label is read from.** If you can articulate the anomaly concretely, the four Calibration conditions hold in practice. If you cannot, do not force a vague sentence — write the documented absence (`N/A — <Cx>: <reason>`); `assign-category` reads it as the Not-Calibrated signal.
+Two tests must both pass before writing a concrete signal:
 
-**Hidden test — every Criteria must implicitly answer: "deviates from *what baseline*?"** If the writer cannot say what the behavior looks like in normal operation, the anomaly has not been found and the Criteria is not done. The baseline must be a **pattern, not a value** (otherwise the criteria is brittle and fails reproducibility).
+1. **Anomaly test** — can you name how this behavior deviates from baseline? If not → `N/A — C1: no anomaly axis`.
+2. **Surface test** — does that anomaly land on the declared telemetry surface (Scenario 1 EDR default)? If not → `N/A — C4: artifact outside declared surface`.
 
-> Example of the lens: `w3wp.exe spawns cmd.exe` is strong not because it is a process tree, but because an IIS worker process **never** spawns a shell in normal operation. The criteria's job is to surface *that* fact, not the mechanics.
+Naming the anomaly is the *method*. The *goal* is a signal where vendor failure to produce it is clearly the vendor's fault, not a measurement artifact.
+
+**Criteria is the evidence the label is read from.** If both tests pass and you can articulate the anomaly concretely on-surface, the four Calibration conditions hold in practice. If either fails, write the documented absence (`N/A — <Cx>: <reason>`); `assign-category` reads it as the Not-Calibrated signal.
+
+**Hidden test — every Criteria must implicitly answer: "deviates from *what baseline*, on *what surface*?"** The baseline must be a **pattern, not a value** (otherwise the criteria is brittle and fails reproducibility). The surface must be the declared measurement scope (otherwise the criteria is off-target).
+
+> Example of the lens: `w3wp.exe spawns cmd.exe` is strong not because it is a process tree, but because an IIS worker process **never** spawns a shell in normal operation — and that event lands on every EDR's process-creation channel. Both the anomaly and the surface are explicit.
 
 ---
 
@@ -63,16 +70,17 @@ A GUID/nonce does not fail reproducibility. Write the criteria against the **sta
 
 ---
 
-## The anomaly axis is the evidence for the label (diagnostic)
+## Vendor accountability signal — write decision (diagnostic)
 
-Whether an anomaly axis exists is the evidence that classifies the row; `assign-category` makes the call by reading it. Use this to decide what to *write*:
+Use this to decide what to *write*; `assign-category` makes the final label call by reading the result:
 
-| Can you articulate the anomaly axis? | Label implication |
-|---|---|
-| **Yes** — clear deviation from baseline | `Calibrated - Not Benign` |
-| **No axis at all** — the behavior is identical to legitimate operation | Two cases: (a) it is not a scoring point → `Not Calibrated`; (b) the absence of anomaly is **intentional**, to test whether the product can *discriminate* legitimate-looking use → `Calibrated - Benign` (FP test) |
+| Both tests pass? | What to write | Label implication |
+|---|---|---|
+| **Yes** — anomaly exists AND lands on the declared surface | Concrete signal in `<process> <action> <artifact>` form | `Calibrated - Not Benign` (pending assign-category's scope/redundancy checks) |
+| **Anomaly exists but off declared surface** | `N/A — C4: <reason>` | `Not Calibrated` |
+| **No anomaly axis** — behavior identical to baseline | `N/A — C1: no anomaly axis` | `Not Calibrated` |
 
-> The absence of an anomaly is diagnostic information. A LOLBin used exactly as an admin would use it has no axis — either drop it from the denominator or keep it deliberately as an FP-test row. This is why every scenario keeps at least one `Calibrated - Benign` row per LOLBin.
+> The absence of an anomaly is diagnostic information — do not force a signal where none exists. Write the documented absence so `assign-category` has the explicit reason to Not-Calibrate.
 
 ---
 
@@ -116,6 +124,7 @@ If the Criteria comes out like the left column, there is no clean signal — wri
 | Cannot write without "suspicious / malicious" | C1 — not truly observable | `N/A — C1: <reason>` |
 | Only true for one specific run | C2 — not reproducible | Rewrite against the pattern; if none exists, `N/A — C2: <reason>` |
 | Must trust the process is running malware to conclude it's bad | C3 — not independently verifiable | `N/A — C3: <reason>` (typical for in-memory-only / ghost-process behavior) |
+| Observable artifact but outside the declared telemetry surface (e.g. cloud audit log for Scenario 1 EDR, email gateway event for endpoint-only scope) | C4 — not a fair scoring point on this surface | `N/A — C4: <reason>` |
 | Identical to a neighboring row's criteria | Redundancy (Q-B) | Write the signal faithfully — identical criteria is exactly how `assign-category` detects the double-count |
 | All-negative phrasing ("no strings", "absent from…") | Right tech, wrong altitude | Reframe as a positive anomalous pattern |
 | No baseline can be named | Core principle | `N/A — C1: no baseline / anomaly axis` |

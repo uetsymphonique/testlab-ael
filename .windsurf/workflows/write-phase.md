@@ -16,71 +16,11 @@ Read in this order:
 Then ask the user:
 - Which attack path? (`iis-apppool-escalation-path`, `html-smuggling-path`, or other)
 - Which phase number / file?
-- Which techniques or behaviors to cover?
+- Which behaviors to cover? (describe behaviors — technique mapping happens in a separate `/map-technique` pass)
  
 ## Phase file structure
- 
-Use this template as the skeleton. Follow the structure exactly — do not invent new sections or rename fields.
- 
-```markdown
-# Phase N — <Tactic Chain Title>
- 
-<!-- CTI references used in this phase. Number them here; cite with [N] in the Reference Tables below. -->
-[1]: <url>
- 
----
- 
-## Step 0 — Setup
- 
-### Procedures
- 
-- Verify C2 session is active on `<hostname> (<IP>)`
-- Confirm operator is connected to attack host
- 
----
- 
-## Step N — <Tactic: Short Description>
- 
-### Voice Track
- 
-<Adversary-perspective narrative. Third person. Explain what the adversary is trying to achieve and why at this point in the chain. Connect to the context from previous steps.>
- 
-### Procedures
- 
-- ☣️ <Dangerous/destructive step — changes system state, runs payload, or executes attack behavior>
- 
-  ```powershell
-  <exact command>
-  ```
- 
-  - ***Expected Output***
-    ```text
-    <expected output confirming success>
-    ```
- 
-- <Non-dangerous step — navigation, reading output, setup>
- 
-### Reference Tables
- 
-| Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
-| - | - | - | - | - | - | - | - | - | - | - |
-| <Tactic> | T<ID>.<sub> | <Full Technique: Sub-technique Name> | Windows | `<process> <action> <artifact> on <host>` | Calibrated - Not Benign | <Short description of red team behavior from external view> | <hostname> (<IP>) | <DOMAIN\user> | [link](<relative path to payload>) | [1] |
- 
----
- 
-## End of Phase
- 
-### Procedures
- 
-- Document artifacts created for cleanup reference (see `Cleanup.md`)
-```
- 
-## Technique selection
- 
-- Only use techniques from scope: `testlab-enterprise/mitre-outline/Scenario 1.md` or `Scenario 2.md`
-- Look up theory in `mitre-knowledge-base/techniques/<tactic>.md`
-- Find concrete command examples in `atomic-red-team/atomics/<TID>/`
-- When unsure of a technique mapping, read `plan-for-agent/guides/technique-mapping.md`
+
+Use `phase-template.md` (in this skill's directory) as the skeleton. Follow the structure exactly — do not invent new sections or rename fields.
  
 ## Writing procedures
  
@@ -90,15 +30,20 @@ Use this template as the skeleton. Follow the structure exactly — do not inven
  
 ## Reference Table
  
-Fill all 11 columns for every observable behavior in the step. Read `plan-for-agent/guides/category-assignment.md` before assigning the `Category` column.
+This skill produces a **behavior-ordered skeleton** only. Do not select techniques, write detection criteria, or assign categories — those happen in separate passes:
  
-Detection Criteria format: `<process> <action> <artifact/target> [on <host>]`
-Example: `waitfor.exe connects to 191.44.44.199 over TCP port 443`
+- `/map-technique` — fills Technique ID, Technique Name, Tactic (one behavior may fan into ≥1 rows)
+- `/write-detection-criteria` — writes the Detection Criteria for **every** row (concrete signal or documented `N/A — <Cx>` absence) — the evidence base, **before** labeling
+- `/assign-category` — reads that Detection Criteria and assigns the Calibrated / Not Calibrated label
  
-## After writing
+For each observable behavior in the step, add one row with:
+- **Tactic / Technique ID / Technique Name**: leave as `—` (to be filled by `/map-technique`)
+- **Platform**: fill (Windows / Linux / etc.)
+- **Detection Criteria**: leave as `TBD`
+- **Category**: leave as `TBD`
+- **Red Team Activity**: fill — short description of what the red team does, from an external observer's view
+- **Hosts / Users / Source Code Links / Relevant CTI Reports**: fill what is known
  
-Verify technique coverage:
-```powershell
-cd testlab-enterprise/mitre-outline
-python check.py --scope "Scenario 1.md" --folder ../windows-adversary-plan/Emulation_Plan/<path>
-```
+Row order must follow temporal execution order within the step. Start one row per distinct observable behavior (`/map-technique` may later split a row into several when one behavior spans multiple tactics).
+
+> **Granularity rules live in one place:** `plan-for-agent/guides/behavior-breakdown.md` (atomic-unit contract, split/fold/keep rules, observable filter). Do not restate them here — defer to the guide so the two skills cannot drift. When the input is unstructured (a raw chain description, payload source code, or a command sequence), run `/extract-behaviors` first to get the ordered behavior list, then turn each behavior into a row here.

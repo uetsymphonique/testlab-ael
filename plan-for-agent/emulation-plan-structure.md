@@ -88,9 +88,9 @@ Each step corresponds to a **tactic phase** or a group of related techniques. St
 Each step ends with a Reference Table mapping the performed behavior to ATT&CK.
 
 ```markdown
-| Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
-|  - | - | - | - | - | - | - | - | - | - | -
-| Defense Evasion | T1574.002 | Hijack Execution Flow: DLL Side-Loading | Windows | gflags.exe side loads unsigned gflagsui.dll | Calibrated - Not Benign | Legitimate binary `gflags.exe` side-loads TONESHELL loader DLL | bitterbridge (10.26.4.103) | btully | [DLL exports](../Resources/...) | [21], [22]
+| Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Calibration Reason | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
+|  - | - | - | - | - | - | - | - | - | - | - | -
+| Defense Evasion | T1574.002 | Hijack Execution Flow: DLL Side-Loading | Windows | gflags.exe side loads unsigned gflagsui.dll | Calibrated - Not Benign | - | Legitimate binary `gflags.exe` side-loads TONESHELL loader DLL | bitterbridge (10.26.4.103) | btully | [DLL exports](../Resources/...) | [21], [22]
 ```
 
 **Column descriptions:**
@@ -102,7 +102,8 @@ Each step ends with a Reference Table mapping the performed behavior to ATT&CK.
 | `Technique Name` | Full name including sub-technique if applicable |
 | `Platform` | `Windows`, `Linux`, `IaaS`, `Identity Provider`... |
 | `Detection Criteria` | **Specific observable condition** — must be a checkable event/artifact (not a generic description) |
-| `Category` | `Calibrated - Not Benign` / `Not Calibrated - Not Benign` / `Calibrated - Benign` |
+| `Category` | `Calibrated - Not Benign` / `Not Calibrated - Not Benign` / `Calibrated - Benign` — **keep this a clean enum** so it stays filterable/groupable by tooling; no free text here |
+| `Calibration Reason` | Owned by `assign-category`. `-` for Calibrated rows; for **Not Calibrated** rows a short tag explaining *why not scored*: `out-of-surface` / `redundant@<TechID>` / `transport` / `interpreter-spawn` / `native-recon` / `in-process` / `IOC-only` / `C1`\|`C2`\|`C3` (condition fail, mirrors the `N/A — <Cx>` in Detection Criteria). The recorded reason is what lets the label be re-derived when the heuristic changes |
 | `Red Team Activity` | Short description of red team behavior from an external viewpoint |
 | `Hosts` | Specific hostname + IP where the behavior occurs |
 | `Users` | Account performing the behavior |

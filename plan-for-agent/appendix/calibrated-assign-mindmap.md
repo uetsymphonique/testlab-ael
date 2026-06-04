@@ -1,65 +1,61 @@
 # Mindmap: Category Labeling Flow
 
-Decision logic summary for `guides/category-assignment.md`.
+Decision logic summary for the `/assign-category` workflow.
 
 ```mermaid
 flowchart TD
-    START([Substep to label])
+    START([Row to label])
     START --> L0
 
-    L0["🔵 Layer 0 — Establish context\n──────────────────────\nTest type: Detections · Protections\nSurface: EDR · XDR · Protections scope\n→ Determines scope for Question A & Condition 4"]
+    L0["Layer 0: Establish context\nDet / Prot · Default surface: Scenario 1 Adv EDR\nBasic EDR: declare explicitly\nOther: Scenario 2 XDR / Custom"]
 
-    L0 --> A
+    L0 --> PQ
 
-    A{"Question A\nIs artifact on\ndetection surface?"}
+    PQ["Primary question\nIs a vendor miss attributable to the vendor?"]
 
-    A -- "No\nmail gateway · attacker infra\noutside EDR / XDR scope" --> NC_A
+    PQ --> SKETCH
 
-    NC_A(["✗ Not Calibrated\n— scope miss\nfails Condition 4 immediately"])
+    SKETCH["Sketch execution chain\nTemporal order · artifact to consumer\nUse when applying Q-B"]
 
-    A -- Yes --> B
+    SKETCH --> READ
 
-    B{"Question B\nIs substep an implementation detail\nof another Calibrated row?"}
+    READ["Read Detection Criteria first\nConcrete signal written → C1-C3 already hold\nN/A — Cx: reason → fails Cx directly\nNever edit criteria"]
 
-    B -- "Yes" --> NC_B_label["Three forms:
-    ① same level — double-count
-    ② downstream — mechanism
-    ③ dead-end — no scored path"]
-    NC_B_label --> NC_B
+    READ --> QA
 
-    NC_B(["✗ Not Calibrated\n— redundancy"])
+    QA{"Q-A: Artifact on declared surface?"}
 
-    B -- "No\n→ primary output" --> C1
+    QA -- No --> NC_A(["Not Calibrated — scope miss"])
+    QA -- Yes --> QB
 
-    subgraph L2 ["Layer 2 — 4 conditions  ·  all must pass"]
-        direction TB
-        C1{"C1 Observable\nArtifact exists outside process memory\nin declared telemetry channel?"}
-        C1 -- No --> NCL2(["✗ Not Calibrated"])
-        C1 -- Yes --> C2
+    QB{"Q-B: Implementation detail\nof another Calibrated row?\nIdentical criteria = double-count"}
 
-        C2{"C2 Reproducible\nArtifact appears consistently\nacross runs?"}
-        C2 -- No --> NCL2
-        C2 -- Yes --> C3
+    QB -- "Yes\ndouble-count / mechanism / dead-end" --> NC_B(["Not Calibrated — redundancy"])
+    QB -- "No — primary output" --> CRITQ
 
-        C3{"C3 Independently verifiable\nEvaluator can confirm artifact\nwithout trusting process identity?"}
-        C3 -- "No\nin-memory / ghost-dependent artifact" --> NCL2
-        C3 -- "Yes\nexternal artifact · non-ghost · persistent system change" --> C4
+    CRITQ{"Criteria: concrete signal written?"}
 
-        C4{"C4 Fair scoring point\nDoes the product under test have opportunity\nto see artifact within its scope?"}
-        C4 -- "No\noutside product scope\nEDR / XDR flip" --> NCL2
-        C4 -- Yes --> CAL
-    end
+    CRITQ -- "N/A — Cx documented" --> NCL2(["Not Calibrated — Cx fails"])
+    CRITQ -- "Concrete — C1-C3 hold" --> C4
 
-    CAL(["✅ Calibrated\n— Not Benign  or  Benign"])
+    C4{"C4: Fair scoring point\nfor declared surface?"}
+    C4 -- No --> NCL2
+    C4 -- Yes --> CAL(["Calibrated - Not Benign"])
 
-    CAL --> SUBLABEL{"Sub-label:\nBenign or Not Benign?"}
-    SUBLABEL -- "Adversary action\nin attack context" --> NB(["Calibrated - Not Benign"])
-    SUBLABEL -- "Explicitly designed to test FP" --> BN(["Calibrated - Benign"])
+    CAL --> COMP
+    NCL2 --> COMP
+    NC_A --> COMP
+    NC_B --> COMP
 
-    NB --> L3
-    BN --> L3
+    COMP["Completeness check\nAll-Not-Cal step? justify.\nNo consecutive 0-Calibrated steps."]
 
-    L3["🟡 Layer 3 — Structural review\n──────────────────────\n① Calibrated ~100% in implant-heavy chain? → re-check C1/C3\n② Two rows sharing same physical event? → double-count, Question B\n③ Not Calibrated but artifact is clear, unrepresented? → re-check Question B\n④ Detection Criteria cannot be written specifically? → suspect C1/C2, downgrade label"]
+    COMP --> L3
+
+    L3["Layer 3: Structural signals\n1. 100% Calibrated in implant chain? re-check C1/C3\n2. Two rows, same physical event? Q-B double-count\n3. Clear artifact unrepresented? re-check Q-B\n4. N/A + Calibrated label? contradiction\n5. Value-specific IOC only? flag /write-detection-criteria\n6. Concrete criteria + Not Cal + no reason? re-label\n7. Same TechID, diff subject? verify different event"]
+
+    L3 --> HANDOFF
+
+    HANDOFF(["Labeling complete — run /assign-acw"])
 ```
 
 ---
@@ -69,10 +65,21 @@ flowchart TD
 | Pattern | Stops at | Result |
 |---|---|---|
 | Email receipt, attacker infra | Question A | Not Calibrated |
-| Ghost process spawns child (in-process output) | Question B dead-end or C3 | Not Calibrated |
-| Ghost process creates registry key / scheduled task | Question B No → Layer 2 C3 **Pass** (external artifact) | Calibrated |
-| Ghost process connects to attacker IP | Question B No → C3 **Pass** (attribution by endpoint) | Calibrated |
+| Criteria documents `N/A — C3: in-memory artifact` | Criteria quality check | Not Calibrated |
+| Ghost process spawns child (in-process output) | Q-B dead-end or N/A — C3 | Not Calibrated |
+| Ghost process creates registry key / scheduled task | Q-B No → C4 Pass (external artifact) | Calibrated |
+| Ghost process connects to attacker IP | Q-B No → C4 Pass (attribution by endpoint) | Calibrated |
 | Cloud API call in EDR-only scope | Question A No or C4 No | Not Calibrated |
-| Cloud API call in XDR scope | Question A Yes → Layer 2 → **Pass** | Calibrated |
+| Cloud API call in XDR scope | Question A Yes → C4 Pass | Calibrated |
 | Setup step leading to Calibrated downstream | Question B Yes — downstream | Not Calibrated |
 | Setup step leading to all-Not-Calibrated chain | Question B Yes — dead-end | Not Calibrated |
+
+---
+
+## Labels in scope
+
+- `Calibrated - Not Benign` — concrete signal, C1–C3 hold, C4 passes
+- `Not Calibrated - Not Benign` — fails any condition, scope miss, or redundancy
+- `Calibrated - Benign` — **out of scope** for this workflow (false-positive threshold test, handled separately)
+
+> The Calibrated label is **independent of ACW**. A technique's importance in the attack chain (Critical / High / Medium / Low) never makes a row more or less scoreable — judge calibration on observability / reproducibility / verifiability only.

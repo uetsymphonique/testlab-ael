@@ -1,10 +1,8 @@
 ---
-name: assign-acw
 description: Assign Attack Chain Weighting (ACW) to every behavior row in a plan CSV file. Reads attack chain context from summary.md, weights each behavior by its role in the attack chain, and writes an ACW column back to the CSV.
-model: claude-sonnet-4-6
-effort: medium
-allowed-tools: Read, Write, Grep, Glob
 ---
+
+# Assign ACW
 
 Assign ACW (Attack Chain Weighting) to all rows in a plan CSV, regardless of Calibrated/Not Calibrated status. Calibrated labels may change later; weighting all rows now ensures scores are ready as soon as labels are finalized.
 
@@ -26,7 +24,7 @@ ACW asks: **how much does this behavior matter to the attacker's progress throug
 
 ## ACW vs Category — two independent axes
 
-ACW and the `Category` (Calibrated / Not Calibrated) label answer different questions and **do not govern each other**. Conflating them is the most common error when this skill is run alongside `assign-category`.
+ACW and the `Category` (Calibrated / Not Calibrated) label answer different questions and **do not govern each other**. Conflating them is the most common error.
 
 | Axis | Question it answers | Owner skill | Source |
 |---|---|---|---|
@@ -63,7 +61,7 @@ From `testlab-enterprise/mitre-outline/Scoring Specification.md` and `testlab-en
 | **Medium** | 0.5× | Moderate impact; typically preparatory or intermediate steps (discovery, staging, tool transfer) |
 | **Low** | 0.25× | Easy to detect; limited strategic value in isolation; reconnaissance or enumeration with no direct impact |
 
-MITRE's stated examples — these are the **typical level of the technique standing alone**, not a fixed value. When the same technique plays a bottleneck or terminal-objective role in this chain, weight it up by that role:
+MITRE's stated examples — these are the **typical level of the technique standing alone**, not a fixed value. When the same technique plays a bottleneck or terminal-objective role, weight it up by that role:
 - Critical: T1003 (Credential Dumping), T1486 (Ransomware encryption)
 - High: T1105 (Ingress Tool Transfer)
 - Medium: T1082 (System Information Discovery)
@@ -138,13 +136,7 @@ Before writing:
 
 ### Step 5 — Write output
 
-**In the CSV:** Insert an `ACW` column immediately after the `Calibration Reason` column (keep `Category` and its `Calibration Reason` adjacent).
-
-Format:
-- `Critical` (not `Critical (1.0×)` — keep the label short for column width)
-- `High`
-- `Medium`
-- `Low`
+**In the CSV:** Insert an `ACW` column immediately after the `Calibration Reason` column (keep `Category` and its `Calibration Reason` adjacent). Format: `Critical`, `High`, `Medium`, `Low` (no weights in parentheses).
 
 **In the terminal:** Output a summary table — **one line per behavior row**, not per Technique ID:
 
@@ -158,11 +150,9 @@ Format:
 
 When the same TID recurs with different ACW, keep both lines so the role difference is visible. Group by ACW level (Critical first), then by step order within each group.
 
-Also report a brief tally:
-- Total behavior rows processed
-- Count per ACW level (Critical / High / Medium / Low)
+Also report a brief tally: total behavior rows processed + count per ACW level (Critical / High / Medium / Low).
 
-Do **not** compute any score, denominator, or Weighted_DC here — that is the separate scoring script's job. This skill's output is the populated `ACW` column plus the summary tally above.
+Do **not** compute any score, denominator, or Weighted_DC here — this step only writes the ACW column plus the summary tally above.
 
 ---
 

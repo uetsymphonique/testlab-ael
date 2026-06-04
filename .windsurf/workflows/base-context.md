@@ -40,14 +40,17 @@ This file is the top-level entry point for agent guidance. When a task touches a
  
 | File | Read when |
 |---|---|
+| `plan-for-agent/pipeline.md` | Need the skill pipeline DAG and the skill ↔ guide ↔ artifact map (which skill runs when, which guide backs it, which column it owns) |
 | `plan-for-agent/detections-overview.md` | Need to distinguish goals, flow depth, and expectations of **Detections** scenarios |
 | `plan-for-agent/protections-overview.md` | Need to design or review **Protections** scenarios and protection outcomes |
 | `plan-for-agent/emulation-plan-structure.md` | Writing or editing any file in `Emulation_Plan/`: Step structure, Voice Track, Procedures, Reference Tables |
 | `plan-for-agent/chain-breakdown.md` | Need a phase/attack chain template when building a new plan or reorganizing flow |
 | `plan-for-agent/attack-behavior-methodology.md` | Need deep methodology: behavior, Category, CTI grounding, detection criteria, Detections vs Protections differences |
 | `plan-for-agent/guides/attack-emulation.md` | Turning an idea or CTI source into a complete attack emulation step |
+| `plan-for-agent/guides/behavior-breakdown.md` | Breaking an unstructured input (chain description, payload source code, command sequence) into an ordered list of atomic behaviors |
 | `plan-for-agent/guides/technique-mapping.md` | Identifying tactic, technique, sub-technique, platform, and verifying scope membership |
-| `plan-for-agent/guides/category-assignment.md` | Assigning `Calibrated` / `Not Calibrated` or checking Detection Criteria |
+| `plan-for-agent/guides/detection-criteria.md` | Writing the `Detection Criteria` for **every** row (concrete signal or documented `N/A — <Cx>` absence) — the evidence base, written **before** labeling |
+| `plan-for-agent/guides/category-assignment.md` | Assigning `Calibrated` / `Not Calibrated` labels by **reading** the written Detection Criteria (the scoring decision; runs **after** criteria) |
 | `plan-for-agent/guides/cli-execution.md` | CLI/toolchain constraints of the **dev environment used to compose procedures** — do not use this to infer lab or victim host capabilities |
 | `plan-for-agent/appendix/calibrated-assign-mindmap.md` | Visual summary of the Category labeling flow |
  
@@ -55,8 +58,8 @@ This file is the top-level entry point for agent guidance. When a task touches a
  
 1. `detections-overview.md` or `protections-overview.md`
 2. `emulation-plan-structure.md`
-3. When selecting or verifying behavior: `chain-breakdown.md`, `guides/technique-mapping.md`, `guides/attack-emulation.md`
-4. Before finalizing the Reference Table: `guides/category-assignment.md`, then `attack-behavior-methodology.md` for deeper grounding
+3. When selecting or verifying behavior: `chain-breakdown.md`, `guides/behavior-breakdown.md` (to extract behaviors from a chain/code/commands), `guides/technique-mapping.md`, `guides/attack-emulation.md`
+4. Before finalizing the Reference Table: `guides/detection-criteria.md` to write Detection Criteria for **every** row first (the evidence base), then `guides/category-assignment.md` to label rows by reading that evidence; `attack-behavior-methodology.md` for deeper grounding
  
 ---
  
@@ -128,7 +131,7 @@ Contains lab infrastructure docs: instructions for standing up hosts, domains, s
  
 ### Current Plan: `windows-adversary-plan`
  
-Located at `testlab-enterprise/windows-adversary-plan/`. This plan uses **parallel attack path subdirectories** instead of a linear phase structure, both converging at IIS01 SYSTEM C2 before lateral movement:
+Located at `testlab-enterprise/windows-adversary-plan/`. This plan uses **parallel attack path subdirectories** instead of a linear phase structure. Three independent attack paths cover different entry points and host contexts; the server-side path is the longest chain, ending with impact on IIS01 and DC01:
  
 **`Emulation_Plan/html-smuggling-path/`** — user-driven path (WS01)
  
@@ -137,16 +140,24 @@ Located at `testlab-enterprise/windows-adversary-plan/`. This plan uses **parall
 | `Phase 1.md` | Initial Access & C2: HTML smuggling → copy-paste PowerShell → HTA dropper → dnscat2 C2 on WS01 |
 | `Cleanup.md` | Artifact cleanup for this path |
  
+**`Emulation_Plan/toneshell-path/`** — user-driven path (WS01)
+ 
+| File | Content |
+|---|---|
+| `Phase 1.md` | Initial Access & C2: fake update lure (T1566.002) → drive-by download (T1189) → password-protected RAR (T1027.013) → LNK double-click (T1204.002) → EssosUpdate.exe DLL sideload of Toneshell (T1574.001) → regsvr32 proxy execution (T1218.010) → mavinject.exe injection into waitfor.exe (T1218.013) → XOR-decrypt + reflective load (T1140, T1620) → Toneshell TCP C2 on WS01 as domain user (T1095) |
+ 
 **`Emulation_Plan/iis-apppool-escalation-path/`** — server-side path (IIS01 → DC01)
  
 | File | Content |
 |---|---|
-| `Phase 1.md` | Initial Access & C2: CVE-2025-55182 React RSC RCE → react2shell eval shell → EfsPotato SYSTEM → Herpaderping ghost → dnscat2 C2 on IIS01 (Step 1A: T1620 reflective load; Step 1B: file-based full chain) |
-| `Phase 2.md` | Discovery & Credential Access: ReflectDump LSASS → XOR-encrypted `f.elif` → exfil via react2shell → offline decrypt; host & domain recon (WmiAvQuery, whoami, nltest, net group, net view) |
-| `Phase 3.md` | Lateral Movement, C2, Persistence: go-thehash.exe PtH → DC01 C$; WMI path (C2 as TESTLAB\Administrator) + SCM path (C2 as SYSTEM); 5 persistence mechanisms (svcbackup, WMI subscription, SYSVOL logon script, API service, registry service) |
+| `Phase 1.md` | Initial Access & C2: CVE-2025-55182 React RSC RCE → react2shell eval shell → EfsPotato SYSTEM → Herpaderping ghost → dnscat2 C2 on IIS01 (Step 1A: file-based full chain; [ALT] Step 1B: T1620 reflective load via stdin) |
+| `Phase 2.md` | Discovery & Credential Access: ReflectDump LSASS → XOR-encrypted `f.elif` → exfil via react2shell → offline decrypt; host & domain recon (WmiAvQuery, whoami, nltest, net group, net view); [ALT] Step 3B: Defender disable (T1562.001) + rundll32 comsvcs.dll MiniDump (T1218.011, T1003.001) |
+| `Phase 3.md` | Lateral Movement, C2, Persistence: go-thehash.exe PtH → DC01 C$; WMI path (C2 as TESTLAB\Administrator) + SCM path (C2 as SYSTEM); 4 persistence mechanisms (svcbackup account, WMI subscription, SYSVOL logon script, registry-backed service) + [ALT] API-based service variant |
+| `Phase 4.md` | Collection & Exfiltration: NtdsRawDump.exe VSS shadow via WMI (T1047) + direct volume access (T1006) → NTDS/hive harvest (T1003.003, T1005, T1119) → in-memory ZIP + AES-256-CBC double encryption (T1560.002, T1560.003); [ALT] makecab LOLBin (T1560.001); NETLOGON relay staging (T1039, T1074.001, T1021.002); exfil via react2shell HTTP C2 (T1041) |
+| `Phase 5.md` | Impact: CertMaint.exe — VSS deletion via COM IVssBackupComponents (T1490); MSSQL$SQLEXPRESS stop via SCM API (T1489); AES-256-CBC encrypt UploadPortalDB.mdf/.ldf (T1486); logon-screen registry modification + ransom notes on DC01 (T1491.001, T1112); upload.testlab.local web root overwrite |
 | `Cleanup.md` | Artifact cleanup for this path |
  
-**`Emulation_Plan/summary.md`** — overall flow summary and lab topology for both paths.
+**`Emulation_Plan/summary.md`** — overall flow summary and lab topology for all three paths.
  
 | Group | Components |
 |---|---|
@@ -202,7 +213,7 @@ Use when: needing practical technique implementation, finding example commands, 
  
 Run from `testlab-enterprise/mitre-outline/`:
  
-```powershell
+```bash
 # Mark techniques from a folder of Phase files into a scope file
 python check.py --scope "Scenario 1.md" --folder ../windows-adversary-plan/Emulation_Plan/iis-apppool-escalation-path
  
@@ -223,9 +234,9 @@ python check.py --reset --scope "Scenario 1.md"
  
 1. Identify whether the task is **Detections** or **Protections**; read the corresponding overview.
 2. If building or restructuring a large flow, consult `chain-breakdown.md`.
-3. **Select techniques** from Scenario 1 / Scenario 2 scope; use `guides/technique-mapping.md` to map tactic / technique / sub-technique.
+3. **Select techniques** from Scenario 1 / Scenario 2 scope; if starting from an unstructured input (chain description, payload source code, command sequence), first run `extract-behaviors` (`guides/behavior-breakdown.md`) to get the ordered behavior list, then use `guides/technique-mapping.md` to map tactic / technique / sub-technique.
 4. **Look up theory** in `mitre-knowledge-base/techniques/` and **consult ART** in `atomic-red-team/atomics/` to understand real behavior.
 5. To create a new step, use `guides/attack-emulation.md`; to run commands in the dev environment to support procedure writing, check `guides/cli-execution.md`. Do not use this file to infer what tools are available on the lab or victim host.
 6. **Build payload** — place in `resources/payloads/<tool-or-technique>/` with a `README.md`.
 7. **Write / update Phase file** per `emulation-plan-structure.md`, referencing payloads with relative paths to `../resources/payloads/`.
-8. Before finalizing the Reference Table, use `guides/category-assignment.md`; for deeper methodological reasoning, cross-reference `attack-behavior-methodology.md`.
+8. Before finalizing the Reference Table, write Detection Criteria for **every** row first with `guides/detection-criteria.md` (concrete signal, or a documented `N/A — <Cx>` absence) — this is the stable evidence base; then label rows with `guides/category-assignment.md` by **reading** that criteria (Category is the heuristic verdict, re-runnable without rewriting criteria); for deeper methodological reasoning, cross-reference `attack-behavior-methodology.md`.
