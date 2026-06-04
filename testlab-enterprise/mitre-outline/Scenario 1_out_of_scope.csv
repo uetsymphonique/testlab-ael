@@ -1,0 +1,6 @@
+tactic,tech_id,tech_name
+Command And Control,T1071.004,Application Layer Protocol: DNS
+Credential Access,T1003.003,OS Credential Dumping: NTDS
+Defense Evasion,T1070,Indicator Removal
+Initial Access,T1190,Exploit Public-Facing Application
+Lateral Movement,T1021.003,Remote Services: Distributed Component Object Model

@@ -32,22 +32,22 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Persistence -->
 - [ ] ~~T1078.003 - Valid Accounts: Local Accounts~~
 - [ ] ~~T1133 - External Remote Services~~
-- [x] T1189 - Drive-by Compromise
+- [ ] T1189 - Drive-by Compromise
 ## Execution
 - [x] T1047 - Windows Management Instrumentation
 - [ ] T1053.005 - Scheduled Task/Job: Scheduled Task
 - [x] T1059 - Command and Scripting Interpreter
 - [x] T1059.001 - Command and Scripting Interpreter: PowerShell
-- [x] T1059.003 - Command and Scripting Interpreter: Windows Command Shell
-- [x] T1059.005 - Command and Scripting Interpreter: Visual Basic
+- [ ] T1059.003 - Command and Scripting Interpreter: Windows Command Shell
+- [ ] T1059.005 - Command and Scripting Interpreter: Visual Basic
 - [x] T1059.007 - Command and Scripting Interpreter: JavaScript
 - [ ] T1059.010 - Command and Scripting Interpreter: AutoHotKey & AutoIT
 - [x] T1106 - Native API
-- [x] T1204 - User Execution
-- [x] T1204.001 - User Execution: Malicious Link
-- [x] T1204.002 - User Execution: Malicious File
-- [x] T1204.004 - User Execution: Malicious Copy and Paste
-- [ ] T1569.002 - System Services: Service Execution
+- [ ] T1204 - User Execution
+- [ ] T1204.001 - User Execution: Malicious Link
+- [ ] T1204.002 - User Execution: Malicious File
+- [ ] T1204.004 - User Execution: Malicious Copy and Paste
+- [x] T1569.002 - System Services: Service Execution
 ## Persistence
 - [ ] T1037.001 - Boot or Logon Initialization Scripts: Logon Script (Windows)
 - [x] T1037.003 - Boot or Logon Initialization Scripts: Network Logon Script
@@ -66,13 +66,13 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1546.003 - Event Triggered Execution: Windows Management Instrumentation Event Subscription
 - [ ] T1547.001 - Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder
 - [ ] T1547.004 - Boot or Logon Autostart Execution: Winlogon Helper DLL
-- [x] T1574.001 - Hijack Execution Flow: DLL  <!-- plan tactic: Defense Evasion -->
+- [ ] T1574.001 - Hijack Execution Flow: DLL
 ## Privilege Escalation
 - [ ] T1037.001 - Boot or Logon Initialization Scripts: Logon Script (Windows)
 - [x] T1037.003 - Boot or Logon Initialization Scripts: Network Logon Script  <!-- plan tactic: Persistence -->
 - [ ] T1037.005 - Boot or Logon Initialization Scripts: Startup Items
 - [x] T1055 - Process Injection  <!-- plan tactic: Defense Evasion -->
-- [x] T1055.001 - Process Injection: Dynamic-link Library Injection  <!-- plan tactic: Defense Evasion -->
+- [ ] T1055.001 - Process Injection: Dynamic-link Library Injection
 - [ ] T1055.002 - Process Injection: Portable Executable Injection
 - [ ] T1055.012 - Process Injection: Process Hollowing
 - [x] T1078 - Valid Accounts  <!-- plan tactic: Persistence -->
@@ -88,28 +88,28 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1547.001 - Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder
 - [ ] T1547.004 - Boot or Logon Autostart Execution: Winlogon Helper DLL
 - [ ] T1548.002 - Abuse Elevation Control Mechanism: Bypass User Account Control
-- [x] T1574.001 - Hijack Execution Flow: DLL  <!-- plan tactic: Defense Evasion -->
+- [ ] T1574.001 - Hijack Execution Flow: DLL
 ## Defense Evasion
 - [x] T1006 - Direct Volume Access
 - [x] T1027 - Obfuscated Files or Information
 - [ ] T1027.002 - Obfuscated Files or Information: Software Packing
 - [ ] T1027.004 - Obfuscated Files or Information: Compile After Delivery
 - [ ] T1027.005 - Obfuscated Files or Information: Indicator Removal from Tools
-- [x] T1027.006 - Obfuscated Files or Information: HTML Smuggling
+- [ ] T1027.006 - Obfuscated Files or Information: HTML Smuggling
 - [x] T1027.007 - Obfuscated Files or Information: Dynamic API Resolution
 - [x] T1027.008 - Obfuscated Files or Information: Stripped Payloads
-- [x] T1027.009 - Obfuscated Files or Information: Embedded Payloads
+- [ ] T1027.009 - Obfuscated Files or Information: Embedded Payloads
 - [x] T1027.010 - Obfuscated Files or Information: Command Obfuscation
 - [x] T1027.013 - Obfuscated Files or Information: Encrypted/Encoded File
 - [x] T1027.015 - Obfuscated Files or Information: Compression
 - [ ] T1027.016 - Obfuscated Files or Information: Junk Code Insertion
 - [x] T1036 - Masquerading
-- [x] T1036.003 - Masquerading: Rename Legitimate Utilities
+- [ ] T1036.003 - Masquerading: Rename Legitimate Utilities
 - [x] T1036.004 - Masquerading: Masquerade Task or Service
 - [x] T1036.005 - Masquerading: Match Legitimate Resource Name or Location
-- [x] T1036.008 - Masquerading: Masquerade File Type
+- [ ] T1036.008 - Masquerading: Masquerade File Type
 - [x] T1055 - Process Injection
-- [x] T1055.001 - Process Injection: Dynamic-link Library Injection
+- [ ] T1055.001 - Process Injection: Dynamic-link Library Injection
 - [ ] T1055.002 - Process Injection: Portable Executable Injection
 - [ ] T1055.012 - Process Injection: Process Hollowing
 - [ ] T1070.001 - Indicator Removal: Clear Windows Event Logs
@@ -128,18 +128,18 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1134.004 - Access Token Manipulation: Parent PID Spoofing
 - [x] T1140 - Deobfuscate/Decode Files or Information
 - [ ] T1202 - Indirect Command Execution
-- [x] T1218.005 - System Binary Proxy Execution: Mshta
-- [x] T1218.010 - System Binary Proxy Execution: Regsvr32
+- [ ] T1218.005 - System Binary Proxy Execution: Mshta
+- [ ] T1218.010 - System Binary Proxy Execution: Regsvr32
 - [ ] T1218.011 - System Binary Proxy Execution: Rundll32
-- [x] T1218.013 - System Binary Proxy Execution: Mavinject
+- [ ] T1218.013 - System Binary Proxy Execution: Mavinject
 - [ ] T1222.001 - File and Dirctory Permissions Modification: Windows File and Directory Permissions Modification
 - [ ] T1480.001 - Execution Guardrails: Environmental Keying
 - [ ] T1480.002 - Execution Guardrails: Mutual Exclusion
 - [x] T1484.001 - Domain or Tenant Policy Modification: Group Policy Modification
-- [x] T1497 - Virtualization/Sandbox Evasion
-- [x] T1497.001 - Virtualization/Sandbox Evasion: System Checks
-- [x] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks
-- [x] T1553.002 - Subvert Trust Controls: Code Signing
+- [ ] T1497 - Virtualization/Sandbox Evasion
+- [ ] T1497.001 - Virtualization/Sandbox Evasion: System Checks
+- [ ] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks
+- [ ] T1553.002 - Subvert Trust Controls: Code Signing
 - [ ] T1562.001 - Impair Defenses: Disable or Modify Tools
 - [ ] T1562.002 - Impair Defenses: Disable Windows Event Logging
 - [ ] T1562.003 - Impair Defenses: Impair Command History Logging
@@ -149,10 +149,10 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1564.002 - Hide Artifacts: Hidden Users
 - [x] T1564.003 - Hide Artifacts: Hidden Window
 - [x] T1564.010 - Hide Artifacts: Process Argument Spoofing
-- [x] T1574.001 - Hijack Execution Flow: DLL
-- [x] T1620 - Reflective Code Loading
-- [x] T1622 - Debugger Evasion
-- [x] T1678 - Delay Execution
+- [ ] T1574.001 - Hijack Execution Flow: DLL
+- [ ] T1620 - Reflective Code Loading
+- [ ] T1622 - Debugger Evasion
+- [ ] T1678 - Delay Execution
 - [ ] T1679 - Selective Exclusion
 ## Credential Access
 - [x] T1003.001 - OS Credential Dumping: LSASS Memory
@@ -170,18 +170,18 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [x] T1057 - Process Discovery
 - [ ] T1069.001 - Permission Groups Discovery: Local Groups
 - [x] T1069.002 - Permission Groups Discovery: Domain Groups
-- [x] T1082 - System Information Discovery
+- [ ] T1082 - System Information Discovery
 - [ ] T1083 - File and Directory Discovery
 - [ ] ~~T1087.001 - Account Discovery: Local Account~~
 - [x] T1087.002 - Account Discovery: Domain Account
 - [x] T1135 - Network Share Discovery
 - [ ] T1217 - Browser Information Discovery
 - [ ] T1482 - Domain Trust Discovery
-- [x] T1497.001 - Virtualization/Sandbox Evasion: System Checks  <!-- plan tactic: Defense Evasion -->
-- [x] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks  <!-- plan tactic: Defense Evasion -->
+- [ ] T1497.001 - Virtualization/Sandbox Evasion: System Checks
+- [ ] T1497.002 - Virtualization/Sandbox Evasion: User Activity Based Checks
 - [x] T1518.001 - Software Discovery: Security Software Discovery
 - [ ] ~~T1614.001 - System Location Discovery: System Language Discovery~~
-- [x] T1622 - Debugger Evasion  <!-- plan tactic: Defense Evasion -->
+- [ ] T1622 - Debugger Evasion
 - [ ] T1680 - Local Storage Discovery
 ## Lateral Movement
 - [ ] T1021.001 - Remote Services: Remote Desktop Protocol
@@ -209,7 +209,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1132.002 - Data Encoding: Non-Standard Encoding
 - [ ] ~~T1571 - Non-Standard Port~~
 - [ ] T1573.001 - Encrypted Channel: Symmetric Cryptography
-- [x] T1573.002 - Encrypted Channel: Asymmetric Cryptography
+- [ ] T1573.002 - Encrypted Channel: Asymmetric Cryptography
 ## Exfiltration
 - [ ] T1020 - Automated Exfiltration
 - [x] T1030 - Data Transfer Size Limits

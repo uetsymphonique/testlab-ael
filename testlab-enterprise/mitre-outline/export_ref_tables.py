@@ -14,6 +14,7 @@ CANONICAL_HEADERS = [
     "Platform",
     "Detection Criteria",
     "Category",
+    "Calibration Reason",
     "Red Team Activity",
     "Hosts",
     "Users",
@@ -164,6 +165,7 @@ def parse_args() -> argparse.Namespace:
         description="Export Reference Tables from one or more emulation plan Markdown files to CSV."
     )
     parser.add_argument("plans", nargs="*", type=Path, help="Plan Markdown file(s) to parse.")
+    parser.add_argument("--file", type=Path, help="Single plan Markdown file to parse.")
     parser.add_argument("--folder", type=Path, help="Directory containing Phase*.md plan files.")
     parser.add_argument("--out", type=Path, help="CSV output path. Defaults to stdout.")
     parser.add_argument(
@@ -187,6 +189,9 @@ def main() -> int:
 
     plan_files = list(args.plans)
 
+    if args.file is not None:
+        plan_files = [args.file] + plan_files
+
     if args.folder is not None:
         if not args.folder.is_dir():
             print(f"[!] Folder not found: {args.folder}", file=sys.stderr)
@@ -199,7 +204,7 @@ def main() -> int:
         plan_files = phase_files + plan_files
 
     if not plan_files:
-        print("[!] No plan files specified. Provide at least one plan .md file or use --folder.", file=sys.stderr)
+        print("[!] No plan files specified. Provide at least one plan .md file, use --file, or use --folder.", file=sys.stderr)
         return 1
 
     missing = [path for path in plan_files if not path.exists()]

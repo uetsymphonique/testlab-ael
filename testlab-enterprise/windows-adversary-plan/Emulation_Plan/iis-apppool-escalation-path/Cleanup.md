@@ -21,17 +21,13 @@ the active C2 server.
 
 Run on `IIS01` / `react.testlab.local` as an administrator.
 
+`CWLHerpaderping` deletes `CertCA.enc` automatically after reading it into memory.
+The items below are included as a safety net in case Phase 1 was interrupted.
+
 ```powershell
 $phase1ServerFiles = @(
-    "C:\Windows\Temp\CertEnrollSvc.b64",
-    "C:\Windows\Temp\CertEnrollSvc.bin",
     "C:\Windows\Temp\CertEnrollSvc.exe",
-    "C:\Windows\Temp\dnscat2.b64",
-    "C:\Windows\Temp\dnscat2-disk.b64",
-    "C:\Windows\Temp\CertEnrollAgent.b64",
-    "C:\ProgramData\CertCA.bin",
-    "C:\ProgramData\CertEnrollAgent.bin",
-    "C:\ProgramData\CertEnrollAgent.exe"
+    "C:\ProgramData\CertCA.enc"
 )
 
 foreach ($path in $phase1ServerFiles) {
@@ -51,18 +47,7 @@ $phase1ServerFiles | ForEach-Object {
 Get-ChildItem -Path "C:\Windows\Temp" -Filter "HD*.tmp" -ErrorAction SilentlyContinue
 ```
 
-### 3. Optional attacker-side cleanup
-
-If the generated React RCE upload blobs are no longer needed, remove them from
-the attacker workspace.
-
-```powershell
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\CertEnrollSvc.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\dnscat2.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\CertEnrollAgent.b64" -Force -ErrorAction SilentlyContinue
-```
-
-### 4. Optional Step 2 cleanup — Restore Windows Defender on IIS01
+### 3. Optional Step 2 cleanup — Restore Windows Defender on IIS01
 
 Run only if Optional Step 2 (Disable Windows Defender) was executed.
 
@@ -91,21 +76,29 @@ session here if the operator will continue into Phase 3.
 
 Run on `IIS01` / `react.testlab.local` as an administrator.
 
+`wdhelper.exe` writes the LSASS dump to a randomised path (`C:\Windows\Temp\~DFxxxx.tmp`).
+The dump is SYSTEM-owned; run the wildcard removal from an elevated session.
+
 ```powershell
 $phase2ServerFiles = @(
-    "C:\Windows\Temp\WmiAvQuery.b64",
-    "C:\Windows\Temp\WmiAvQuery.exe",
-    "C:\Windows\Temp\WdiBoot.gz.b64",
-    "C:\Windows\Temp\WdiBoot.gz",
-    "C:\Windows\Temp\WdiBoot.bin",
-    "C:\Windows\Temp\WdiBoot.exe",
-    "C:\Windows\Temp\f.elif",
-    "C:\inetpub\react.testlab.local\f.elif"
+    "C:\Windows\Temp\diaghost.exe",
+    "C:\Windows\Temp\wdhelper.gz",
+    "C:\Windows\Temp\wdhelper.exe"
 )
 
 foreach ($path in $phase2ServerFiles) {
     Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
 }
+
+Get-ChildItem -Path "C:\Windows\Temp" -Filter "~DF*.tmp" -ErrorAction SilentlyContinue |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+```
+
+If the EPERM workaround was used (dump copied to `C:\inetpub\react.testlab.local\`), also remove:
+
+```powershell
+Get-ChildItem -Path "C:\inetpub\react.testlab.local" -Filter "~DF*.tmp" -ErrorAction SilentlyContinue |
+    Remove-Item -Force -ErrorAction SilentlyContinue
 ```
 
 Verify:
@@ -114,19 +107,17 @@ Verify:
 $phase2ServerFiles | ForEach-Object {
     [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
 }
+Get-ChildItem -Path "C:\Windows\Temp" -Filter "~DF*.tmp" -ErrorAction SilentlyContinue
 ```
 
 ### 2. Optional attacker-side cleanup
 
-Remove local files generated or downloaded during the LSASS dump workflow if the
-operator no longer needs them.
+Remove downloaded dump and decrypted credential files if no longer needed.
 
 ```powershell
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\WmiAvQuery.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\WdiBoot.gz.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\downloaded_f.elif" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\lsass.dmp" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\downloaded_f.elif" -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\wdhelper.gz" -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Path ".\resources\payloads\react2shell-tool" -Filter "downloaded_~DF*.tmp" |
+    Remove-Item -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\lsass.dmp" -Force -ErrorAction SilentlyContinue
 ```
 
@@ -144,30 +135,6 @@ Remove from the attacker workspace:
 
 ```bash
 rm -f downloaded_g.dmp
-```
-
-### 4. Optional Step 2B cleanup — compile-after-delivery (WmiQuery)
-
-Run only if Optional Step 2B (Compile After Delivery) was executed.
-
-Run on `IIS01` as an administrator.
-
-```powershell
-$phase2OptFiles = @(
-    "C:\Windows\Temp\WmiQuery.b64",
-    "C:\Windows\Temp\WmiQuery.cs",
-    "C:\Windows\Temp\WmiQuery.exe"
-)
-
-foreach ($path in $phase2OptFiles) {
-    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
-}
-```
-
-Remove from the attacker workspace:
-
-```bash
-rm -f resources/payloads/react2shell-tool/WmiQuery.b64
 ```
 
 ## Phase 3 - Lateral Movement, C2 Establishment & Persistence
@@ -350,15 +317,17 @@ Test-Path -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Services\CertPolicyHost"
 
 Run on `DC01` as an administrator.
 
+`CertCA.enc` is deleted automatically by CWLHerpaderping at Phase 3 runtime; it is
+included here as a safety net in case execution was interrupted.
+
 ```powershell
 $phase3DcFiles = @(
-    "C:\ProgramData\CertCA.bin",
+    "C:\ProgramData\CertCA.enc",
     "C:\ProgramData\CertEnrollAgent.exe",
     "C:\ProgramData\policyupdate.exe",
     "C:\ProgramData\policysync.exe",
     "C:\ProgramData\ServiceInstaller.exe",
-    "C:\ProgramData\NtServiceInstaller.exe",
-    "C:\Windows\Temp\ls.txt"
+    "C:\ProgramData\NtServiceInstaller.exe"
 )
 
 foreach ($path in $phase3DcFiles) {
@@ -382,23 +351,19 @@ Get-ChildItem -Path "C:\Windows\Temp" -Filter "HD*.tmp" -ErrorAction SilentlyCon
 
 Run on `IIS01` / `react.testlab.local` as an administrator.
 
+`policyupdate.bin`, `policysync.bin`, `ServiceInstaller.bin`, and `NtServiceInstaller.bin`
+are the raw staged names on IIS01 — they are transferred to DC01 as `.exe` but remain as
+`.bin` on IIS01 because the staging step does not rename them.
+
 ```powershell
 $phase3IisFiles = @(
-    "C:\Windows\Temp\dnscat2.b64",
-    "C:\Windows\Temp\CertEnrollAgent.b64",
-    "C:\Windows\Temp\go-thehash.b64",
-    "C:\Windows\Temp\ServiceInstaller.b64",
-    "C:\Windows\Temp\NtServiceInstaller.b64",
-    "C:\Windows\Temp\policyupdate.exe.b64",
-    "C:\Windows\Temp\policysync.exe.b64",
-    "C:\ProgramData\CertCA.bin",
-    "C:\ProgramData\CertEnrollAgent.bin",
+    "C:\ProgramData\CertCA.enc",
     "C:\ProgramData\CertEnrollAgent.exe",
     "C:\ProgramData\go-thehash.exe",
-    "C:\ProgramData\policyupdate.exe",
-    "C:\ProgramData\policysync.exe",
-    "C:\ProgramData\ServiceInstaller.exe",
-    "C:\ProgramData\NtServiceInstaller.exe"
+    "C:\ProgramData\policyupdate.bin",
+    "C:\ProgramData\policysync.bin",
+    "C:\ProgramData\ServiceInstaller.bin",
+    "C:\ProgramData\NtServiceInstaller.bin"
 )
 
 foreach ($path in $phase3IisFiles) {
@@ -414,39 +379,26 @@ $phase3IisFiles | ForEach-Object {
 }
 ```
 
-### 8. Optional attacker-side cleanup
-
-Remove encoded payloads and local verification output if the operator no longer
-needs them.
-
-```powershell
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\dnscat2.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\CertEnrollAgent.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\go-thehash.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\ServiceInstaller.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\NtServiceInstaller.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\policyupdate.exe.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\policysync.exe.b64" -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath ".\ls.txt" -Force -ErrorAction SilentlyContinue
-```
-
 ## Phase 4 - Collection & Exfiltration
 
 Phase 4 does not create persistent C2 or persistence artifacts. All cleanup targets
-staged files on DC01 and IIS01. The `certstore.tmp` file in the IIS01 web root is
-deleted inline at the end of Phase 4 Step 3; run Section 3 below only if that inline
-step was skipped.
+staged files on DC01 and IIS01. The `certstore.cmd` files in NETLOGON and the IIS01
+web root are deleted inline at the end of Phase 4 Step 2; run Sections 2 and 3 below
+only if those inline deletions were skipped.
 
 ### 1. Clean DC01 collection staging directory and archives
 
 Run on `DC01` as an administrator.
 
+`certstore.cmd` is the primary output of `PolicySyncSvc.exe`. The `certstore.ddf` and
+`certstore.cab` entries apply only if the alternative Step 1B (makecab LOLBin) was run.
+
 ```powershell
 $phase4DcFiles = @(
-    "C:\ProgramData\NtdsRawDump.exe",
+    "C:\ProgramData\PolicySyncSvc.exe",
+    "C:\ProgramData\certstore.cmd",
     "C:\ProgramData\certstore.ddf",
-    "C:\ProgramData\certstore.cab",
-    "C:\ProgramData\certstore.tmp"
+    "C:\ProgramData\certstore.cab"
 )
 
 foreach ($path in $phase4DcFiles) {
@@ -465,22 +417,29 @@ $phase4DcFiles | ForEach-Object {
 Test-Path -LiteralPath "C:\ProgramData\CertStore"
 ```
 
-### 2. Clean IIS01 web root staging file (if inline cleanup was skipped)
+### 2. Clean DC01 NETLOGON staging file (if inline cleanup was skipped)
+
+Run on `DC01` as an administrator.
+
+```powershell
+Remove-Item -LiteralPath "C:\Windows\SYSVOL\sysvol\testlab.local\scripts\certstore.cmd" -Force -ErrorAction SilentlyContinue
+```
+
+### 3. Clean IIS01 web root staging file (if inline cleanup was skipped)
 
 Run on `IIS01` as an administrator.
 
 ```powershell
-Remove-Item -LiteralPath "C:\inetpub\react.testlab.local\certstore.tmp" -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath "C:\inetpub\react.testlab.local\certstore.cmd" -Force -ErrorAction SilentlyContinue
 ```
 
-### 3. Clean IIS01 temp files
+### 4. Clean IIS01 temp files
 
 Run on `IIS01` as an administrator.
 
 ```powershell
 $phase4IisFiles = @(
-    "C:\Windows\Temp\NtdsRawDump.b64",
-    "C:\Windows\Temp\NtdsRawDump.exe"
+    "C:\Windows\Temp\PolicySyncSvc.exe"
 )
 
 foreach ($path in $phase4IisFiles) {
@@ -496,13 +455,14 @@ $phase4IisFiles | ForEach-Object {
 }
 ```
 
-### 4. Optional attacker-side cleanup
+### 5. Optional attacker-side cleanup
 
-Remove the collection tool blob and downloaded archives from the attacker workspace.
+Remove the downloaded archive and extracted credential files from the attacker workspace.
+The decryption script deletes `certstore.zip` automatically; `certstore.cmd` and the
+`certstore/` directory remain.
 
 ```bash
-rm -f resources/payloads/react2shell-tool/NtdsRawDump.b64
-rm -f certstore.tmp certstore.zip
+rm -f resources/payloads/react2shell-tool/certstore.cmd
 rm -rf certstore/
 ```
 
@@ -579,35 +539,20 @@ Test-Path "C:\Windows\Temp\UploadPortalDB_log.ldf.backup"
 
 Run on `IIS01` as an administrator.
 
-```powershell
-$phase5IisCertMaint = @(
-    "C:\Windows\Temp\CertMaint.b64",
-    "C:\ProgramData\CertMaint.bin",
-    "C:\ProgramData\CertMaint.exe"
-)
+`CertMaint.bin` is renamed to `CertMaint.exe` during staging — only the `.exe` remains on disk.
 
-foreach ($path in $phase5IisCertMaint) {
-    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
-}
+```powershell
+Remove-Item -LiteralPath "C:\ProgramData\CertMaint.exe" -Force -ErrorAction SilentlyContinue
 ```
 
 Verify:
 
 ```powershell
-$phase5IisCertMaint | ForEach-Object {
-    [pscustomobject]@{ Path = $_; Exists = Test-Path -LiteralPath $_ }
-}
+Test-Path -LiteralPath "C:\ProgramData\CertMaint.exe"
+# Expected: False
 ```
 
-### 5. Optional attacker-side cleanup
-
-Remove the CertMaint payload blob from the attacker workspace.
-
-```powershell
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\CertMaint.b64" -Force -ErrorAction SilentlyContinue
-```
-
-### 6. Remove logon-screen registry defacement on DC01
+### 5. Remove logon-screen registry defacement on DC01
 
 Run on `DC01` as an administrator.
 
@@ -626,7 +571,7 @@ Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Syste
 # Both expected: empty / not present
 ```
 
-### 7. Remove ransom notes on DC01
+### 6. Remove ransom notes on DC01
 
 Run on `DC01` as an administrator.
 
@@ -650,7 +595,7 @@ $phase5DcFiles | ForEach-Object {
 # Both expected: False
 ```
 
-### 8. Remove defaced web page on IIS01
+### 7. Remove defaced web page on IIS01
 
 The react2shell eval channel created `index.html` in the upload portal web root. The
 original landing page is `Default.aspx`; deleting the attacker-created `index.html`
@@ -673,11 +618,11 @@ Invoke-WebRequest -Uri "http://upload.testlab.local/" -UseBasicParsing |
 # Expected: original upload portal title, not "ENCRYPTED"
 ```
 
-### 9. Non-reversible changes — restore from VM snapshot if needed
+### 8. Non-reversible changes — restore from VM snapshot if needed
 
 The following Phase 5 change cannot be reversed by command:
 
-- **VSS shadows deleted** — `vssadmin delete shadows /all /quiet` removes all volume
+- **VSS shadows deleted** — `vssapi.dll` COM call removes all volume
   snapshots; they cannot be recreated retroactively. Recreate manually with
   `vssadmin create shadow /for=C:` or restore `IIS01` from a pre-Phase-5 VM snapshot.
 

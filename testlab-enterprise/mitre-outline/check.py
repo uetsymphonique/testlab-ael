@@ -55,7 +55,9 @@ def _split_row(line: str) -> list[str]:
         s = s[1:]
     if s.endswith("|"):
         s = s[:-1]
-    return [c.strip() for c in s.split("|")]
+    _ESC = "\x00"  # placeholder for escaped pipes \|
+    s = s.replace("\\|", _ESC)
+    return [c.replace(_ESC, "|").strip() for c in s.split("|")]
 
 
 def _is_separator(line: str) -> bool:
