@@ -109,17 +109,7 @@ Phase file content: each file is a complete execution plan with Steps containing
 
 ### `resources/payloads/`
 
-Contains all payloads, tools, and exploit PoCs used in the phases. Organized by tool name or technique ID:
-
-| Type | Organization |
-|---|---|
-| Technique-specific payload | By technique ID if tightly coupled, e.g. `T1189/` |
-| Tool or framework | By tool name, e.g. `dnscat2/`, `go-thehash/`, `Invoke-TheHash/` |
-| Exploit PoC | By CVE or exploit name, e.g. `CVE-2025-9491_POC/` |
-| Custom implant/service | By project/payload name; add README or build notes if multiple files |
-| Standalone binary | May go at `payloads/` root if single artifact, but prefer a subdirectory if source, config, or docs are included |
-
-When adding a new payload: place it in a subdirectory by tool name or technique ID. Add `README.md` if the payload has multiple files.
+Organized by tool name or technique ID (e.g. `dnscat2/`, `T1189/`, `CVE-2025-9491_POC/`). Add `README.md` when a payload has multiple files.
 
 ### `resources/setup/`
 
@@ -127,38 +117,7 @@ Contains lab infrastructure docs: instructions for standing up hosts, domains, s
 
 ### Current Plan: `windows-adversary-plan`
 
-Located at `testlab-enterprise/windows-adversary-plan/`. This plan uses **parallel attack path subdirectories** instead of a linear phase structure. Three independent attack paths cover different entry points and host contexts; the server-side path is the longest chain, ending with impact on IIS01 and DC01:
-
-**`Emulation_Plan/html-smuggling-path/`** — user-driven path (WS01)
-
-| File | Content |
-|---|---|
-| `Phase 1.md` | Initial Access & C2: HTML smuggling → copy-paste PowerShell → HTA dropper → dnscat2 C2 on WS01 |
-| `Cleanup.md` | Artifact cleanup for this path |
-
-**`Emulation_Plan/toneshell-path/`** — user-driven path (WS01)
-
-| File | Content |
-|---|---|
-| `Phase 1.md` | Initial Access & C2: fake update lure (T1566.002) → drive-by download (T1189) → password-protected RAR (T1027.013) → LNK double-click (T1204.002) → EssosUpdate.exe DLL sideload of Toneshell (T1574.001) → regsvr32 proxy execution (T1218.010) → mavinject.exe injection into waitfor.exe (T1218.013) → XOR-decrypt + reflective load (T1140, T1620) → Toneshell TCP C2 on WS01 as domain user (T1095) |
-
-**`Emulation_Plan/iis-apppool-escalation-path/`** — server-side path (IIS01 → DC01)
-
-| File | Content |
-|---|---|
-| `Phase 1.md` | Initial Access & C2: CVE-2025-55182 React RSC RCE → react2shell eval shell → EfsPotato SYSTEM → Herpaderping ghost → dnscat2 C2 on IIS01 (Step 1A: file-based full chain; [ALT] Step 1B: T1620 reflective load via stdin) |
-| `Phase 2.md` | Discovery & Credential Access: ReflectDump LSASS → XOR-encrypted `f.elif` → exfil via react2shell → offline decrypt; host & domain recon (WmiAvQuery, whoami, nltest, net group, net view); [ALT] Step 3B: Defender disable (T1562.001) + rundll32 comsvcs.dll MiniDump (T1218.011, T1003.001) |
-| `Phase 3.md` | Lateral Movement, C2, Persistence: go-thehash.exe PtH → DC01 C$; WMI path (C2 as TESTLAB\Administrator) + SCM path (C2 as SYSTEM); 4 persistence mechanisms (svcbackup account, WMI subscription, SYSVOL logon script, registry-backed service) + [ALT] API-based service variant |
-| `Phase 4.md` | Collection & Exfiltration: NtdsRawDump.exe VSS shadow via WMI (T1047) + direct volume access (T1006) → NTDS/hive harvest (T1003.003, T1005, T1119) → in-memory ZIP + AES-256-CBC double encryption (T1560.002, T1560.003); [ALT] makecab LOLBin (T1560.001); NETLOGON relay staging (T1039, T1074.001, T1021.002); exfil via react2shell HTTP C2 (T1041) |
-| `Phase 5.md` | Impact: CertMaint.exe — VSS deletion via COM IVssBackupComponents (T1490); MSSQL$SQLEXPRESS stop via SCM API (T1489); AES-256-CBC encrypt UploadPortalDB.mdf/.ldf (T1486); logon-screen registry modification + ransom notes on DC01 (T1491.001, T1112); upload.testlab.local web root overwrite |
-| `Cleanup.md` | Artifact cleanup for this path |
-
-**`Emulation_Plan/summary.md`** — overall flow summary and lab topology for all three paths.
-
-| Group | Components |
-|---|---|
-| Payloads/tools | `T1189/`, `CWLHerpaderping/`, `EfsPotato/`, `react2shell-tool/`, `dnscat2/`, `dnscat2.exe`, `go-thehash/`, `Invoke-TheHash/`, `LsassReflectDumping/`, `WmiAvQuery/`, `webshell/`, `windows-service/` |
-| Setup | `Windows Server 2022-DC.md`, `Windows Server 2022-IIS.md`, `file-upload-vuln-web/`, `react2shell-vuln-web/` |
+Located at `testlab-enterprise/windows-adversary-plan/`. Uses **parallel attack path subdirectories** instead of a linear phase structure. Read `Emulation_Plan/summary.md` for the full attack flow, lab topology, and phase breakdown across all three paths.
 
 ---
 
