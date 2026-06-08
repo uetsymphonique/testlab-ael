@@ -4,3 +4,27 @@
 [submodule "mitre-knowledge-base"]
 	path = mitre-knowledge-base
 	url = https://github.com/uetsymphonique/mitre-knowledge-base
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/rce-and-c2"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/rce-and-c2
+	url = https://github.com/uetsymphonique/rce-and-c2
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/persistence"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/persistence
+	url = https://github.com/uetsymphonique/persistence
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/user-trigger"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/user-trigger
+	url = https://github.com/uetsymphonique/user-trigger
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/impact"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/impact
+	url = https://github.com/uetsymphonique/impact
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/process-injection"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/process-injection
+	url = https://github.com/uetsymphonique/process-injection
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/priv-escalation"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/priv-escalation
+	url = https://github.com/uetsymphonique/priv-escalation
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/cred-access"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/cred-access
+	url = https://github.com/uetsymphonique/cred-access
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/lateral-movement"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/lateral-movement
+	url = https://github.com/uetsymphonique/lateral-movement
