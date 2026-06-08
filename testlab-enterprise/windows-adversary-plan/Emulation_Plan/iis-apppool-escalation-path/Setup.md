@@ -78,7 +78,7 @@ Two binaries must be built before running Phase 2. Build order does not matter; 
 Open *x64 Native Tools Command Prompt for VS 2022*, then from the repo root:
 
 ```cmd
-cd resources\payloads\WmiAvQuery
+cd resources\payloads\discovery\WmiAvQuery
 cl.exe /EHsc /O2 /MT /Fe:WmiAvQuery.exe main.cpp /link /SUBSYSTEM:CONSOLE
 ```
 
