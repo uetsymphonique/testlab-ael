@@ -12,12 +12,12 @@ Build an **adversary emulation plan** aligned with the MITRE ATT&CK Evaluation 2
  
 This repo is a fork of the **ATT&CK Evaluations Library** by MITRE. The original content stores past adversary emulation scenarios used as reference to understand how MITRE interprets adversary behavior, structures operation flows, writes procedures and payloads, and maps to ATT&CK.
  
-`Enterprise/` is the **primary insight source** because it contains Enterprise-environment scenarios most relevant to building and refining plans under `testlab-enterprise/`. Do not copy old scenarios; use `Enterprise/` only to extract patterns, understand MITRE's behavior descriptions, phase breakdown, operation flow writing style, and ATT&CK mapping approach. Current scenarios must be designed independently based on the technique scope MITRE published for this year.
+`ael/Enterprise/` is the **primary insight source** because it contains Enterprise-environment scenarios most relevant to building and refining plans under `testlab-enterprise/`. Do not copy old scenarios; use `ael/Enterprise/` only to extract patterns, understand MITRE's behavior descriptions, phase breakdown, operation flow writing style, and ATT&CK mapping approach. Current scenarios must be designed independently based on the technique scope MITRE published for this year.
  
-When using `Enterprise/` for insight, distinguish between two groups:
+When using `ael/Enterprise/` for insight, distinguish between two groups:
  
-- **Detections** — scenarios for evaluating detection, investigation, and description capability. 2025 examples: `Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md`, `Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md`.
-- **Protections** — scenarios for evaluating prevention/blocking per isolated protection tests. 2025 examples: `Enterprise/scattered_spider/Emulation_Plan/Protections_Test_*.md`, `Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md`, `Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md`.
+- **Detections** — scenarios for evaluating detection, investigation, and description capability. 2025 examples: `ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md`, `ael/Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md`.
+- **Protections** — scenarios for evaluating prevention/blocking per isolated protection tests. 2025 examples: `ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_*.md`, `ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md`, `ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md`.
  
 Identify which group you are learning patterns from before reading, because objectives, flow depth, and expected outcome presentation differ.
  
@@ -30,7 +30,7 @@ The technique list in scope for this year's evaluation is published in:
 - `testlab-enterprise/mitre-outline/Scenario 1.md` — **Crimeware-as-a-Service** (Windows endpoint-focused, ransomware/wipe endpoint chain)
 - `testlab-enterprise/mitre-outline/Scenario 2.md` — **PRC Espionage Group** (Enterprise-wide, cross-platform: Windows + Linux + AWS, APT-style)
  
-These two files are the **mandatory technique scope**. The goal is not to copy an old scenario but to use the published techniques as required scope, then consult `Enterprise/` for insight on how MITRE thinks and presents behavior. When selecting techniques to add to a plan, **always cross-reference against these two files**. Prioritize techniques that appear in scope; do not add out-of-scope techniques unless explicitly asked.
+These two files are the **mandatory technique scope**. The goal is not to copy an old scenario but to use the published techniques as required scope, then consult `ael/Enterprise/` for insight on how MITRE thinks and presents behavior. When selecting techniques to add to a plan, **always cross-reference against these two files**. Prioritize techniques that appear in scope; do not add out-of-scope techniques unless explicitly asked.
  
 ---
  

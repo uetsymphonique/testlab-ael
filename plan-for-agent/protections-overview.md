@@ -20,13 +20,13 @@ In the context of this project, Protections are used to understand how MITRE iso
 
 ## 2025 Reference Examples
 
-- `Enterprise/scattered_spider/Emulation_Plan/Protections_Test_1_Scenario.md`
-- `Enterprise/scattered_spider/Emulation_Plan/Protections_Test_2_Scenario.md`
-- `Enterprise/scattered_spider/Emulation_Plan/Protections_Test_3_Scenario.md`
-- `Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md`
-- `Enterprise/scattered_spider/Emulation_Plan/Protections_Test_7_Scenario.md`
-- `Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md`
-- `Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md`
+- `ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_1_Scenario.md`
+- `ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_2_Scenario.md`
+- `ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_3_Scenario.md`
+- `ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md`
+- `ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_7_Scenario.md`
+- `ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md`
+- `ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md`
 
 Use the above only to extract insight on how MITRE isolates behaviors for protection tests, describes procedures, and defines outcomes. Do not copy scenarios, payloads, or flows verbatim.
 

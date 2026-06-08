@@ -2,14 +2,14 @@
 
 > **Consumed by:** `/write-phase` — see [pipeline.md](pipeline.md)
 
-Derived from `Enterprise/mustang_panda/` and `Enterprise/scattered_spider/`.
+Derived from `ael/Enterprise/mustang_panda/` and `ael/Enterprise/scattered_spider/`.
 
 ---
 
 ## Directory Structure
 
 ```
-Enterprise/<adversary>/
+ael/Enterprise/<adversary>/
 ├── Emulation_Plan/
 │   ├── <Adversary>_Scenario.md          # Main scenario
 │   ├── <Adversary>_Alternative_Steps.md # Alternative steps for different environments

@@ -23,12 +23,12 @@ Entries are organized by ATT&CK tactic (cross-scenario), then by technique. Comm
 
 | # | Scenario | Noise Blocks |
 | - | -------- | ------------ |
-| 1 | [Scattered Spider Protections Test 6 (NOISE ONLY)](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) | entire scenario |
-| 2 | [ER6 Ransomware Protections (Test 1 - Test 8)](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) | 8 blocks |
-| 3 | [DPRK Protections (Test 9, Test 10)](../Enterprise/dprk/Emulation_Plan/Protections.md) | 2 blocks |
-| 4 | [ER6 DPRK Scenario (Step 4 Collection)](../Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) | 1 block |
-| 5 | [ER6 CL0P Scenario (Step 2, Noise Step, Step 4)](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) | 3 blocks |
-| 6 | [ER6 LockBit Scenario (Step 2, Step 4, Step 7)](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) | 3 blocks |
+| 1 | [Scattered Spider Protections Test 6 (NOISE ONLY)](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) | entire scenario |
+| 2 | [ER6 Ransomware Protections (Test 1 - Test 8)](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) | 8 blocks |
+| 3 | [DPRK Protections (Test 9, Test 10)](../ael/Enterprise/dprk/Emulation_Plan/Protections.md) | 2 blocks |
+| 4 | [ER6 DPRK Scenario (Step 4 Collection)](../ael/Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) | 1 block |
+| 5 | [ER6 CL0P Scenario (Step 2, Noise Step, Step 4)](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) | 3 blocks |
+| 6 | [ER6 LockBit Scenario (Step 2, Step 4, Step 7)](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) | 3 blocks |
 
 ## Summary ATT&CK Coverage
 
@@ -86,11 +86,11 @@ Get-WinSystemLocale
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Discovery | T1082 | cmd.exe executed systeminfo | findstr | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
-| Discovery | T1082 | cmd.exe executed systeminfo | findstr | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Discovery | T1082 | cmd.exe executed systeminfo | findstr | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
-| Discovery | T1614 | PowerShell Get-WinSystemLocale | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Discovery | T1614 | PowerShell Get-WinSystemLocale | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Discovery | T1082 | cmd.exe executed systeminfo | findstr | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| Discovery | T1082 | cmd.exe executed systeminfo | findstr | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Discovery | T1082 | cmd.exe executed systeminfo | findstr | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Discovery | T1614 | PowerShell Get-WinSystemLocale | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Discovery | T1614 | PowerShell Get-WinSystemLocale | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: File and Directory Discovery (T1083)
 
@@ -107,8 +107,8 @@ Remove-Item new_readme_report.txt
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Discovery | T1083 | PowerShell Get-ChildItem enumerates directory | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 4](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Discovery | T1083 | PowerShell Get-ChildItem + file create/delete | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 2](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
+| Discovery | T1083 | PowerShell Get-ChildItem enumerates directory | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 4](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Discovery | T1083 | PowerShell Get-ChildItem + file create/delete | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 2](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
 
 ### :loud_sound: Process Discovery (T1057)
 
@@ -122,7 +122,7 @@ tasklist /v /fi "STATUS eq running"
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Discovery | T1057 | cmd.exe executed tasklist | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| Discovery | T1057 | cmd.exe executed tasklist | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
 
 ### :loud_sound: System Network Configuration Discovery (T1016)
 
@@ -136,7 +136,7 @@ ipconfig /all
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Discovery | T1016 | cmd.exe executed ipconfig | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| Discovery | T1016 | cmd.exe executed ipconfig | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
 
 ### :loud_sound: System Service Discovery (T1007)
 
@@ -150,8 +150,8 @@ Get-WmiObject -Class Win32_Service | Where-Object {{}$_.State -eq \"Running\"{}}
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Discovery | T1007 | PowerShell Get-WmiObject Win32_Service | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Discovery | T1007 | PowerShell Get-WmiObject Win32_Service | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Discovery | T1007 | PowerShell Get-WmiObject Win32_Service | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Discovery | T1007 | PowerShell Get-WmiObject Win32_Service | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ---
 
@@ -169,7 +169,7 @@ schtasks /create /tn "DailyTask" /tr "powershell.exe -File C:\Scripts\Backup.ps1
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Execution | T1053.005 | cmd.exe executed schtasks to schedule Backup PowerShell | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| Execution | T1053.005 | cmd.exe executed schtasks to schedule Backup PowerShell | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
 
 ### :loud_sound: Rundll32 Proxy Execution (T1218.011)
 
@@ -183,8 +183,8 @@ cmd.exe executed rundll32  url.dll,FileProtocolHandler https://www.google.com & 
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Execution | T1218.011 | rundll32 url.dll,FileProtocolHandler invoked via cmd.exe | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Execution | T1218.011 | rundll32 url.dll,FileProtocolHandler invoked via cmd.exe | Calibrated - Benign | vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Execution | T1218.011 | rundll32 url.dll,FileProtocolHandler invoked via cmd.exe | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Execution | T1218.011 | rundll32 url.dll,FileProtocolHandler invoked via cmd.exe | Calibrated - Benign | vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: Windows Command Shell (T1059.003)
 
@@ -202,9 +202,9 @@ cmd.exe executed copy /b C:\\Users\\Public\\hidden.txt C:\\Users\\Public\\origin
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Execution | T1059.003 | cmd.exe executes TaskCoach installer | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
-| Execution | T1059.003 | cmd.exe executes copy /b to embed a text file | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Execution | T1059.003 | cmd.exe executes copy /b to embed a text file | Calibrated - Benign | vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Execution | T1059.003 | cmd.exe executes TaskCoach installer | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| Execution | T1059.003 | cmd.exe executes copy /b to embed a text file | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Execution | T1059.003 | cmd.exe executes copy /b to embed a text file | Calibrated - Benign | vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: PowerShell (T1059.001)
 
@@ -223,10 +223,10 @@ Get-WinSystemLocale
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Execution | T1059.001 | PowerShell noise commands (Get-ChildItem, Set-Location, New-Item, Remove-Item) | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 4](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Execution | T1059.001 | PowerShell Get-WmiObject + Stop-Service batch | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Execution | T1059.001 | PowerShell Get-WmiObject + Stop-Service batch | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
-| Execution | T1059.001 | PowerShell Get-ChildItem + file create/delete | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 2](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
+| Execution | T1059.001 | PowerShell noise commands (Get-ChildItem, Set-Location, New-Item, Remove-Item) | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 4](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Execution | T1059.001 | PowerShell Get-WmiObject + Stop-Service batch | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Execution | T1059.001 | PowerShell Get-WmiObject + Stop-Service batch | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Execution | T1059.001 | PowerShell Get-ChildItem + file create/delete | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 2](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
 
 ### :loud_sound: AppleScript (T1059.002)
 
@@ -244,8 +244,8 @@ end tell
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Execution | T1059.002 | Script Editor runs count_files.scpt via Finder | Calibrated - Benign | itzy 10.222.25.70 (macOS) | venom | [DPRK Protections Test 9](../Enterprise/dprk/Emulation_Plan/Protections.md) |
-| Execution | T1059.002 | Script Editor runs count_files.scpt via Finder | Calibrated - Benign | hogshead 10.55.4.50 (macOS) | ranrok | [ER6 DPRK Scenario Step 4](../Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
+| Execution | T1059.002 | Script Editor runs count_files.scpt via Finder | Calibrated - Benign | itzy 10.222.25.70 (macOS) | venom | [DPRK Protections Test 9](../ael/Enterprise/dprk/Emulation_Plan/Protections.md) |
+| Execution | T1059.002 | Script Editor runs count_files.scpt via Finder | Calibrated - Benign | hogshead 10.55.4.50 (macOS) | ranrok | [ER6 DPRK Scenario Step 4](../ael/Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
 
 ---
 
@@ -263,8 +263,8 @@ cmd.exe executed netsh advfirewall set allprofiles state off
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Defense Evasion | T1562.004 | cmd.exe executed netsh advfirewall set allprofiles state off | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Defense Evasion | T1562.004 | cmd.exe executed netsh advfirewall set allprofiles state off | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Defense Evasion | T1562.004 | cmd.exe executed netsh advfirewall set allprofiles state off | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Defense Evasion | T1562.004 | cmd.exe executed netsh advfirewall set allprofiles state off | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: Image File Execution Options Injection (T1546.012)
 
@@ -278,8 +278,8 @@ reg add \HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execu
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Defense Evasion | T1546.012 | reg add IFEO Debugger value for msedge.exe | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Defense Evasion | T1546.012 | reg add IFEO Debugger value for msedge.exe | Calibrated - Benign | vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Defense Evasion | T1546.012 | reg add IFEO Debugger value for msedge.exe | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Defense Evasion | T1546.012 | reg add IFEO Debugger value for msedge.exe | Calibrated - Benign | vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: Obfuscated Files or Information / File Embedding (T1027)
 
@@ -294,8 +294,8 @@ cmd.exe executed copy /b C:\\Users\\Public\\hidden.txt C:\\Users\\Public\\origin
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Defense Evasion | T1027 | copy /b concatenates hidden.txt into original.txt | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Defense Evasion | T1027 | copy /b concatenates hidden.txt into original.txt | Calibrated - Benign | vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Defense Evasion | T1027 | copy /b concatenates hidden.txt into original.txt | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Defense Evasion | T1027 | copy /b concatenates hidden.txt into original.txt | Calibrated - Benign | vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: Indicator Removal (T1070)
 
@@ -307,8 +307,8 @@ cmd.exe executed copy /b C:\\Users\\Public\\hidden.txt C:\\Users\\Public\\origin
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Defense Evasion | T1070 | User clears recycle bin | Calibrated - Benign | bts 10.222.25.61 / exo 10.222.25.62 | sonicbeats37.fm\yoona, sonicbeats37.fm\sunny | [ER6 Ransomware Protections Test 8](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Defense Evasion | T1070 | User clears recycle bin | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 7](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
+| Defense Evasion | T1070 | User clears recycle bin | Calibrated - Benign | bts 10.222.25.61 / exo 10.222.25.62 | sonicbeats37.fm\yoona, sonicbeats37.fm\sunny | [ER6 Ransomware Protections Test 8](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Defense Evasion | T1070 | User clears recycle bin | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 7](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
 
 ---
 
@@ -332,10 +332,10 @@ Additional noise narratives:
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Lateral Movement | T1021.001 | tharlaw connects to RAS 10.26.3.101 via RDP (mstsc) | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
-| Lateral Movement | T1021.001 | User RDP EXO -> BLACKPINK | Calibrated - Benign | exo -> blackpink | sonicbeats37.fm user | [ER6 Ransomware Protections Test 1](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Lateral Movement | T1021.001 | User RDP EXO -> ASIX | Calibrated - Benign | exo -> asix | sonicbeats37.fm user | [ER6 Ransomware Protections Test 3](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Lateral Movement | T1021.001 | User RDP BLACKPINK -> EXO | Calibrated - Benign | blackpink -> exo | sonicbeats37.fm user | [ER6 Ransomware Protections Test 6](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Lateral Movement | T1021.001 | tharlaw connects to RAS 10.26.3.101 via RDP (mstsc) | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| Lateral Movement | T1021.001 | User RDP EXO -> BLACKPINK | Calibrated - Benign | exo -> blackpink | sonicbeats37.fm user | [ER6 Ransomware Protections Test 1](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Lateral Movement | T1021.001 | User RDP EXO -> ASIX | Calibrated - Benign | exo -> asix | sonicbeats37.fm user | [ER6 Ransomware Protections Test 3](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Lateral Movement | T1021.001 | User RDP BLACKPINK -> EXO | Calibrated - Benign | blackpink -> exo | sonicbeats37.fm user | [ER6 Ransomware Protections Test 6](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
 
 ### :loud_sound: Remote Services: SMB / Windows Admin Shares (T1021.002)
 
@@ -362,11 +362,11 @@ Additional noise narratives:
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Lateral Movement | T1021.002 | net use mounts Z: to \\10.222.15.15\D$\data | Calibrated - Benign | eyescream 199.88.44.201 | devadmin / sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 5](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Lateral Movement | T1021.002 | PsExec loop deploys install_software.bat to remote admin shares | Calibrated - Benign | blackpink 10.222.15.10 -> bts, exo | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 7](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Lateral Movement | T1021.002 | User maps remote SMB share and copies files | Calibrated - Benign | bts 10.222.25.61, exo 10.222.25.62 | sonicbeats37.fm\yoona, sonicbeats37.fm\sunny | [ER6 Ransomware Protections Test 8](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Lateral Movement | T1021.002 | User drags xfer.zip to mapped share Z: | Calibrated - Benign | diagonalley 10.55.4.21, gobbledgook 10.55.4.22 | encryptpotter.net\griphook | [ER6 CL0P Noise Step](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
-| Lateral Movement | T1021.002 | User maps remote SMB share and copies files | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 7](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
+| Lateral Movement | T1021.002 | net use mounts Z: to \\10.222.15.15\D$\data | Calibrated - Benign | eyescream 199.88.44.201 | devadmin / sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 5](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Lateral Movement | T1021.002 | PsExec loop deploys install_software.bat to remote admin shares | Calibrated - Benign | blackpink 10.222.15.10 -> bts, exo | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 7](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Lateral Movement | T1021.002 | User maps remote SMB share and copies files | Calibrated - Benign | bts 10.222.25.61, exo 10.222.25.62 | sonicbeats37.fm\yoona, sonicbeats37.fm\sunny | [ER6 Ransomware Protections Test 8](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Lateral Movement | T1021.002 | User drags xfer.zip to mapped share Z: | Calibrated - Benign | diagonalley 10.55.4.21, gobbledgook 10.55.4.22 | encryptpotter.net\griphook | [ER6 CL0P Noise Step](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Lateral Movement | T1021.002 | User maps remote SMB share and copies files | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 7](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
 
 ### :loud_sound: Remote Services: VNC (T1021.005)
 
@@ -379,9 +379,9 @@ Additional noise narratives:
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Lateral Movement | T1021.005 | VNC connection to macOS victim | Calibrated - Benign | itzy 10.222.25.70 | venom | [DPRK Protections Test 9](../Enterprise/dprk/Emulation_Plan/Protections.md) |
-| Lateral Movement | T1021.005 | VNC connection to macOS victim | Calibrated - Benign | itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../Enterprise/dprk/Emulation_Plan/Protections.md) |
-| Lateral Movement | T1021.005 | VNC connection to macOS victim | Calibrated - Benign | hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
+| Lateral Movement | T1021.005 | VNC connection to macOS victim | Calibrated - Benign | itzy 10.222.25.70 | venom | [DPRK Protections Test 9](../ael/Enterprise/dprk/Emulation_Plan/Protections.md) |
+| Lateral Movement | T1021.005 | VNC connection to macOS victim | Calibrated - Benign | itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../ael/Enterprise/dprk/Emulation_Plan/Protections.md) |
+| Lateral Movement | T1021.005 | VNC connection to macOS victim | Calibrated - Benign | hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../ael/Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
 
 ### :loud_sound: Remote Services: Windows Remote Management (T1021.006)
 
@@ -395,7 +395,7 @@ Invoke-Command -ComputerName diagonalley,gobbledgook,vault713,azkaban,hangleton 
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Lateral Movement | T1021.006 | Invoke-Command installs 7zip on multiple domain hosts | Calibrated - Benign | vault713 10.55.3.100 -> domain hosts | encryptpotter.net\ranrok | [ER6 CL0P Noise Step](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Lateral Movement | T1021.006 | Invoke-Command installs 7zip on multiple domain hosts | Calibrated - Benign | vault713 10.55.3.100 -> domain hosts | encryptpotter.net\ranrok | [ER6 CL0P Noise Step](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: Lateral Tool Transfer (T1570)
 
@@ -414,8 +414,8 @@ psexec \\$computer -s -u sonicbeats37.fm\sooyoung -p Dental-Crew -c "C:\users\so
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Lateral Movement | T1570 | PsExec -c copies install_software.bat to remote hosts | Calibrated - Benign | blackpink 10.222.15.10 -> bts, exo | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 7](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Lateral Movement | T1570 | Drag xfer.zip to mapped share then copy to remote Downloads | Calibrated - Benign | diagonalley 10.55.4.21 / gobbledgook 10.55.4.22 | encryptpotter.net\griphook | [ER6 CL0P Noise Step](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Lateral Movement | T1570 | PsExec -c copies install_software.bat to remote hosts | Calibrated - Benign | blackpink 10.222.15.10 -> bts, exo | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 7](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Lateral Movement | T1570 | Drag xfer.zip to mapped share then copy to remote Downloads | Calibrated - Benign | diagonalley 10.55.4.21 / gobbledgook 10.55.4.22 | encryptpotter.net\griphook | [ER6 CL0P Noise Step](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: System Services: Service Execution (T1569.002)
 
@@ -423,7 +423,7 @@ psexec \\$computer -s -u sonicbeats37.fm\sooyoung -p Dental-Crew -c "C:\users\so
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Execution | T1569.002 | PsExec spawns remote service to run install_software.bat | Calibrated - Benign | bts 10.222.25.61, exo 10.222.25.62 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 7](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Execution | T1569.002 | PsExec spawns remote service to run install_software.bat | Calibrated - Benign | bts 10.222.25.61, exo 10.222.25.62 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 7](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
 
 ---
 
@@ -454,10 +454,10 @@ Additional noise narratives:
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Command and Control | T1105 | cmd.exe executed curl to download TaskCoachSetup | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
-| Command and Control | T1105 | curl -O retrieves UN CSV files | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 1](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Command and Control | T1105 | Safari downloads IntelliJ .dmg | Calibrated - Benign | itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../Enterprise/dprk/Emulation_Plan/Protections.md) |
-| Command and Control | T1105 | Safari downloads IntelliJ .dmg | Calibrated - Benign | hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
+| Command and Control | T1105 | cmd.exe executed curl to download TaskCoachSetup | Calibrated - Benign | tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| Command and Control | T1105 | curl -O retrieves UN CSV files | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 1](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Command and Control | T1105 | Safari downloads IntelliJ .dmg | Calibrated - Benign | itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../ael/Enterprise/dprk/Emulation_Plan/Protections.md) |
+| Command and Control | T1105 | Safari downloads IntelliJ .dmg | Calibrated - Benign | hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../ael/Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
 
 ### :loud_sound: Software Deployment Tools (T1072)
 
@@ -476,14 +476,14 @@ choco install -y adobereader
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Command and Control | T1072 | choco install googlechrome | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 1](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Command and Control | T1072 | choco install 7zip | Calibrated - Benign | eyescream 199.88.44.201 | devadmin | [ER6 Ransomware Protections Test 5](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Command and Control | T1072 | choco install profwiz, ldapadmin | Calibrated - Benign | Windows workstations | - | [ER6 Ransomware Protections Test 6](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Command and Control | T1072 | choco install notepadplusplus, adobereader via PsExec | Calibrated - Benign | bts 10.222.25.61, exo 10.222.25.62 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 7](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Command and Control | T1072 | choco install 7zip via Invoke-Command | Calibrated - Benign | vault713 10.55.3.100 -> domain hosts | encryptpotter.net\ranrok | [ER6 CL0P Noise Step](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
-| Command and Control | T1072 | choco install profwiz, ldapadmin | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 4](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
-| Command and Control | T1072 | User installs IntelliJ from downloaded .dmg | Calibrated - Benign | itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../Enterprise/dprk/Emulation_Plan/Protections.md) |
-| Command and Control | T1072 | User installs IntelliJ from downloaded .dmg | Calibrated - Benign | hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
+| Command and Control | T1072 | choco install googlechrome | Calibrated - Benign | bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 1](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Command and Control | T1072 | choco install 7zip | Calibrated - Benign | eyescream 199.88.44.201 | devadmin | [ER6 Ransomware Protections Test 5](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Command and Control | T1072 | choco install profwiz, ldapadmin | Calibrated - Benign | Windows workstations | - | [ER6 Ransomware Protections Test 6](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Command and Control | T1072 | choco install notepadplusplus, adobereader via PsExec | Calibrated - Benign | bts 10.222.25.61, exo 10.222.25.62 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 7](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Command and Control | T1072 | choco install 7zip via Invoke-Command | Calibrated - Benign | vault713 10.55.3.100 -> domain hosts | encryptpotter.net\ranrok | [ER6 CL0P Noise Step](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Command and Control | T1072 | choco install profwiz, ldapadmin | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 4](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
+| Command and Control | T1072 | User installs IntelliJ from downloaded .dmg | Calibrated - Benign | itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../ael/Enterprise/dprk/Emulation_Plan/Protections.md) |
+| Command and Control | T1072 | User installs IntelliJ from downloaded .dmg | Calibrated - Benign | hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../ael/Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
 
 ---
 
@@ -510,8 +510,8 @@ Additional noise narratives:
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Collection | T1560.001 | 7z.exe archives Z:\Documents with password | Calibrated - Benign | eyescream 199.88.44.201 | devadmin | [ER6 Ransomware Protections Test 5](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Collection | T1560.001 | 7-ZIP GUI archives xfer folder with password | Calibrated - Benign | diagonalley 10.55.4.21 | encryptpotter.net\griphook | [ER6 CL0P Noise Step](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Collection | T1560.001 | 7z.exe archives Z:\Documents with password | Calibrated - Benign | eyescream 199.88.44.201 | devadmin | [ER6 Ransomware Protections Test 5](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Collection | T1560.001 | 7-ZIP GUI archives xfer folder with password | Calibrated - Benign | diagonalley 10.55.4.21 | encryptpotter.net\griphook | [ER6 CL0P Noise Step](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ---
 
@@ -533,8 +533,8 @@ Stop-Service -Name WbioSrvc
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Impact | T1489 | PowerShell Stop-Service batch | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| Impact | T1489 | PowerShell Stop-Service batch | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| Impact | T1489 | PowerShell Stop-Service batch | Calibrated - Benign | lisa 10.222.25.65 | sonicbeats37.fm\sooyoung | [ER6 Ransomware Protections Test 3](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| Impact | T1489 | PowerShell Stop-Service batch | Calibrated - Benign | Windows victim workstation | encryptpotter.net user | [ER6 CL0P Step 4](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: Inhibit System Recovery (T1490)
 
@@ -553,8 +553,8 @@ vssadmin create shadow /for=C:
 
 | Tactic | Technique ID | Detection Criteria | Category | Host | User | Source Scenario |
 | ------ | ------------ | ------------------ | -------- | ---- | ---- | --------------- |
-| Impact | T1490 | mklink /D to \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\ | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 2](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
-| Impact | T1490 | vssadmin add shadowstorage / create shadow | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 4](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
+| Impact | T1490 | mklink /D to \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\ | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 2](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
+| Impact | T1490 | vssadmin add shadowstorage / create shadow | Calibrated - Benign | LockBit affiliate workstation | - | [ER6 LockBit Step 4](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md) |
 
 ---
 
@@ -572,9 +572,9 @@ These noise elements are explicitly described in the scenarios as pure user inte
 
 | Host | User | Source Scenario |
 | ---- | ---- | --------------- |
-| tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
-| itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../Enterprise/dprk/Emulation_Plan/Protections.md) |
-| hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
+| tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../ael/Enterprise/dprk/Emulation_Plan/Protections.md) |
+| hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../ael/Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
 
 ### :loud_sound: Document / text file creation
 
@@ -590,9 +590,9 @@ Look into trouble coming from Dorne.
 
 | Host | User | Source Scenario |
 | ---- | ---- | --------------- |
-| tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
-| bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
-| vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| bts 10.222.25.61 | sonicbeats37.fm\yoona | [ER6 Ransomware Protections Test 2](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md) |
+| vault713 10.55.3.100 | encryptpotter.net\ranrok | [ER6 CL0P Step 2](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ### :loud_sound: Installer / GUI software interaction
 
@@ -603,10 +603,10 @@ Look into trouble coming from Dorne.
 
 | Host | User | Source Scenario |
 | ---- | ---- | --------------- |
-| tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
-| itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../Enterprise/dprk/Emulation_Plan/Protections.md) |
-| hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
-| diagonalley 10.55.4.21, gobbledgook 10.55.4.22 | encryptpotter.net\griphook | [ER6 CL0P Noise Step](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
+| tentowers 10.26.4.102 | vale\tharlaw | [Scattered Spider Protections Test 6](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md) |
+| itzy 10.222.25.70 | venom | [DPRK Protections Test 10](../ael/Enterprise/dprk/Emulation_Plan/Protections.md) |
+| hogshead 10.55.4.50 | ranrok | [ER6 DPRK Scenario Step 4](../ael/Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md) |
+| diagonalley 10.55.4.21, gobbledgook 10.55.4.22 | encryptpotter.net\griphook | [ER6 CL0P Noise Step](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md) |
 
 ---
 
@@ -614,9 +614,9 @@ Look into trouble coming from Dorne.
 
 Reverse lookup: each scenario and the noise techniques it contributes.
 
-### [Scattered Spider Protections Test 6 (NOISE ONLY)](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md)
+### [Scattered Spider Protections Test 6 (NOISE ONLY)](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_6_Scenario.md)
 
-> :information_source: Entire scenario is noise; originally documented to evaluate false positives in Enterprise 2025 ATT&CK Evaluations.
+> :information_source: Entire scenario is noise; originally documented to evaluate false positives in ael/Enterprise 2025 ATT&CK Evaluations.
 
 * T1053.005 Scheduled Task (`schtasks /create DailyTask`)
 * T1057 Process Discovery (`tasklist /v`)
@@ -627,7 +627,7 @@ Reverse lookup: each scenario and the noise techniques it contributes.
 * T1082 System Information Discovery (`systeminfo | findstr`)
 * User activity: Firefox browsing, Notepad `SupervisorNote.txt`, TaskCoach installer
 
-### [ER6 Ransomware Protections](../Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md)
+### [ER6 Ransomware Protections](../ael/Enterprise/protections/2024/Emulation_Plan/ER6_Ransomware_Protections.md)
 
 * **Test 1 (line 32):** T1105 (curl UN CSVs), T1072 (choco chrome), T1021.001 (RDP EXO -> BLACKPINK)
 * **Test 2 (line 129):** T1218.011 (rundll32 url.dll), T1059.003 (copy /b), T1027 (hidden.txt embed), T1546.012 (reg add IFEO msedge), user activity (Notepad files)
@@ -638,22 +638,22 @@ Reverse lookup: each scenario and the noise techniques it contributes.
 * **Test 7 (line 643, False Positive):** T1072 (choco notepadplusplus, adobereader), T1021.002 (PsExec remote admin shares), T1570 (PsExec -c lateral copy), T1569.002 (PsExec service execution)
 * **Test 8 (line 766):** T1021.002 (map SMB share), T1070 (clear recycle bin)
 
-### [DPRK Protections](../Enterprise/dprk/Emulation_Plan/Protections.md)
+### [DPRK Protections](../ael/Enterprise/dprk/Emulation_Plan/Protections.md)
 
 * **Test 9 (line 27, False Positive):** T1021.005 (VNC itzy), T1059.002 (count_files.scpt in Script Editor)
 * **Test 10 (line 155, False Positive):** T1021.005 (VNC itzy), T1105 (Safari IntelliJ dmg), T1072 (install IntelliJ)
 
-### [ER6 DPRK Scenario](../Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md)
+### [ER6 DPRK Scenario](../ael/Enterprise/dprk/Emulation_Plan/ER6_DPRK_Scenario.md)
 
 * **Step 4 Collection (line 248):** T1021.005 (VNC hogshead), T1059.002 (count_files.scpt), T1105 (Safari IntelliJ dmg), T1072 (install IntelliJ)
 
-### [ER6 CL0P Scenario](../Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md)
+### [ER6 CL0P Scenario](../ael/Enterprise/cl0p/Emulation_Plan/ER6_CL0P_Scenario.md)
 
 * **Step 2 (line 107):** T1218.011 (rundll32 url.dll), T1059.003 (copy /b), T1027 (hidden.txt embed), T1546.012 (reg add IFEO msedge)
 * **Noise Step (line 212):** T1021.006 (Invoke-Command choco 7zip), T1072 (choco 7zip), T1560.001 (7-ZIP GUI xfer.zip), T1021.002 (drop xfer.zip on Z:), T1570 (xfer.zip lateral transfer)
 * **Step 4 (line 298):** T1082 (systeminfo|findstr), T1562.004 (netsh advfirewall off), T1007 (Get-WmiObject Win32_Service), T1489 (Stop-Service batch), T1614 (Get-WinSystemLocale)
 
-### [ER6 LockBit Scenario](../Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md)
+### [ER6 LockBit Scenario](../ael/Enterprise/lockbit/Emulation_Plan/ER6_LockBit_Scenario.md)
 
 * **Step 2 (line 162):** T1490 (mklink VSS), T1083 (Get-ChildItem), T1059.001 (New-Item / Remove-Item)
 * **Step 4 (line 247):** T1490 (vssadmin add/create shadow), T1072 (choco profwiz, ldapadmin)

@@ -2,7 +2,7 @@
 
 > **Consumed by:** `/assign-category` (deeper methodology / edge cases) — see [pipeline.md](pipeline.md)
 
-Derived from [`Enterprise/mustang_panda/Emulation_Plan/`](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) and [`Enterprise/scattered_spider/Emulation_Plan/`](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md).
+Derived from [`ael/Enterprise/mustang_panda/Emulation_Plan/`](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) and [`ael/Enterprise/scattered_spider/Emulation_Plan/`](../ael/Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md).
 
 This file is the **extended commentary** for the operational process in [`guides/category-assignment.md`](./guides/category-assignment.md): it uses published MITRE scenarios to explain why those rules are sound and how they manifest in practice. When you need to assign a label to a specific row, use `guides/category-assignment.md` as the operational standard; use this file for background, examples, and reasoning.
 
@@ -25,8 +25,8 @@ Each technique in the Reference Table receives one of the following categories:
 `Calibrated` / `Not Calibrated` is **not a fixed attribute of a technique**. The same technique can receive different labels across scenarios depending on the test type and the substep's role in the chain.
 
 **Real example:** `T1566.001 Spearphishing Attachment`
-- [Mustang Panda **main scenario**](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) → **Not Calibrated**: email delivery is outside the EDR endpoint surface being measured; this substep is only a prerequisite for the victim downloading the payload.
-- [Mustang Panda **Protections Test 4**](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md) → **Calibrated**: test surface extends to the email gateway; blocking delivery is the actual measurement point.
+- [Mustang Panda **main scenario**](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) → **Not Calibrated**: email delivery is outside the EDR endpoint surface being measured; this substep is only a prerequisite for the victim downloading the payload.
+- [Mustang Panda **Protections Test 4**](../ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md) → **Calibrated**: test surface extends to the email gateway; blocking delivery is the actual measurement point.
 
 Implication: establish context first before labeling — do not assign based on intuition or "what this technique usually is."
 
@@ -69,13 +69,13 @@ If both answers are **no**, the substep is the **primary output** of an adversar
 - Native API calls inside a loader chain (T1106 `NtCreateSection`, `ws2_32.send`, `MSXML2.XMLHTTP`) when another substep already describes the chain's output (process-create, file-write, network connection).
 - Encrypted content inside a payload that is already Calibrated (T1027.013 PEM structure of a file already Calibrated at HTML Smuggling).
 - Auxiliary API calls for token/handle manipulation when the process-create outcome is already measured (T1134.002 `CreateProcessAsUser` when T1134.001 is already Calibrated).
-- Tool scanning behavior inside an authenticated session (T1213, T1552 tool executing against an internal service) when the authentication event (T1078) is already Calibrated: the tool's internal requests may be indistinguishable from legitimate browsing without knowing the tool signature; under this framework, the authentication log entry is typically the stronger scoring point. Example from [Scattered Spider Step 8](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md): `T1078` Wekan authentication is Calibrated, while `T1552` Jecretz execution against Wekan is Not Calibrated. This interpretation is drawn from pattern-reading of the scenario, not from a public MITRE statement of reasoning.
+- Tool scanning behavior inside an authenticated session (T1213, T1552 tool executing against an internal service) when the authentication event (T1078) is already Calibrated: the tool's internal requests may be indistinguishable from legitimate browsing without knowing the tool signature; under this framework, the authentication log entry is typically the stronger scoring point. Example from [Scattered Spider Step 8](../ael/Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md): `T1078` Wekan authentication is Calibrated, while `T1552` Jecretz execution against Wekan is Not Calibrated. This interpretation is drawn from pattern-reading of the scenario, not from a public MITRE statement of reasoning.
 
 **Groups that commonly fall into scope issue or redundancy issue:**
 - Attacker uploading a file to a server → usually attacker-side staging or an upstream step already better represented by the victim-side download.
 - Email arriving at a mailbox in an endpoint-only Detections scenario → outside the EDR detection surface.
-- User clicking to open a file/link when the real target is the process spawn from that action → usually better represented by the downstream process execution row. *Exception*: if the click produces a browser request to a specific phishing domain and that is a network event on the detection surface, the click may be its own primary output (see T1204.001 in [Mustang Panda Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md)).
-- **Post-objective cleanup/teardown steps**: deleting files, deleting registry keys, self-deleting batch scripts after the adversary has already achieved the objective (e.g., [Mustang Panda Step 9](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) `del_WinGupSvc.bat`) → typically no longer a scoring objective; distinct from in-chain stealth cleanup that is still serving the attack flow and may produce its own primary output.
+- User clicking to open a file/link when the real target is the process spawn from that action → usually better represented by the downstream process execution row. *Exception*: if the click produces a browser request to a specific phishing domain and that is a network event on the detection surface, the click may be its own primary output (see T1204.001 in [Mustang Panda Step 7](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md)).
+- **Post-objective cleanup/teardown steps**: deleting files, deleting registry keys, self-deleting batch scripts after the adversary has already achieved the objective (e.g., [Mustang Panda Step 9](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) `del_WinGupSvc.bat`) → typically no longer a scoring objective; distinct from in-chain stealth cleanup that is still serving the attack flow and may produce its own primary output.
 
 ### Layer 2 — 4-condition checklist for Calibrated
 
@@ -94,10 +94,10 @@ A substep is Calibrated if and only if it satisfies **all 4** conditions:
 > - Conversely, artifacts only meaningful when trusting a ghost/injected process identity fail **Condition 3** regardless of scenario — not affected by measurement surface breadth.
 
 > **On ghost/injected processes and Condition 3:** An injected execution context does not automatically make every artifact Not Calibrated. Condition 3 only fails when the evaluator must trust that process identity to conclude the behavior is malicious.
-> - In [Mustang Panda Step 2](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md), `waitfor.exe` runs `netstat`, `ipconfig`, SharpNBTScan, downloads `mswin1.exe`; all these rows are `Not Calibrated`. The most consistent interpretation under this framework is that their malicious meaning depends heavily on the implanted context, so they fail Condition 3.
-> - But in the same scenario, `waitfor.exe` creates a registry run key `AccessoryInputServices`, a scheduled task with the same name, and exfiltrates a RAR via FTP; MITRE assigns those rows `Calibrated` because the registry key, scheduled task, and network transfer to an external endpoint are independent artifacts outside process context, verifiable without trusting process identity. See [Mustang Panda Step 5](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) and [Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md).
+> - In [Mustang Panda Step 2](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md), `waitfor.exe` runs `netstat`, `ipconfig`, SharpNBTScan, downloads `mswin1.exe`; all these rows are `Not Calibrated`. The most consistent interpretation under this framework is that their malicious meaning depends heavily on the implanted context, so they fail Condition 3.
+> - But in the same scenario, `waitfor.exe` creates a registry run key `AccessoryInputServices`, a scheduled task with the same name, and exfiltrates a RAR via FTP; MITRE assigns those rows `Calibrated` because the registry key, scheduled task, and network transfer to an external endpoint are independent artifacts outside process context, verifiable without trusting process identity. See [Mustang Panda Step 5](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) and [Step 7](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md).
 
-> **Example of Condition 3 failure that is not a redundancy:** `T1573.001` using PSK symmetric encryption. If the payload bytes can only be proven using a key hidden inside the malware, the evaluator cannot independently confirm "this is T1573.001" from external telemetry → `Not Calibrated`. In contrast, `T1573.002` TLS/asymmetric has a certificate and JA3 fingerprint independently available from a network capture, making it a distinct detection axis that can be `Calibrated` even when C2 web protocol is also already Calibrated. Confirmed by [Mustang Panda Step 7](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md): both `T1071.001` and `T1573.002` are Calibrated.
+> **Example of Condition 3 failure that is not a redundancy:** `T1573.001` using PSK symmetric encryption. If the payload bytes can only be proven using a key hidden inside the malware, the evaluator cannot independently confirm "this is T1573.001" from external telemetry → `Not Calibrated`. In contrast, `T1573.002` TLS/asymmetric has a certificate and JA3 fingerprint independently available from a network capture, making it a distinct detection axis that can be `Calibrated` even when C2 web protocol is also already Calibrated. Confirmed by [Mustang Panda Step 7](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md): both `T1071.001` and `T1573.002` are Calibrated.
 
 Any condition unsatisfied → **Not Calibrated**.
 
@@ -124,9 +124,9 @@ A scenario's Calibrated ratio typically reflects two simultaneous factors:
 
 | Adversary | Calibrated ratio | Explanation |
 |---|---|---|
-| [Mustang Panda (main)](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) | ~39% | Custom malware (TONESHELL, PlugX) with deep injection chains. Most evasion chain steps are Not Calibrated. |
-| [Scattered Spider (main)](../Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md) | ~93% | Legitimate tools + valid credentials. No significant evasion → artifacts clear across all surfaces. |
-| Protections tests ([PT4](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md), [PT5](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md), [SS PT1](../Enterprise/scattered_spider/Emulation_Plan/Protections_Test_1_Scenario.md)…) | ~97% | Testing controls → clear, reproducible signals needed → nearly all Calibrated. |
+| [Mustang Panda (main)](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md) | ~39% | Custom malware (TONESHELL, PlugX) with deep injection chains. Most evasion chain steps are Not Calibrated. |
+| [Scattered Spider (main)](../ael/Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md) | ~93% | Legitimate tools + valid credentials. No significant evasion → artifacts clear across all surfaces. |
+| Protections tests ([PT4](../ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md), [PT5](../ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md), [SS PT1](../ael/Enterprise/scattered_spider/Emulation_Plan/Protections_Test_1_Scenario.md)…) | ~97% | Testing controls → clear, reproducible signals needed → nearly all Calibrated. |
 
 Layer 2 specifies the rule for both drivers: measurement surface only affects `fair scoring point`, while artifacts that depend on process identity still fail `independently verifiable` regardless of scenario breadth. When building Scenario 2, review cross-domain techniques: `T1078.004`, `T1550.004`, `T1098.00x`, `T1087.004`, `T1580`, `T1619`.
 
@@ -141,7 +141,7 @@ The detection evaluation question: *"Did the vendor detect this behavior?"* only
 | `Calibrated` | Yes — artifact is guaranteed to exist and satisfies all 4 conditions | Vendor | **Yes — counts toward denominator** |
 | `Not Calibrated` | Not counted: artifact outside detection surface, substep is redundancy/implementation detail, or artifact fails one of the 4 conditions (not observable, not reproducible, not independently verifiable, outside measurement surface) | Cannot be determined | **No** |
 
-**Concrete example ([Mustang Panda Step 1](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md)):**
+**Concrete example ([Mustang Panda Step 1](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md)):**
 - `T1574.002` DLL Side-Loading `wsdapi.dll` → **Calibrated** → evaluator confirms `wsdapi.dll` on disk loaded by `EssosUpdate.exe` → a miss clearly means the vendor did not detect → counts toward denominator
 - `T1497` Foreground window check → **Not Calibrated** → `GetForegroundWindow()` call occurs in memory with no external artifact the evaluator can independently verify → a miss may be due to the artifact not being observable, not necessarily vendor failure → does not count toward denominator
 
@@ -215,9 +215,9 @@ Two rows, same technique ID, but two distinct observable events → separate row
 - **Different delivery vector** from the main scenario to test generality of the control
 
 **Example delivery variants (Mustang Panda 2025):**
-- [Main](../Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md): DOCX spearphishing → TONESHELL (`wsdapi.dll`)
-- [Protections Test 4](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md): PIF dropper → TONESHELL (`gflagsui.dll`)
-- [Protections Test 5](../Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md): MSC file via MMC → PlugX (`rcdll.dll`)
+- [Main](../ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md): DOCX spearphishing → TONESHELL (`wsdapi.dll`)
+- [Protections Test 4](../ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_4_Scenario.md): PIF dropper → TONESHELL (`gflagsui.dll`)
+- [Protections Test 5](../ael/Enterprise/mustang_panda/Emulation_Plan/Protections_Test_5_Scenario.md): MSC file via MMC → PlugX (`rcdll.dll`)
 
 If a control only blocks by file hash, it will fail against variants — that is the point.
 

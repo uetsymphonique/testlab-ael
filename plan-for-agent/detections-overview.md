@@ -19,8 +19,8 @@ In the context of this project, Detections are used to build an adversary emulat
 
 ## 2025 Reference Examples
 
-- `Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md`
-- `Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md`
+- `ael/Enterprise/mustang_panda/Emulation_Plan/Mustang_Panda_Scenario.md`
+- `ael/Enterprise/scattered_spider/Emulation_Plan/Scattered_Spider_Scenario.md`
 
 Use the above only to extract insight on how MITRE presents behavior, phases, procedures, and detection mapping. Do not copy scenarios, payloads, or flows verbatim.
 
