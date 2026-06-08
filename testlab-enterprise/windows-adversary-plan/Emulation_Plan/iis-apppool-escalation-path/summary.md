@@ -142,15 +142,15 @@ flowchart TD
 
 | Payload | Location | Used In |
 | - | - | - |
-| `svcmgr.exe` (dnscat2 `cmd/dnscat-dnsapi`) | `resources/payloads/dnscat2/go-client/` | Phase 1 Step 1 — staged as `CertCA.enc` (XOR-encrypted) |
-| `CertEnrollSvc.exe` (EfsPotato) | `resources/payloads/EfsPotato/` | Phase 1 Step 1 — SYSTEM escalation via named-pipe impersonation |
-| `CWLHerpaderping.exe` | `resources/payloads/CWLHerpaderping/x64/Release/` | Phase 1 Step 1 — ghost process loader |
+| `svcmgr.exe` (dnscat2 `cmd/dnscat-dnsapi`) | `resources/payloads/rce-and-c2/dnscat2/go-client/` | Phase 1 Step 1 — staged as `CertCA.enc` (XOR-encrypted) |
+| `CertEnrollSvc.exe` (EfsPotato) | `resources/payloads/priv-escalation/EfsPotato/` | Phase 1 Step 1 — SYSTEM escalation via named-pipe impersonation |
+| `CWLHerpaderping.exe` | `resources/payloads/process-injection/CWLHerpaderping/x64/Release/` | Phase 1 Step 1 — ghost process loader |
 | `WmiAvQuery.exe` | `resources/payloads/WmiAvQuery/` | Phase 2 Step 2 — staged as `diaghost.exe` |
-| `ReflectDump.exe` → `wdhelper.gz` | `resources/payloads/LsassReflectDumping/` | Phase 2 Step 3 — staged as `wdhelper.exe` |
-| `dnscat2.exe` (persistence C2) | `resources/payloads/dnscat2/go-client/` | Phase 3-1 Step 1 — staged as `policyupdate.bin`, `policysync.bin`, `CertCA.enc` |
-| `go-thehash.exe` | `resources/payloads/go-thehash/` | Phase 3-1 Steps 1–2, Phase 3-2 Step 3 — PtH SMB/WMI/SCM |
-| `CertEnrollAgent.exe` (CWLHerpaderping, same build as Phase 1) | `resources/payloads/CWLHerpaderping/x64/Release/` | Phase 3-1 Step 1 — re-staged for DC01 lateral movement |
-| `ServiceInstaller.exe` | `resources/payloads/windows-service/advapi32-cpp/` | Phase 3-2 Step 7B — SCM API service creation |
-| `NtServiceInstaller.exe` | `resources/payloads/windows-service/syscalls-cpp/` | Phase 3-2 Step 7 — NT native registry service creation |
-| `PolicySyncSvc.exe` (NtdsRawDump) | `resources/payloads/NtdsRawDump/` | Phase 4 Step 1 — VSS + raw volume reads + AES archive |
-| `CertMaint.exe` (ImpactPayload) | `resources/payloads/ImpactPayload/` | Phase 5 Step 1 — VSS deletion + service stop + AES file encryption |
+| `ReflectDump.exe` → `wdhelper.gz` | `resources/payloads/cred-access/LsassReflectDumping/` | Phase 2 Step 3 — staged as `wdhelper.exe` |
+| `dnscat2.exe` (persistence C2) | `resources/payloads/rce-and-c2/dnscat2/go-client/` | Phase 3-1 Step 1 — staged as `policyupdate.bin`, `policysync.bin`, `CertCA.enc` |
+| `go-thehash.exe` | `resources/payloads/lateral-movement/go-thehash/` | Phase 3-1 Steps 1–2, Phase 3-2 Step 3 — PtH SMB/WMI/SCM |
+| `CertEnrollAgent.exe` (CWLHerpaderping, same build as Phase 1) | `resources/payloads/process-injection/CWLHerpaderping/x64/Release/` | Phase 3-1 Step 1 — re-staged for DC01 lateral movement |
+| `ServiceInstaller.exe` | `resources/payloads/persistence/windows-service/advapi32-cpp/` | Phase 3-2 Step 7B — SCM API service creation |
+| `NtServiceInstaller.exe` | `resources/payloads/persistence/windows-service/syscalls-cpp/` | Phase 3-2 Step 7 — NT native registry service creation |
+| `PolicySyncSvc.exe` (NtdsRawDump) | `resources/payloads/cred-access/NtdsRawDump/` | Phase 4 Step 1 — VSS + raw volume reads + AES archive |
+| `CertMaint.exe` (ImpactPayload) | `resources/payloads/impact/ImpactPayload/` | Phase 5 Step 1 — VSS deletion + service stop + AES file encryption |

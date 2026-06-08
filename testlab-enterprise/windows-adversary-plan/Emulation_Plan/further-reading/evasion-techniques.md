@@ -6,13 +6,13 @@ This document collects and cross-references the evasion techniques used across a
 
 | Short name | Source | Further reading |
 |---|---|---|
-| `CWLHerpaderping` | `resources/payloads/CWLHerpaderping/` | `process-herpaderping.md` |
-| `EfsPotato/CertEnrollSvc` | `resources/payloads/EfsPotato/` | `efspotato.md` |
+| `CWLHerpaderping` | `resources/payloads/process-injection/CWLHerpaderping/` | `process-herpaderping.md` |
+| `EfsPotato/CertEnrollSvc` | `resources/payloads/priv-escalation/EfsPotato/` | `efspotato.md` |
 | `react2shell-tool` | `resources/payloads/react2shell-tool/` | `rce-react2shell.md` |
-| `go-thehash` | `resources/payloads/go-thehash/` | `go-thehash.md` |
-| `dnscat2 go-client` | `resources/payloads/dnscat2/go-client/` | `dnscat2.md` |
-| `LsassReflectDumping` | `resources/payloads/LsassReflectDumping/` | `LsassReflectDumping/README.md` |
-| `NtdsRawDump` | `resources/payloads/NtdsRawDump/` | `NtdsRawDump/README.md` |
+| `go-thehash` | `resources/payloads/lateral-movement/go-thehash/` | `go-thehash.md` |
+| `dnscat2 go-client` | `resources/payloads/rce-and-c2/dnscat2/go-client/` | `dnscat2.md` |
+| `LsassReflectDumping` | `resources/payloads/cred-access/LsassReflectDumping/` | `LsassReflectDumping/README.md` |
+| `NtdsRawDump` | `resources/payloads/cred-access/NtdsRawDump/` | `NtdsRawDump/README.md` |
 
 ---
 

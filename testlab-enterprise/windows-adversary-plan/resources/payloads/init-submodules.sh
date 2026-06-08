@@ -17,6 +17,7 @@ declare -A submodules=(
     ["priv-escalation"]="EfsPotato"
     ["cred-access"]="LsassReflectDumping NtdsRawDump"
     ["lateral-movement"]="go-thehash"
+    ["discovery"]="WmiAvQuery"
 )
 
 for name in "${!submodules[@]}"; do

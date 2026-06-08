@@ -115,8 +115,8 @@ Get-ChildItem -Path "C:\Windows\Temp" -Filter "~DF*.tmp" -ErrorAction SilentlyCo
 Remove downloaded dump and decrypted credential files if no longer needed.
 
 ```powershell
-Remove-Item -LiteralPath ".\resources\payloads\react2shell-tool\wdhelper.gz" -Force -ErrorAction SilentlyContinue
-Get-ChildItem -Path ".\resources\payloads\react2shell-tool" -Filter "downloaded_~DF*.tmp" |
+Remove-Item -LiteralPath ".\resources\payloads\rce-and-c2\react2shell-tool\wdhelper.gz" -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Path ".\resources\payloads\rce-and-c2\react2shell-tool" -Filter "downloaded_~DF*.tmp" |
     Remove-Item -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath ".\lsass.dmp" -Force -ErrorAction SilentlyContinue
 ```

@@ -2,7 +2,7 @@
 
 This is the **detection-side companion** to the tool docs. For build, full
 evasion posture, XOR scheme, and execution flow see
-[`../../resources/payloads/LsassReflectDumping/README.md`](../../resources/payloads/LsassReflectDumping/README.md).
+[`../../resources/payloads/cred-access/LsassReflectDumping/README.md`](../../resources/payloads/cred-access/LsassReflectDumping/README.md).
 For the emulation procedures (staging, exfil, decode) see
 [`../iis-apppool-escalation-path/Phase 2.md`](../iis-apppool-escalation-path/Phase 2.md)
 Step 3.
@@ -142,5 +142,5 @@ tooling.
 
 ## See Also
 
-- [`../../resources/payloads/LsassReflectDumping/README.md`](../../resources/payloads/LsassReflectDumping/README.md) — build, full evasion posture, XOR decoder
+- [`../../resources/payloads/cred-access/LsassReflectDumping/README.md`](../../resources/payloads/cred-access/LsassReflectDumping/README.md) — build, full evasion posture, XOR decoder
 - [`../iis-apppool-escalation-path/Phase 2.md`](../iis-apppool-escalation-path/Phase 2.md) — emulation usage (Step 3)

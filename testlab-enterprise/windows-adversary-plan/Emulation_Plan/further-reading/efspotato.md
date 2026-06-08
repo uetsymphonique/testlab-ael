@@ -1,15 +1,15 @@
 # EfsPotato / CertEnrollSvc - Code Flow Summary
 
-This document summarizes the `CertEnrollSvc.cs` variant under `resources/payloads/EfsPotato`. It is a C# wrapper based on EfsPotato, renamed to certificate-enrollment-themed namespaces/classes and padded with benign-looking helper classes to reduce static signatures. The core behavior remains local privilege escalation through MS-EFSR RPC plus named pipe impersonation.
+This document summarizes the `CertEnrollSvc.cs` variant under `resources/payloads/priv-escalation/EfsPotato`. It is a C# wrapper based on EfsPotato, renamed to certificate-enrollment-themed namespaces/classes and padded with benign-looking helper classes to reduce static signatures. The core behavior remains local privilege escalation through MS-EFSR RPC plus named pipe impersonation.
 
 ## Source Map
 
 | Component | Path | Role |
 |---|---|---|
-| Obfuscated variant | `../../resources/payloads/EfsPotato/CertEnrollSvc.cs` | Binary used in the emulation |
-| Reference source | `../../resources/payloads/EfsPotato/EfsPotato.cs` | Original public source for comparison |
-| Compiled binary | `../../resources/payloads/EfsPotato/CertEnrollSvc.exe` | Build output |
-| Payload README | `../../resources/payloads/EfsPotato/README.md` | Technique, build, and usage notes |
+| Obfuscated variant | `../../resources/payloads/priv-escalation/EfsPotato/CertEnrollSvc.cs` | Binary used in the emulation |
+| Reference source | `../../resources/payloads/priv-escalation/EfsPotato/EfsPotato.cs` | Original public source for comparison |
+| Compiled binary | `../../resources/payloads/priv-escalation/EfsPotato/CertEnrollSvc.exe` | Build output |
+| Payload README | `../../resources/payloads/priv-escalation/EfsPotato/README.md` | Technique, build, and usage notes |
 
 ## High-Level Runtime Flow
 

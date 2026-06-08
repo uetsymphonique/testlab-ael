@@ -6,19 +6,19 @@ This document summarizes the code flow of `go-thehash`, a Go Pass-the-Hash SMB/W
 
 | Component | Path | Role |
 |---|---|---|
-| CLI and operations | `../../resources/payloads/go-thehash/main.go` | Argument parsing, SMB authentication, file operations, execution, enumeration |
-| Module definition | `../../resources/payloads/go-thehash/go.mod` | Go module, `go-smb` dependency, local replace directive |
-| Payload README | `../../resources/payloads/go-thehash/README.md` | Build, usage, examples, detection notes |
-| Compiled binary | `../../resources/payloads/go-thehash/go-thehash.exe` | Windows build output used in emulation |
-| Vendored SMB/RPC library | `../../resources/payloads/go-thehash/go-smb/` | Local copy of `github.com/jfjallid/go-smb` used for SMB, NTLM, DCE/RPC, DCOM, WMI |
-| SMB transport | `../../resources/payloads/go-thehash/go-smb/smb/` | SMB connection, session, file transfer, tree connect |
-| NTLM/SPNEGO | `../../resources/payloads/go-thehash/go-smb/ntlmssp/`, `../../resources/payloads/go-thehash/go-smb/spnego/` | NTLM initiator and SPNEGO wrapping |
-| DCE/RPC core | `../../resources/payloads/go-thehash/go-smb/dcerpc/` | RPC bind and transport abstractions |
-| SMB RPC transport | `../../resources/payloads/go-thehash/go-smb/dcerpc/smbtransport/` | DCE/RPC over SMB named pipe file handles |
-| Service Control RPC | `../../resources/payloads/go-thehash/go-smb/dcerpc/msscmr/` | MS-SCMR service creation, start, delete |
-| Server Service RPC | `../../resources/payloads/go-thehash/go-smb/dcerpc/mssrvs/` | Share and session enumeration |
-| SAMR RPC | `../../resources/payloads/go-thehash/go-smb/dcerpc/mssamr/` | Local user enumeration |
-| DCOM/WMI RPC | `../../resources/payloads/go-thehash/go-smb/dcerpc/msdcom/` | DCOM connection and WMI method execution |
+| CLI and operations | `../../resources/payloads/lateral-movement/go-thehash/main.go` | Argument parsing, SMB authentication, file operations, execution, enumeration |
+| Module definition | `../../resources/payloads/lateral-movement/go-thehash/go.mod` | Go module, `go-smb` dependency, local replace directive |
+| Payload README | `../../resources/payloads/lateral-movement/go-thehash/README.md` | Build, usage, examples, detection notes |
+| Compiled binary | `../../resources/payloads/lateral-movement/go-thehash/go-thehash.exe` | Windows build output used in emulation |
+| Vendored SMB/RPC library | `../../resources/payloads/lateral-movement/go-thehash/go-smb/` | Local copy of `github.com/jfjallid/go-smb` used for SMB, NTLM, DCE/RPC, DCOM, WMI |
+| SMB transport | `../../resources/payloads/lateral-movement/go-thehash/go-smb/smb/` | SMB connection, session, file transfer, tree connect |
+| NTLM/SPNEGO | `../../resources/payloads/lateral-movement/go-thehash/go-smb/ntlmssp/`, `../../resources/payloads/lateral-movement/go-thehash/go-smb/spnego/` | NTLM initiator and SPNEGO wrapping |
+| DCE/RPC core | `../../resources/payloads/lateral-movement/go-thehash/go-smb/dcerpc/` | RPC bind and transport abstractions |
+| SMB RPC transport | `../../resources/payloads/lateral-movement/go-thehash/go-smb/dcerpc/smbtransport/` | DCE/RPC over SMB named pipe file handles |
+| Service Control RPC | `../../resources/payloads/lateral-movement/go-thehash/go-smb/dcerpc/msscmr/` | MS-SCMR service creation, start, delete |
+| Server Service RPC | `../../resources/payloads/lateral-movement/go-thehash/go-smb/dcerpc/mssrvs/` | Share and session enumeration |
+| SAMR RPC | `../../resources/payloads/lateral-movement/go-thehash/go-smb/dcerpc/mssamr/` | Local user enumeration |
+| DCOM/WMI RPC | `../../resources/payloads/lateral-movement/go-thehash/go-smb/dcerpc/msdcom/` | DCOM connection and WMI method execution |
 
 ## High-Level Runtime Flow
 

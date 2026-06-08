@@ -28,3 +28,6 @@
 [submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/lateral-movement"]
 	path = testlab-enterprise/windows-adversary-plan/resources/payloads/lateral-movement
 	url = https://github.com/uetsymphonique/lateral-movement
+[submodule "testlab-enterprise/windows-adversary-plan/resources/payloads/discovery"]
+	path = testlab-enterprise/windows-adversary-plan/resources/payloads/discovery
+	url = https://github.com/uetsymphonique/discovery

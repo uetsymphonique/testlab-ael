@@ -6,12 +6,12 @@ This document summarizes the code flow of `CWLHerpaderping`, focusing on how the
 
 | Component | Path | Role |
 |---|---|---|
-| Main implant | `../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp` | Entry point, ETW patch, payload read/delete, herpaderping flow |
-| Native declarations | `../../resources/payloads/CWLHerpaderping/CWLHerpaderping/CWLInc.h` | NT types, PEB structures, function typedefs |
-| API hashing | `../../resources/payloads/CWLHerpaderping/CWLHerpaderping/api_hash.h` | DJB2 hash constants, PEB-walk module finder, EAT-walk resolver |
-| Indirect syscall helpers | `../../resources/payloads/CWLHerpaderping/CWLHerpaderping/syscall.h` | Halo's Gate SSN resolution, `syscall;ret` gadget finder, runtime stub builder |
-| Stack spoofing | `../../resources/payloads/CWLHerpaderping/CWLHerpaderping/StackSpoof.cpp` | Fake return address planted inside `kernel32.dll` before `NtCreateProcessEx` syscall |
-| Obfuscated strings | `../../resources/payloads/CWLHerpaderping/CWLHerpaderping/obfstr.h` | Compile-time XOR string obfuscation |
+| Main implant | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/CWLImplant.cpp` | Entry point, ETW patch, payload read/delete, herpaderping flow |
+| Native declarations | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/CWLInc.h` | NT types, PEB structures, function typedefs |
+| API hashing | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/api_hash.h` | DJB2 hash constants, PEB-walk module finder, EAT-walk resolver |
+| Indirect syscall helpers | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/syscall.h` | Halo's Gate SSN resolution, `syscall;ret` gadget finder, runtime stub builder |
+| Stack spoofing | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/StackSpoof.cpp` | Fake return address planted inside `kernel32.dll` before `NtCreateProcessEx` syscall |
+| Obfuscated strings | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/obfstr.h` | Compile-time XOR string obfuscation |
 
 ---
 

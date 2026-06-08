@@ -16,7 +16,7 @@
 | Exec driver | `pkg/driver/exec.go` | Spawns local process, bridges stdin/stdout |
 | Crypto | `pkg/crypto/encryptor.go` | ECDH P-256 + Salsa20 + SHA3 MAC |
 
-All paths are relative to `resources/payloads/dnscat2/go-client/`.
+All paths are relative to `resources/payloads/rce-and-c2/dnscat2/go-client/`.
 
 ---
 
