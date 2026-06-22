@@ -79,7 +79,7 @@ def canonical_header(value: str) -> str:
 
 
 def is_reference_tables_heading(line: str) -> bool:
-    return bool(re.match(r"#{1,6}\s+Reference\s+Tables\s*$", line.strip(), re.IGNORECASE))
+    return bool(re.match(r"#{1,6}\s+Reference\s+Tables?\s*$", line.strip(), re.IGNORECASE))
 
 
 def is_next_heading(line: str) -> bool:
