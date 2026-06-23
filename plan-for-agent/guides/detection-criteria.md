@@ -15,13 +15,15 @@ A Detection Criteria does not describe "process X did action Y." It **names the 
 Two tests must both pass before writing a concrete signal:
 
 1. **Anomaly test** — can you name how this behavior deviates from baseline? If not → `N/A — C1: no anomaly axis`.
-2. **Surface test** — does that anomaly land on the declared telemetry surface (Scenario 1 EDR default)? If not → `N/A — C4: artifact outside declared surface`.
+2. **Surface test** — does that anomaly land on the declared telemetry surface? Read the surface from the **Surface Profile** — the Layer 0 table in `category-assignment.md` (Scenario 1 EDR default). This is the *same* profile `assign-category`'s Question A reads; both steps must consult one pinned profile so an on-surface signal here is not later rejected as off-surface there. If not on-surface → `N/A — C4: artifact outside declared surface`.
 
 Naming the anomaly is the *method*. The *goal* is a signal where vendor failure to produce it is clearly the vendor's fault, not a measurement artifact.
 
 **Criteria is the evidence the label is read from.** If both tests pass and you can articulate the anomaly concretely on-surface, the four Calibration conditions hold in practice. If either fails, write the documented absence (`N/A — <Cx>: <reason>`); `assign-category` reads it as the Not-Calibrated signal.
 
 **Hidden test — every Criteria must implicitly answer: "deviates from *what baseline*, on *what surface*?"** The baseline must be a **pattern, not a value** (otherwise the criteria is brittle and fails reproducibility). The surface must be the declared measurement scope (otherwise the criteria is off-target).
+
+> **Anchor an environment-relative baseline, do not assume it.** "An IIS worker never spawns a shell" or "this host runs no operator scripts" is a claim about *this* lab, not a universal truth — on a host with operations tooling the same event is normal. When the anomaly depends on a clean-baseline assumption, anchor it to the plan's lab topology (the role/build of the host in `summary.md` or the setup docs), so two authors on two environments do not write conflicting "correct" signals. If the baseline cannot be anchored to a stated host role, the deviation is not yet established — name the baseline before writing the signal.
 
 > Example of the lens: `w3wp.exe spawns cmd.exe` is strong not because it is a process tree, but because an IIS worker process **never** spawns a shell in normal operation — and that event lands on every EDR's process-creation channel. Both the anomaly and the surface are explicit.
 
@@ -125,7 +127,7 @@ If the Criteria comes out like the left column, there is no clean signal — wri
 | Only true for one specific run | C2 — not reproducible | Rewrite against the pattern; if none exists, `N/A — C2: <reason>` |
 | Must trust the process is running malware to conclude it's bad | C3 — not independently verifiable | `N/A — C3: <reason>` (typical for in-memory-only / ghost-process behavior) |
 | Observable artifact but outside the declared telemetry surface (e.g. cloud audit log for Scenario 1 EDR, email gateway event for endpoint-only scope) | C4 — not a fair scoring point on this surface | `N/A — C4: <reason>` |
-| Identical to a neighboring row's criteria | Redundancy (Q-B) | Write the signal faithfully — identical criteria is exactly how `assign-category` detects the double-count |
+| Same artifact/target as a neighboring row under the same technique | Redundancy (Q-B) | Write the signal faithfully and in full — `assign-category` detects the double-count by the technique+artifact match (not verbatim text); do not blur or "see above" |
 | All-negative phrasing ("no strings", "absent from…") | Right tech, wrong altitude | Reframe as a positive anomalous pattern |
 | No baseline can be named | Core principle | `N/A — C1: no baseline / anomaly axis` |
 

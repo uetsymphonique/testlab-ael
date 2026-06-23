@@ -8,6 +8,13 @@ allowed-tools: Read, Write, Edit, Glob, Grep, PowerShell, Bash
 
 Build or modify a runnable payload for the emulation plan, then place it in `resources/payloads/` following the plan's directory convention.
 
+<HARD-GATE>
+1. Do NOT run live attack behavior in the dev environment. Compile and dry-run (`--help` / benign arg) ONLY — this dev env composes payloads, it is not the lab/victim host.
+2. Use ONLY toolchains listed in `plan-for-agent/guides/cli-execution.md`. Do NOT assume a compiler/runtime exists. If the user asks for a language not listed, say so and propose the closest available alternative — do not silently substitute.
+3. This skill takes an ALREADY-DECIDED approach. If the technique variant is not yet chosen, run `emulate-technique` first — do not pick the approach here.
+4. Do NOT author `Flow.md` here (that is `document-flow`). Write `README.md` (always) and `Build.md` (when compiled / non-trivial build).
+</HARD-GATE>
+
 This skill takes an **already-decided approach** and produces the artifact. It does **not** choose which technique variant to emulate (`emulate-technique` surveys the options and recommends the approach), map ATT&CK techniques (`map-technique`), or author Phase content (`write-phase`). If the approach is not yet decided, run `emulate-technique` first.
 
 ## Before starting
@@ -96,6 +103,32 @@ Always write `README.md`. Write `Build.md` when the payload is compiled or has n
 - **Artifact:** <output.exe and where it lands>
 - **Dev-env verify:** <benign `--help`/dry-run command>
 ```
+
+## Anti-Patterns — named rationalizations to reject
+
+**"Let me just run it once to confirm it really works."** Dry-run only (`--help` / benign arg). Never trigger live attack behavior in the dev environment — it is not the lab host and running the payload there is the one irreversible mistake this skill exists to prevent.
+
+**"Go/C# probably isn't installed, but I'll try anyway."** Use only toolchains in `cli-execution.md`. Confirm availability there; if the requested language is absent, say so and propose the closest available alternative — do not silently substitute or assume.
+
+**"I'll decide the technique variant as I build."** Approach selection is `emulate-technique`'s job. If it is not decided, stop and run that first — building the wrong variant wastes the whole artifact.
+
+**"I'll document the code flow + ATT&CK mapping in the README."** `Flow.md` (via `document-flow`) owns internal mechanics + mapping. Keep `README.md` to what/why and `Build.md` to how-to-build — overlapping them creates two sources that drift.
+
+## Red Flags — STOP if you are thinking:
+
+| If you think… | The reality is… |
+|---|---|
+| "Run it once to be sure" | Dry-run only — never live attack behavior in the dev env |
+| "Probably installed, I'll try" | Only `cli-execution.md` toolchains — confirm, don't assume |
+| "I'll pick the variant as I go" | Approach selection is `emulate-technique`'s — run it first if undecided |
+| "Document the mechanics in README" | `Flow.md` owns mechanics+mapping — keep README to what/why |
+| "Overwrite the existing payload here" | Check provenance first — if this session didn't create it, confirm before replacing |
+
+## Terminal state
+
+The terminal state is: source written under the correct `resources/payloads/<dir>/`, compiled if applicable, dry-run-verified with a benign argument, and documented with `README.md` (always) plus `Build.md` (when compiled / non-trivial).
+
+Hand off the relative path to `write-phase`, and suggest `document-flow` to produce `Flow.md`. Do NOT run live attack behavior, map techniques, author Phase content, or write `Flow.md` yourself.
 
 ## Notes
 

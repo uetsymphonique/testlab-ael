@@ -29,7 +29,9 @@ Answer 2 questions before evaluating any substep:
 - **Detections** — evaluates detection capability across a behavior chain
 - **Protections** — evaluates blocking of a specific behavior; nearly all rows are Calibrated
 
-**2. Scenario measurement surface (determines Condition 4):**
+**2. Scenario measurement surface — the "Surface Profile" (determines Condition 4):**
+
+> This table is the **single source of truth** for the measurement surface, consumed by **both** `write-detection-criteria` (its Surface test) and this guide (Question A). The two steps must read the *same* profile — if they assume different surfaces, an artifact written as on-surface upstream can be rejected as off-surface downstream with no reconciliation. Pin one profile per plan and reference it from both.
 
 | Type | In-scope telemetry channels | Reference |
 |---|---|---|
@@ -40,6 +42,8 @@ Answer 2 questions before evaluating any substep:
 | Custom | Explicitly enumerated by the phase author — list channels in the Phase file's Layer 0 block | — |
 
 > **Scenario 1 default rationale:** The default targets products with up-to-date detection mechanisms. Declare **Scenario 1 (Basic EDR)** explicitly when the evaluation deliberately targets a product or configuration without advanced in-memory or injection-monitoring capabilities.
+
+> **Echo the active profile — do not run on a silent default.** State which row of this table is in force before labeling, even when it is the Scenario 1 (EDR) default. The choice **sets the detection-rate denominator**: under Basic EDR the in-memory channels disappear, so memory-only behaviors fail C1 and drop out of the scored set; under full EDR they survive to C4. A default left unstated quietly fixes which rows can ever be scored — make it a deliberate, recorded decision matched to the product under evaluation.
 
 > Layer 0 context determines Condition 4 in Layer 2. Do not skip this step.
 
@@ -131,7 +135,7 @@ A substep is **Calibrated** only if it passes the C1–C3 filter **and** clears 
 | Generic interpreter spawn ("PowerShell executes commands") | Near-absolute NC | Score the distinctive action the interpreter performs, never the spawn |
 | Native recon commands (netstat / ipconfig / nbtscan) | Strong NC | Crediting them rewards command-string matching (fails 4a) |
 | Remote-exec plumbing (PsExec ADMIN$ / PSEXESVC / copy) | Strong NC | Mechanism of the lateral-movement objective scored elsewhere |
-| Indicator removal / pure staging | Strong NC | Internal housekeeping, no distinctive detection surface |
+| Indicator removal / pure staging | Strong NC | Internal housekeeping, no distinctive detection surface — tag `staging` |
 
 > **These are rebuttable priors, not technique-ID blocklists.** The same technique flips by its **role in the step** — `rar` collection is Not Calibrated as generic staging but Calibrated when the archive + its alternate-protocol exfil is the distinctive objective; a click is Not Calibrated as delivery but Calibrated when it is the scored user-execution moment. Use the prior as the default, then let the per-step role rebut it. Do **not** hardcode "T1105 is always NC" — record *why* it is NC in this step (see Layer 3 / the reason-tag requirement).
 
@@ -181,7 +185,7 @@ Stop immediately on "No" (or "Yes" where noted). Questions 1–6 establish *elig
    - **4b** Still an independent detection opportunity if the rows it depends on were already caught? (No → Not Calibrated — folded into that row)
    - **4c** A distinctive actor-signature TTP a competent product is expected to flag, not generic delivery / transport / interpreter spawn / native recon? (No → Not Calibrated)
 
-→ All 7 pass: **Calibrated - Not Benign** (`Calibration Reason` = `-`). Any Not Calibrated outcome → keep `Category` a clean enum and write the one-line reason tag in the **`Calibration Reason`** column (`out-of-surface` / `redundant@<TechID>` / `transport` / `interpreter-spawn` / `native-recon` / `in-process` / `IOC-only` / `C1`\|`C2`\|`C3`), so the label can be re-derived when the heuristic changes.
+→ All 7 pass: **Calibrated - Not Benign** (`Calibration Reason` = `-`). Any Not Calibrated outcome → keep `Category` a clean enum and write the one-line reason tag in the **`Calibration Reason`** column (`out-of-surface` / `redundant@<TechID>` / `transport` / `interpreter-spawn` / `native-recon` / `staging` / `in-process` / `IOC-only` / `C1`\|`C2`\|`C3`), so the label can be re-derived when the heuristic changes.
 
 > **Where the reason lives.** `Category` stays a clean enum so it remains filterable/groupable by tooling — never put free text there. The reason goes in its own **`Calibration Reason`** column (owned by this skill), and never in `Detection Criteria` (that column is off-limits here). Two reason sources, do not contradict:
 > - **C1–C3 failure** → `Detection Criteria` already holds the detailed `N/A — <Cx>: <reason>` (authored upstream); set `Calibration Reason` to the matching short tag `C1`/`C2`/`C3`.

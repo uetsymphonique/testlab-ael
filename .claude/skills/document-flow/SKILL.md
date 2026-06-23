@@ -8,6 +8,13 @@ allowed-tools: Read, Write, Glob, Grep
 
 Break a payload's **source code** into an ordered list of atomic behaviors and persist it as a compact `Flow.md` in the payload directory.
 
+<HARD-GATE>
+1. This skill OWNS extraction only. Write the behavior skeleton with `Tactic / TID` left as `—`. Do NOT map techniques, decide Category, name an anomaly axis, or write Detection Criteria.
+2. STOP at the verification gate (step 6). Present the skeleton and let the user verify granularity / edges / ordering BEFORE mapping. Do NOT run `map-technique` yourself.
+3. Token efficiency is a hard requirement: one line per behavior, no multi-sentence cells. `Flow.md` is loaded into downstream context — prose competes with their reasoning budget.
+4. Keep intent-bearing no-artifact links tagged `[no-artifact]`; record the produces→consumes edge on every row.
+</HARD-GATE>
+
 **Objective:** produce the per-payload bridge between source code and the detection pipeline. `Flow.md` is a **neutral, precomputed analysis** — each behavior's `actor action artifact`, the artifact it produces and which downstream behavior consumes it, and a neutral baseline note. It later feeds `assign-category` and `write-detection-criteria`, which read it instead of re-deriving from source. Token efficiency is a hard requirement — this file is loaded into context when those skills run.
 
 This skill runs in **two steps with a user-verification gate between them**:
@@ -22,6 +29,8 @@ This skill owns step 1 only. It does **not** map techniques (`map-technique`), d
 Read `plan-for-agent/guides/behavior-breakdown.md` — the atomic-unit contract, the **source-code adapter** (trace execution flow, stop at event level not per-API, fold pure computation, keep intent-bearing no-artifact links tagged), and the six-class observable filter. This is the same guide `extract-behaviors` defers to; `Flow.md` is its output persisted in the payload's compact format.
 
 ## Steps
+
+**Track coverage explicitly.** As you trace the source, create a task (or tracked checklist entry) for each artifact-producing call sequence you find, and mark it done only once its behavior row is written. A code path left untracked is the usual cause of a missing behavior in `Flow.md`.
 
 1. Ask the user (or read from context): which payload directory / source file(s)? Default the output to `<payload-dir>/Flow.md`.
 2. Read the source. Trace execution flow from the entry point; identify the artifact-producing API/syscall sequences.
@@ -52,6 +61,32 @@ Keep it to a header plus one table. **One line per behavior. No multi-sentence c
 - **→ consumed by** — the later `#` that reads this artifact; omit if it is a chain terminal.
 - **Tactic / TID — Technique Name** — leave as `—`; filled by the `map-technique` pass. Format: `<Tactic> / <TID> — <Technique Name>`. For sub-techniques, use the full `Parent: Sub-technique` name (e.g. `Defense Evasion / T1027.007 — Obfuscated Files or Information: Dynamic API Resolution`). For parent techniques with no sub, the name alone suffices (e.g. `Execution / T1106 — Native API`). Sub-technique preferred over parent when one fits.
 - **Context (baseline)** — neutral one-liner; leave blank if none is obvious. Never an anomaly verdict.
+
+## Anti-Patterns — named rationalizations to reject
+
+**"I'll fill the Tactic/TID while I'm tracing the code."** Mapping is a separate, user-verified pass. Leave `—`; filling it here skips the verification gate that downstream granularity depends on.
+
+**"The breakdown is obviously right — skip the verification gate."** The gate is mandatory. `assign-category` and `write-detection-criteria` read this file instead of re-deriving from source; unverified granularity propagates silently into both.
+
+**"Add a sentence of detail to be safe."** Token budget is a hard constraint — `Flow.md` is loaded into downstream context. One line per behavior; prose competes directly with their reasoning budget.
+
+**"This API call deserves its own row."** Stop at event level, not per-API. Fold a call sequence serving one artifact-outcome into one behavior (the source adapter in `behavior-breakdown.md`).
+
+## Red Flags — STOP if you are thinking:
+
+| If you think… | The reality is… |
+|---|---|
+| "Fill the Tactic/TID now" | Mapping is a separate verified pass — leave `—` and stop at the gate |
+| "Granularity's fine, skip verification" | The gate is mandatory — downstream reads this instead of the source |
+| "Add a clarifying sentence" | Token budget is hard — one line per behavior |
+| "This API call is its own behavior" | Stop at event level — fold per-API sequences serving one artifact |
+| "No artifact, drop this link" | Keep it tagged `[no-artifact]` — it's a chain edge the redundancy check needs |
+
+## Terminal state
+
+The terminal state is: `Flow.md` written in the prescribed format — one line per behavior, `Tactic / TID = —`, produces→consumes edges and neutral baseline context filled — and the skill STOPPED at the verification gate with the skeleton presented to the user.
+
+Suggest running `map-technique` next (after the user verifies). Do NOT map techniques, write Detection Criteria, assign Category, or add those columns yourself.
 
 ## Notes
 

@@ -8,6 +8,13 @@ allowed-tools: Read, Write, Grep, Glob
 
 Assign ACW (Attack Chain Weighting) to all rows in a plan CSV, regardless of Calibrated/Not Calibrated status. Calibrated labels may change later; weighting all rows now ensures scores are ready as soon as labels are finalized.
 
+<HARD-GATE>
+1. Weight EVERY row, including Not-Calibrated ones. ACW and Category are independent axes — never lower an ACW because a row is/might be Not-Calibrated, never treat a high ACW as a reason to keep a row Calibrated.
+2. ACW is per BEHAVIOR (per row), not per Technique ID. The same TID on two rows can get different ACW by its role each place — do not collapse them to one weight.
+3. Weight on chain role ALONE (terminal objective / bottleneck / value-to-attacker). Work the role questions top-down, FIRST MATCH WINS.
+4. Do NOT compute any score, denominator, or Weighted_DC — that is the separate scoring script's job. This skill writes only the `ACW` column.
+</HARD-GATE>
+
 ACW originates from `testlab-enterprise/mitre-outline/Scoring Specification.md` as a scoring axis of its own — the *importance* multiplier on Detection Coverage. It is not a calibration decision.
 
 ---
@@ -90,6 +97,8 @@ Read the CSV file. Each **row is one behavior** — extract every row with its s
 
 ### Step 3 — Assign ACW per behavior (per row)
 
+**Track coverage explicitly.** Create one task per CSV row (or a tracked checklist) and mark it done only after its `ACW` cell is written. Do not report done while any row is unweighted — every row gets an ACW, Calibrated or not.
+
 ACW is assigned **per behavior**, i.e. **per row** — not per Technique ID. The same TID appearing on multiple rows can receive **different** ACW, because its role in the chain differs each place it appears. Weight each row on *its* role, not on its technique label.
 
 For each behavior row, reason through the following questions in order (**first match wins, top-down**):
@@ -165,6 +174,34 @@ Also report a brief tally:
 Do **not** compute any score, denominator, or Weighted_DC here — that is the separate scoring script's job. This skill's output is the populated `ACW` column plus the summary tally above.
 
 ---
+
+## Anti-Patterns — named rationalizations to reject
+
+**"Same TID as that other row — give it the same ACW."** Weight by role, not by technique label. The same TID plays different roles at different chain points (LSASS-cache pivot vs NTDS terminal harvest) — each occurrence gets its own ACW.
+
+**"This row is Not Calibrated, so ACW low / skip it."** ACW and Category are independent axes. Weight every row on its chain role; a Critical bottleneck that happens to be an unobservable in-memory step is still Critical ACW *and* Not Calibrated.
+
+**"This evasion is technically sophisticated → Critical."** Critical is for a terminal-objective or bottleneck role. Pure evasion/obfuscation that hands no new capability is Medium/Low by chain leverage, however clever.
+
+**"Critical is important, so mark plenty of rows Critical."** Critical ceiling is ~35%. Over that, the usual cause is scoring a *sub-cluster* terminal as if it were the *whole-chain* terminal — re-review against Q1's tiers.
+
+**"This ALT path is a fallback, so lower its weight."** ALTs widen technique coverage, they are not fallbacks. An ALT and its main step share a role → same ACW.
+
+## Red Flags — STOP if you are thinking:
+
+| If you think… | The reality is… |
+|---|---|
+| "Same TID → same ACW" | Weight by chain role; the same TID can differ row to row |
+| "Not Calibrated → low/skip ACW" | Independent axes — weight every row on chain role |
+| "Sophisticated evasion → Critical" | Critical is terminal/bottleneck role; pure evasion is Medium/Low |
+| "Mark lots of rows Critical" | Critical ceiling ~35% — re-review sub-cluster vs whole-chain terminals |
+| "ALT is a fallback, weight it down" | ALTs widen coverage — same role, same ACW as the main step |
+
+## Terminal state
+
+The terminal state is: the `ACW` column populated for **every** row (`Critical` / `High` / `Medium` / `Low`), plus the per-behavior summary table and the count tally output to the terminal.
+
+This is the end of the per-row pipeline. Do NOT compute any score, denominator, or Weighted_DC, and do NOT change Category labels — those belong to the scoring script and `assign-category` respectively.
 
 ## Notes
 

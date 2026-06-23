@@ -10,6 +10,12 @@ Help the user understand a technique and identify the most suitable implementati
 
 ART is a reference to understand what variants exist and what each requires, not a source to copy from.
 
+<HARD-GATE>
+1. This skill RECOMMENDS only. Produce no Reference Table, no detection surface, no scope check, and write no payload file — those belong to other skills.
+2. Read the FULL ART file (`<TID>.md`, plus `.yaml` for prereqs) before recommending — the first test is rarely the best fit.
+3. Do NOT copy ART commands verbatim — adapt to the user's host / privilege / OS. If you invent an approach not in ART, label it explicitly and state its basis.
+</HARD-GATE>
+
 ---
 
 ## Before starting — gather requirements
@@ -74,6 +80,32 @@ State the rationale: why this approach over the alternatives.
 No Reference Table. No detection surface. No scope check.
 
 ---
+
+## Anti-Patterns — named rationalizations to reject
+
+**"The first ART test looks fine, recommend it."** Read the full file. Techniques often have many variants with different privilege / OS / artifact profiles; the first is rarely the best fit for the user's constraints.
+
+**"I'll copy the ART command as-is."** ART is a reference, not a source. Adapt every command to the user's host, privilege, and OS — a verbatim copy usually misfits the context.
+
+**"While I'm here, I'll build the payload / write the rows."** Recommend-only. `craft-payload` builds the artifact and `write-phase` authors the rows — producing them here oversteps the skill boundary.
+
+**"ART has no test for this, so I'm stuck."** Design from `mitre-knowledge-base` + known tooling, and label the approach as invented with its basis. No ART test is not a dead end.
+
+## Red Flags — STOP if you are thinking:
+
+| If you think… | The reality is… |
+|---|---|
+| "First ART test is good enough" | Read the full file — many variants, first isn't always best |
+| "Copy the ART command verbatim" | Adapt to host/privilege/OS — ART is a reference, not a source |
+| "I'll build the payload too" | Recommend-only — `craft-payload` / `write-phase` own that |
+| "No ART test, I'm stuck" | Design from knowledge-base + tooling, labeled as invented |
+| "Add a quick Reference Table" | No table / surface / scope here — recommendation only |
+
+## Terminal state
+
+The terminal state is: a recommendation in the prescribed output format — approach, rationale, execution context, adapted commands, and artifacts produced.
+
+Hand off to `craft-payload` if a payload needs building. Do NOT produce a Reference Table, detection surface, scope check, or payload file.
 
 ## Notes
 

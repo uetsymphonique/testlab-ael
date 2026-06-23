@@ -103,7 +103,7 @@ Each step ends with a Reference Table mapping the performed behavior to ATT&CK.
 | `Platform` | `Windows`, `Linux`, `IaaS`, `Identity Provider`... |
 | `Detection Criteria` | **Specific observable condition** — must be a checkable event/artifact (not a generic description) |
 | `Category` | `Calibrated - Not Benign` / `Not Calibrated - Not Benign` / `Calibrated - Benign` — **keep this a clean enum** so it stays filterable/groupable by tooling; no free text here |
-| `Calibration Reason` | Owned by `assign-category`. `-` for Calibrated rows; for **Not Calibrated** rows a short tag explaining *why not scored*: `out-of-surface` / `redundant@<TechID>` / `transport` / `interpreter-spawn` / `native-recon` / `in-process` / `IOC-only` / `C1`\|`C2`\|`C3` (condition fail, mirrors the `N/A — <Cx>` in Detection Criteria). The recorded reason is what lets the label be re-derived when the heuristic changes |
+| `Calibration Reason` | Owned by `assign-category`. `-` for Calibrated rows; for **Not Calibrated** rows a short tag explaining *why not scored*: `out-of-surface` / `redundant@<TechID>` / `transport` / `interpreter-spawn` / `native-recon` / `staging` / `in-process` / `IOC-only` / `C1`\|`C2`\|`C3` (condition fail, mirrors the `N/A — <Cx>` in Detection Criteria; `staging` = pure-staging / indicator-removal). The recorded reason is what lets the label be re-derived when the heuristic changes |
 | `Red Team Activity` | Short description of red team behavior from an external viewpoint |
 | `Hosts` | Specific hostname + IP where the behavior occurs |
 | `Users` | Account performing the behavior |
