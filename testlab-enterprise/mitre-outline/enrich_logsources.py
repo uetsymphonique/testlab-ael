@@ -6,8 +6,13 @@ Reads a CSV produced by export_ref_tables.py or assign-acw (same core columns, A
 For each unique Technique ID in the CSV, looks up detection entries for the specified platform
 in the MITRE knowledge-base technique files, then outputs one row per log source entry.
 
+Output formats:
+  - CSV (default, --out out.csv or stdout)
+  - Excel (--excel or --out out.xlsx) with color-banded behavior groups for readability
+
 Usage:
     python enrich_logsources.py plan.csv [--platform windows] [--techniques-dir PATH] [--out out.csv]
+    python enrich_logsources.py plan.csv --excel --out out.xlsx
 """
 
 import argparse
@@ -34,6 +39,15 @@ _TECHNIQUE_HEADER_RE = re.compile(r"^### (T[\d.]+)\s*-\s*(.+)")
 _DETECTION_ENTRY_RE = re.compile(r"^- \[(AN\d+)\] \*\*\[([^\]]+)\]\*\* (.+)")
 _LOG_SOURCE_LINE_RE = re.compile(r"^\s+- \*\*Log sources:\*\* (.+)")
 _LOG_SOURCE_ENTRY_RE = re.compile(r"`([^`]+)`\s*\(([^)]*)\)\s*\[([^\]]+)\]")
+
+
+# ── Excel styling constants ──────────────────────────────────────────────────
+# Alternating behavior-group background fills
+BAND_FILL_A = "FFFFFF"  # white
+BAND_FILL_B = "DAEEF3"  # light blue
+HEADER_FILL = "2F5496"  # dark blue
+HEADER_FONT_COLOR = "FFFFFF"  # white
+BORDER_COLOR = "B0B0B0"  # light gray gridlines
 
 
 def read_csv_rows(csv_path: Path) -> tuple[list[str], list[dict]]:
@@ -180,6 +194,171 @@ def lookup_logsources(
     return enrich_map, tids_not_in_kb, tids_no_platform_coverage
 
 
+def build_output_rows(
+    input_rows: list[dict],
+    enrich_map: dict[str, list[dict]],
+) -> tuple[list[dict], list[int]]:
+    """
+    Build expanded output rows with enrichment, tracking group boundaries.
+
+    Returns (out_rows, group_ids) where:
+      - out_rows: list of merged dicts (input columns + enrichment columns)
+      - group_ids: parallel list — output rows with the same group_id belong to the
+        same original input row (same behavior). Used for Excel color banding.
+    """
+    out_rows: list[dict] = []
+    group_ids: list[int] = []
+
+    for idx, row in enumerate(input_rows):
+        tid = row.get("Technique ID", "").strip()
+        enrichments = enrich_map.get(tid, [])
+        if enrichments:
+            for enrich in enrichments:
+                out_rows.append({**row, **enrich})
+                group_ids.append(idx)
+        else:
+            out_rows.append({**row, **EMPTY_ENRICH})
+            group_ids.append(idx)
+
+    return out_rows, group_ids
+
+
+def write_csv(
+    out_path: Path | None,
+    fieldnames: list[str],
+    out_rows: list[dict],
+) -> None:
+    """Write output rows as CSV (to file or stdout)."""
+    if out_path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open("w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(out_rows)
+        print(f"[+] Wrote {len(out_rows)} row(s) to {out_path}", file=sys.stderr)
+    else:
+        writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(out_rows)
+
+
+def write_excel(
+    out_path: Path,
+    fieldnames: list[str],
+    out_rows: list[dict],
+    group_ids: list[int],
+) -> None:
+    """Write output rows as a color-banded Excel workbook."""
+    from openpyxl import Workbook
+    from openpyxl.styles import (
+        Alignment,
+        Border,
+        Font,
+        NamedStyle,
+        PatternFill,
+        Side,
+    )
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Enriched Plan"
+
+    # ── Styles ────────────────────────────────────────────────────────────────
+    header_fill = PatternFill(start_color=HEADER_FILL, end_color=HEADER_FILL, fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color=HEADER_FONT_COLOR)
+    band_fill_a = PatternFill(start_color=BAND_FILL_A, end_color=BAND_FILL_A, fill_type="solid")
+    band_fill_b = PatternFill(start_color=BAND_FILL_B, end_color=BAND_FILL_B, fill_type="solid")
+    thin_border = Border(
+        left=Side(style="thin", color=BORDER_COLOR),
+        right=Side(style="thin", color=BORDER_COLOR),
+        top=Side(style="thin", color=BORDER_COLOR),
+        bottom=Side(style="thin", color=BORDER_COLOR),
+    )
+    wrap_alignment = Alignment(wrap_text=True, vertical="top")
+
+    # Find where original columns end and enrichment columns begin
+    enrich_start_col = len(fieldnames) - len(ENRICH_HEADERS) + 1  # 1-based
+
+    # ── Header row ────────────────────────────────────────────────────────────
+    for col_idx, header in enumerate(fieldnames, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+        cell.border = thin_border
+
+    ws.row_dimensions[1].height = 28
+
+    # ── Data rows with behavior-group color banding ──────────────────────────
+    # Map each unique group_id to a band color (alternating)
+    group_band_map: dict[int, PatternFill] = {}
+    for row_idx, gid in enumerate(group_ids):
+        if gid not in group_band_map:
+            # Assign alternating band: even gid index → A, odd → B
+            unique_gids = sorted(set(group_ids))
+            band_index = unique_gids.index(gid)
+            group_band_map[gid] = band_fill_a if band_index % 2 == 0 else band_fill_b
+
+    for row_idx, (row, gid) in enumerate(zip(out_rows, group_ids)):
+        excel_row = row_idx + 2  # 1-based, row 1 is header
+        fill = group_band_map[gid]
+
+        for col_idx, field in enumerate(fieldnames, start=1):
+            value = row.get(field, "")
+            cell = ws.cell(row=excel_row, column=col_idx, value=value)
+            cell.fill = fill
+            cell.border = thin_border
+            cell.alignment = wrap_alignment
+
+            # Bold the enrichment columns to visually separate from original data
+            if col_idx >= enrich_start_col:
+                cell.font = Font(name="Calibri", size=10, bold=True)
+
+    # ── Column widths: auto-fit ───────────────────────────────────────────────
+    for col_idx, field in enumerate(fieldnames, start=1):
+        # Determine max content width in this column
+        max_len = len(str(field))
+        for row in out_rows:
+            val = str(row.get(field, ""))
+            # For wrapped cells, use the longest single line
+            lines = val.split("\n")
+            line_max = max((len(line) for line in lines), default=0)
+            max_len = max(max_len, line_max)
+
+        # Clamp to reasonable bounds
+        col_width = min(max_len + 3, 60)
+        col_width = max(col_width, 10)
+        ws.column_dimensions[get_column_letter(col_idx)].width = col_width
+
+    # ── Freeze header row ────────────────────────────────────────────────────
+    ws.freeze_panes = "A2"
+
+    # ── Auto-filter on header ────────────────────────────────────────────────
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(fieldnames))}{len(out_rows) + 1}"
+
+    # ── Add a legend sheet ───────────────────────────────────────────────────
+    ws2 = wb.create_sheet("Legend")
+    ws2.column_dimensions["A"].width = 22
+    ws2.column_dimensions["B"].width = 50
+
+    ws2.cell(row=1, column=1, value="Color Band").font = Font(bold=True)
+    ws2.cell(row=1, column=2, value="Meaning").font = Font(bold=True)
+    ws2.cell(row=2, column=1, value="White rows").fill = band_fill_a
+    ws2.cell(row=2, column=2, value="One original behavior (input row) and its associated detection log sources")
+    ws2.cell(row=3, column=1, value="Blue rows").fill = band_fill_b
+    ws2.cell(row=3, column=2, value="Next original behavior (input row) — alternating to separate adjacent behaviors")
+    ws2.cell(row=5, column=1, value="Bold columns").font = Font(bold=True)
+    ws2.cell(
+        row=5, column=2,
+        value=f"Enrichment columns (Detection ID through Data Component) — added by enrich_logsources.py",
+    )
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(str(out_path))
+    print(f"[+] Wrote {len(out_rows)} row(s) to {out_path} (Excel with color bands)", file=sys.stderr)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -203,7 +382,13 @@ def parse_args() -> argparse.Namespace:
         "--out",
         type=Path,
         default=None,
-        help="Output CSV path. Defaults to stdout.",
+        help="Output path. Defaults to stdout (CSV). Use .xlsx extension or --excel for Excel output.",
+    )
+    parser.add_argument(
+        "--excel",
+        action="store_true",
+        default=False,
+        help="Force Excel (.xlsx) output. Also auto-detected from --out extension.",
     )
     return parser.parse_args()
 
@@ -243,16 +428,7 @@ def main() -> int:
             print(f"[-] No [{args.platform}] detection entry: {tid}", file=sys.stderr)
 
     output_fieldnames = input_fieldnames + ENRICH_HEADERS
-
-    out_rows: list[dict] = []
-    for row in input_rows:
-        tid = row.get("Technique ID", "").strip()
-        enrichments = enrich_map.get(tid, [])
-        if enrichments:
-            for enrich in enrichments:
-                out_rows.append({**row, **enrich})
-        else:
-            out_rows.append({**row, **EMPTY_ENRICH})
+    out_rows, group_ids = build_output_rows(input_rows, enrich_map)
 
     total_enrich = sum(len(v) for v in enrich_map.values())
     print(
@@ -260,17 +436,18 @@ def main() -> int:
         file=sys.stderr,
     )
 
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        with args.out.open("w", newline="", encoding="utf-8-sig") as f:
-            writer = csv.DictWriter(f, fieldnames=output_fieldnames)
-            writer.writeheader()
-            writer.writerows(out_rows)
-        print(f"[+] Wrote {len(out_rows)} row(s) to {args.out}", file=sys.stderr)
+    # ── Decide output format ──────────────────────────────────────────────────
+    use_excel = args.excel
+    out_path = args.out
+    if out_path and out_path.suffix.lower() == ".xlsx":
+        use_excel = True
+
+    if use_excel:
+        if not out_path:
+            out_path = args.csv_file.with_suffix(".xlsx")
+        write_excel(out_path, output_fieldnames, out_rows, group_ids)
     else:
-        writer = csv.DictWriter(sys.stdout, fieldnames=output_fieldnames)
-        writer.writeheader()
-        writer.writerows(out_rows)
+        write_csv(out_path, output_fieldnames, out_rows)
 
     return 0
 

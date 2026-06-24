@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 CANONICAL_HEADERS = [
+    "Summary",
     "Tactic",
     "Technique ID",
     "Technique Name",
@@ -28,7 +29,7 @@ INPUT_HEADERS = [
 
 FILTERS = {"not-benign", "benign", "calibrated", "not-calibrated"}
 
-OUTPUT_HEADERS = ["Step"] + CANONICAL_HEADERS
+OUTPUT_HEADERS = ["File", "Step"] + CANONICAL_HEADERS
 
 
 def split_row(line: str) -> list[str]:
@@ -132,6 +133,7 @@ def extract_reference_rows(filepath: Path, exclude_alt: bool = False) -> list[di
             row = {header: cells[idx] if idx < len(cells) else "" for idx, header in enumerate(headers)}
             if any(row.values()):
                 row = {header: row.get(header, "") for header in CANONICAL_HEADERS}
+                row["File"] = filepath.name
                 row["Step"] = current_step_heading
                 rows.append(row)
             i += 1
