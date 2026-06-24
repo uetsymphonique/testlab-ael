@@ -1,129 +1,186 @@
-# Phân tích thiết kế skill: `write-detection-criteria`
+# Phân tích skill: write-detection-criteria
 
-> Bài phân tích trong loạt tài liệu giải thích **lý do thiết kế** của từng skill trong `.claude/skills/`. Mục tiêu: làm rõ vị trí trong pipeline, chứng minh tính hợp lý của các lựa chọn, và nhìn nhận khách quan ưu/nhược điểm. Đây là tài liệu *mô tả lý do* — không phải bản sao SKILL.md (xem `.claude/skills/write-detection-criteria/SKILL.md`).
-
----
-
-## 1. Skill này giải bài toán gì
-
-Với **mỗi** dòng trong Reference Table, `write-detection-criteria` viết **tín hiệu quy trách nhiệm nhà cung cấp** (vendor accountability signal) — bằng chứng mà nếu *vắng* trong output của sản phẩm thì cấu thành một lỗ hổng phát hiện *quy được cho nhà cung cấp* trên bề mặt telemetry đã khai báo.
-
-Cách làm là *xác định trục anomaly* (hành vi lệch baseline thế nào); *mục tiêu* là một tín hiệu mà lỗi không phát ra nó rõ ràng là lỗi của vendor, không phải artifact đo lường. Nếu không viết được tín hiệu cụ thể, *ghi nhận sự vắng mặt* dạng `N/A — <Cx>: <lý do>`.
-
-Đây là **nền bằng chứng ổn định** mà bước gán nhãn (`assign-category`) sẽ *đọc*.
+Tài liệu này giải thích từ gốc rễ tại sao skill `write-detection-criteria` tồn tại, nó làm gì, mỗi bước thiết kế vì lý do gì, và đánh giá khách quan điểm mạnh/yếu.
 
 ---
 
-## 2. Vị trí trong pipeline
+## Terminology
 
-```
-map-technique  →  [write-detection-criteria]  →  assign-category  →  assign-acw
-                   (nền bằng chứng ổn định —      (verdict heuristic
-                    PHỦ MỌI DÒNG)                  đọc bằng chứng này)
-```
+**Detection Criteria**
+Nội dung của cột cùng tên trong Reference Table — một tín hiệu SIEM-queryable mô tả hành vi dưới dạng sự kiện có thể quan sát được (`process` `action` `artifact`), hoặc tài liệu hoá lý do tại sao tín hiệu đó không thể viết được.
 
-- **Đầu vào:** Phase file đã có cột mapping; chạy trên **mọi dòng**, không phải tập con đã gán nhãn.
-- **Đầu ra:** cột `Detection Criteria` đầy đủ — mỗi ô là *tín hiệu cụ thể* hoặc *vắng mặt có ghi nhận* `N/A — <Cx>`. Không chạm cột nào khác.
-- **Đọc:** `plan-for-agent/guides/detection-criteria.md`.
+**Vendor accountability signal**
+Mục đích thực sự của Detection Criteria: tín hiệu mà nếu vắng mặt trong output của sản phẩm, thì sự vắng mặt đó rõ ràng là lỗi của vendor — không phải do đo lường sai, không phải do môi trường đặc biệt. Đây là nền tảng để MITRE quy trách nhiệm cho sản phẩm.
 
-Skill này chạy **trước** `assign-category` — đây là quyết định thứ tự quan trọng nhất (xem 3.1).
+**Anomaly axis**
+Chiều mà hành vi lệch khỏi baseline. Xác định được anomaly axis = xác định được có gì để phát hiện hay không. Không có anomaly axis → không thể viết criteria.
 
----
+**Surface Profile (Layer 0)**
+Bảng khai báo telemetry surface của scenario: loại dữ liệu nào được thu thập, trên host nào. Scenario 1 default là EDR. Artifact nằm ngoài Surface Profile → không thể là scoring signal dù hoàn toàn observable.
 
-## 3. Các lựa chọn thiết kế & lý do
+**Tier 1 — Intrinsic anomaly**
+Artifact hiếm gặp đơn độc — bản thân sự kiện đã đủ khác thường để cảnh báo. Một rule duy nhất là đủ.
+Format: `<process | principal> <action> <artifact | target> [on <host>]`
 
-### 3.1. Viết bằng chứng TRƯỚC, gán nhãn SAU
-**Lựa chọn:** Detection Criteria được viết ở skill này, *trước* khi `assign-category` chạy. Category sau đó chỉ *đọc* nó.
+**Tier 2 — Contextual anomaly**
+Artifact thường gặp khi nhìn riêng lẻ, nhưng sự kết hợp / chuỗi mới là điều bất thường. Không có fragment nào đủ để alert một mình — phải tích luỹ risk hoặc correlate.
+Format: `[process | process class] <condition> [and <condition>…]`
 
-**Lý do:** logic Category là *heuristic* và được kỳ vọng sẽ đổi; Detection Criteria là *artifact ổn định*. Viết bằng chứng trước thay thế phỏng đoán cũ "tưởng tượng xem có viết được criteria không" (một rủi ro ảo giác) bằng dữ liệu thật, và cho phép *suy lại nhãn* khi heuristic đổi mà **không phải viết lại criteria**. Đây là mặt đối xứng của cùng quyết định kiến trúc được phân tích trong bài `assign-category`.
+**C1 / C2 / C3 — ba điều kiện unwritable tuyệt đối**
 
-### 3.2. Phủ MỌI dòng — không bỏ dòng nào
-**Lựa chọn:** cột Detection Criteria điền cho *mọi* dòng, dù hành vi trông tầm thường hay "rõ ràng là Not-Calibrated".
+| Code | Điều kiện |
+|---|---|
+| **C1** | Không có anomaly axis, hoặc không có stable pattern (random value không có underlying pattern) |
+| **C2** | Artifact không thể xác minh độc lập — chỉ trong process memory, evaluator phải tin vào implant |
+| **C3** | Artifact nằm ngoài Surface Profile đã khai báo |
 
-**Lý do:** một dòng bị bỏ = không có nền bằng chứng → ép `assign-category` quay lại *tưởng tượng* criteria — đúng cái ảo giác mà thứ tự này dựng lên để loại bỏ. Đây là Hard Gate #1.
+**Writability**
+Tiêu chí duy nhất để quyết định viết signal hay `N/A`. Không phải "tôi nghĩ row này sẽ bị demote", không phải "behavior này quá đơn giản" — chỉ: *có thể viết một concrete signal không?*
 
-### 3.3. Quyết "tín hiệu vs N/A" CHỈ theo tính-viết-được, không theo nhãn dự kiến
-**Lựa chọn:** nếu *viết được* tín hiệu cụ thể → viết, **kể cả khi** dự đoán dòng sẽ bị hạ nhãn vì redundancy/salience. `N/A` *chỉ* dành cho bốn ca *không viết được*: C1 (không có trục anomaly), C2 (chỉ đúng một lần chạy, không rút ra pattern ổn định để viết), C3 (in-process/ghost, evaluator không kiểm chứng được), C4 (artifact ngoài bề mặt khai báo).
-
-**Lý do:** **`N/A` ≠ "dòng này sẽ Not-Calibrated".** Đây là lỗi phổ biến nhất. Một dòng có tín hiệu sạch nhưng sau bị `assign-category` hạ vì *mô liên kết* (tool transfer, spawn interpreter chung, recon native, reuse kênh) **vẫn giữ tín hiệu dương trung thực** ở đây; việc hạ nhãn được ghi ở cột Category, *không* bị ép ngược thành `N/A` giả. Tách hai thứ này là cốt lõi.
-
-### 3.4. Không gán/sửa Category
-**Lựa chọn:** chỉ sản xuất bằng chứng; nhãn được đọc *từ* nó ở hạ nguồn. Không loop ngược.
-
-**Lý do:** trộn "viết criteria" và "gán nhãn" trong một pass tái sinh đúng cái phỏng đoán "tưởng tượng xem có viết được criteria không". Viết *chỉ* bằng chứng.
-
-### 3.5. Tín hiệu trùng nhau phải viết trung thực, verbatim
-**Lựa chọn:** nếu tín hiệu giống hệt dòng trên, *vẫn viết đầy đủ cả hai*, không "see above", không làm mờ.
-
-**Lý do:** hai dòng mang criteria *y hệt* chính là cách `assign-category` phát hiện double-count. Làm mờ chúng là phá bộ dò trùng lặp.
+**Stable pattern**
+Pattern hành vi tồn tại ổn định qua các lần chạy. GUID/nonce là random value — nhưng hành vi "non-COM process generates GUID and writes to non-standard path" là stable. Criteria phải bám vào pattern, không phải vào giá trị cụ thể.
 
 ---
 
-## 3b. Trục thuộc tính & tiêu chí quyết định (đào sâu)
+## Tại sao skill này tồn tại
 
-Skill này thực chất là một **cây quyết định trên vài trục thuộc tính độc lập**. Tách rõ chúng giúp thấy đâu là thao tác máy móc, đâu là phán đoán thật sự.
+### Vấn đề trước khi có skill này
 
-| Trục | Đo điều gì | Giá trị | Quyết bởi tiêu chí |
-|---|---|---|---|
-| **Writability** *(gate trung tâm)* | Có viết được tín hiệu cụ thể không | `signal` / `absence` | Anomaly test ∧ Surface test ∧ pattern ổn định ∧ verifiable |
-| **Failing-condition** *(chỉ khi `absence`)* | Điều kiện nào *chặn* viết tín hiệu | `C1` / `C2` / `C3` / `C4-off-surface` | reverse diagnostic |
-| **Anomaly tier** | Artifact hiếm tự thân, hay chỉ hiếm khi tổ hợp | `intrinsic` / `contextual` | "rare by itself?" → chọn format |
-| **Value-vs-pattern** | Giá trị ngẫu nhiên có baseline ổn định không | `value` (giòn) / `pattern` (bền) | viết theo pattern, không theo value |
-| **Surface** | Tín hiệu rơi vào kênh telemetry nào | declared surface (EDR default) | Layer 0 — *thẩm quyền nằm ở downstream* |
+Trước đây, labeling (Calibrated / Not Calibrated) và viết criteria được thực hiện trong cùng một pass. Hệ quả:
 
-**Tiêu chí cốt lõi — chỉ `writability` quyết signal-vs-absence, tách khỏi nhãn dự kiến.** Đây là trục được "khoá cứng" nhất: dù biết trước dòng sẽ bị hạ nhãn vì redundancy/salience, nếu viết được tín hiệu thì vẫn viết. Mọi trục còn lại chỉ định *dạng* tín hiệu, không định *có hay không*.
+1. **Hallucination vòng tròn**: model quyết định label trước ("row này chắc Not-Calibrated") rồi rationalize criteria cho khớp — hoặc skip criteria hoàn toàn vì "không cần". Không ai buộc model phải thực sự đối mặt với câu hỏi: *có thể viết signal không?*
 
-**Hai test hợp thành gate `writability`** (cộng hai điều kiện ngầm):
-1. *Anomaly test* — gọi tên được baseline mà hành vi lệch khỏi? Không → `N/A — C1`.
-2. *Surface test* — anomaly đó rơi vào surface đã khai báo? Không → `N/A — C4`.
-3. *(ngầm)* pattern ổn định — nếu chỉ đúng một lần chạy và không rút ra được pattern → `N/A — C2`.
-4. *(ngầm)* verifiable không cần tin implant — in-process/ghost → `N/A — C3`.
+2. **Label làm ô nhiễm criteria**: criteria bị viết theo hướng "cố tình vague" để tránh Calibrated, hoặc "cố tình strong" để đạt Calibrated — thay vì phản ánh thực tế signal.
 
-**Phân tầng anomaly *chính là* hành vi chọn format**, không phải hai bước rời. `intrinsic` → single-signal `<process> <action> <artifact>`; `contextual` → behavioral-pattern (mỗi điều kiện con vẫn phải verifiable riêng — cái hiếm là *tổ hợp*, không phải từng mảnh).
+3. **Criteria không stable**: khi label thay đổi (do review, do context mới), criteria cũng bị rewrite theo — mất anchor.
 
----
+### Giải pháp
 
-## 4. Luồng nội bộ (tóm tắt)
+Tách evidence ra khỏi verdict:
 
-1. Mặc định phủ **mọi dòng** trong file.
-2. Với mỗi dòng, **xác định vendor accountability signal**: trên bề mặt đã khai báo, một sản phẩm hoạt động đúng sẽ phát ra gì khi hành vi này xảy ra?
-3. Diễn đạt anomaly theo format khớp: **intrinsic** (artifact tự thân hiếm) → dạng single-signal; **contextual** (artifact thường, tổ hợp hiếm) → dạng behavioral-pattern; giá trị ngẫu nhiên → viết *mẫu ổn định*, không viết giá trị.
-4. Quyết tín-hiệu-vs-vắng-mặt **chỉ theo tính-viết-được**: viết được thì viết (kể cả khi dự đoán bị hạ nhãn); không viết được thì `N/A — <Cx>: <lý do>`.
-5. Chạy forward checklist + reverse diagnostic — nhưng *không* gán Category.
+- `write-detection-criteria` → viết evidence (stable, chỉ phụ thuộc vào signal writability)
+- `assign-category` → đọc evidence đó và ra verdict (heuristic, có thể re-derive mà không cần rewrite criteria)
+
+Criteria là artifact ổn định. Label là heuristic verdict đọc từ artifact đó. Thay đổi label không làm hỏng criteria.
 
 ---
 
-## 5. Đánh giá khách quan
+## Các bước và lý do thiết kế
 
-### Ưu điểm
-- **Loại ảo giác tận gốc** — buộc bằng chứng tồn tại trước khi gán nhãn, thay vì để model "tưởng tượng" có viết được criteria không.
-- **Tách ổn định/biến động** — criteria ổn định, Category heuristic; cho phép re-label mà không đụng bằng chứng.
-- **Phủ-mọi-dòng làm "đã xong" quan sát được** — không dòng nào bị bỏ thầm.
-- **Tín hiệu trùng = bộ dò double-count** — viết trung thực biến trùng lặp thành dữ liệu chẩn đoán thay vì lỗi cần che.
+### Step 1 — Xác định scope
 
-### Nhược điểm / đánh đổi
-- **Cảm giác "làm thừa"** — viết tín hiệu cho cả dòng biết trước sẽ bị hạ nhãn nghe phí công; thực ra là *cố ý* (giữ nền bằng chứng đầy đủ), nhưng dễ bị người vận hành cắt xén.
-- **Ranh giới `N/A` cần kỷ luật cao** — chỉ bốn ca C1/C2/C3/C4 mới được `N/A`; trực giác hay lạm dụng `N/A` cho "dòng này không quan trọng", đúng cái Anti-Pattern cảnh báo.
-- **Xác định anomaly vẫn chủ quan** — "tín hiệu một sản phẩm đúng sẽ phát ra" phụ thuộc giả định về năng lực bề mặt; ca biên có thể tranh luận.
-- **Phụ thuộc bề mặt khai báo đúng** — nếu Layer 0 (bề mặt telemetry) bị hiểu sai ở `assign-category`, ranh giới "observable vs `N/A — C4`" ở đây cũng lệch theo.
+> *"Ask the user: which Phase file? which rows? Default to all rows."*
 
-### Phản biện sâu (điểm căng trong chính khung)
-- **Số ca `N/A` đã đồng bộ về bốn (C1/C2/C3/C4) — trước đây là một bất nhất giữa SKILL.md và guide.** Guide `detection-criteria.md` (reverse diagnostic) luôn cho phép `N/A — C2` khi tín hiệu *chỉ đúng một lần chạy và không rút ra pattern nào* (blob entropy thuần, heap address không ngữ cảnh), nhưng SKILL.md từng chốt "three unwritable cases" và bỏ C2, khiến §1/§3.3 bám theo cũng thiếu. Lý do C2 là ca `absence` hợp lệ riêng: ép nó về C1 ("không có anomaly axis") là sai bản chất — anomaly *có*, chỉ không có pattern ổn định để viết. Nay SKILL.md (cả bản `.windsurf`) đã liệt kê đủ bốn ca, khớp guide và §3b. *Bài học còn lại:* vocabulary "số ca" sống ở hai nguồn nên dễ lệch khi sửa một chỗ — đây là rủi ro drift, không còn là mâu thuẫn đang mở.
-- **Baseline mang tính môi trường, nhưng test từng coi nó như khách quan.** `w3wp.exe spawns cmd.exe` là anomaly trong web-tier sạch; trên host có script vận hành hay chạy shell thì baseline khác hẳn. Anomaly test giả định người viết biết baseline "đúng", nhưng baseline phụ thuộc lab cụ thể. → *Đã giảm thiểu:* guide nay buộc **neo baseline môi trường vào host role/build** khai trong `summary.md`/setup docs (mục "Anchor an environment-relative baseline"); SKILL.md có note tương ứng — "nếu không neo được thì deviation chưa được thiết lập, đặt tên baseline trước khi viết". *Residual:* vẫn dựa vào `summary.md` được viết đúng và người viết chịu đọc nó, không có cơ chế cưỡng chế tự động.
-- **Ranh giới `intrinsic`/`contextual` chính là chỗ khó nhất, nhưng được trình bày như đọc-ra-được.** "unsigned DLL từ user path" là hiếm tự thân (intrinsic) hay chỉ hiếm khi kèm netconn (contextual)? Chọn sai tier → sai format: viết single-signal cho cái thực ra cần tổ hợp sẽ sinh giả dương; viết behavioral-pattern cho cái vốn đủ alert một mình thì làm loãng tín hiệu. Phân tier là phán đoán, không phải tra bảng — nhưng cây quyết định đặt nó như bước cơ học.
-- **Thẩm quyền "surface" nằm ở downstream nhưng quyết định surface-test lại ở upstream.** Cùng phép kiểm "trên surface không?" chạy **hai lần** — writability-test (→ `N/A — C4`) ở skill này, và Q-A scope ở `assign-category`. Nếu hai bên giả định surface lệch nhau thì mâu thuẫn mà không có cơ chế hoà giải. → *Đã giảm thiểu:* cả hai skill nay trỏ về **một Surface Profile chung** (bảng Layer 0 trong `category-assignment.md`); Surface test (upstream) và Question A (downstream) đọc cùng một profile được *pin*, guide nêu rõ "must consult the *same* profile". *Residual:* vẫn là quy ước "đọc cùng bảng" — chưa có kiểm tra tự động bắt hai bên thực sự dùng cùng giá trị; vẫn dựa Layer 3 + quyền gửi-ngược-dòng làm chốt cuối.
-- **"Vendor accountability" giả định một capability envelope từng không nói rõ.** "sản phẩm hoạt động đúng sẽ phát ra gì" phụ thuộc default EDR rất hào phóng (memory scan + ETW injection + YARA); đổi default → tập "viết được tín hiệu" co/giãn theo. → *Đã giảm thiểu:* envelope giờ là **Surface Profile tường minh** (bảng Layer 0 liệt kê đủ kênh), upstream được trỏ thẳng tới nó qua Surface test; phía Layer 0 gắn cờ "lựa chọn này set denominator" + buộc echo profile (không chạy trên default im lặng). *Residual:* envelope vẫn là một bảng người vận hành phải *chọn đúng*, không suy ra được tự động từ sản phẩm thật đang đánh giá.
+**Nhiệm vụ**: xác định coverage trước khi bắt đầu, tạo checklist one-task-per-row để track.
 
-### Khi nào dễ sai nhất
-- "Dòng này kiểu gì cũng Not-Calibrated, ghi `N/A`" (lạm dụng `N/A`).
-- Bỏ qua dòng "chỉ là setup".
-- Làm mờ/"see above" tín hiệu trùng (phá bộ dò double-count).
-- Tiện tay gán Category trong cùng pass.
-- Khẳng định một observable *ngoài* bề mặt như điểm chấm, thay vì `N/A — C4`.
+**Câu hỏi step này trả lời**: Tôi cần viết criteria cho những row nào? Có row nào tôi được phép bỏ qua không?
+
+**Lý do thiết kế**: Default là *tất cả row* — không có row "quá nhỏ để cần criteria". Row bị skip là row `assign-category` phải tự đoán criteria, tức là bước tách evidence/verdict vừa thiết kế lại bị vô hiệu hoá ngay tại đây.
 
 ---
 
-## 6. Liên hệ
-- Quy tắc thực thi: `.claude/skills/write-detection-criteria/SKILL.md`
-- Phương pháp nền: `plan-for-agent/guides/detection-criteria.md`
-- Skill liền kề: `map-technique` (upstream — điền mapping), `assign-category` (downstream — đọc bằng chứng này để gán nhãn). Xem thêm bài phân tích `assign-category` cho mặt đối xứng của quyết định "criteria trước, category sau".
+### Step 2 — Xác định vendor accountability signal
+
+> *"For each row, identify what a correctly-functioning product would emit when this behavior occurs."*
+
+**Nhiệm vụ**: với mỗi row, tìm câu trả lời cho câu hỏi cốt lõi — *nếu sản phẩm hoạt động đúng, nó sẽ emit sự kiện gì?*
+
+**Câu hỏi step này trả lời**:
+- Artifact nào được tạo ra bởi hành vi này?
+- Telemetry layer nào sẽ ghi nhận nó?
+- Process/principal nào là actor?
+- Baseline của host role này là gì, và hành vi này lệch khỏi baseline ở điểm nào?
+
+**Lý do thiết kế**: "Vendor accountability" thay vì "detection criteria" là framing quan trọng. Nó buộc phải hỏi: *nếu sản phẩm bỏ lỡ điều này, đó có phải lỗi của sản phẩm không, hay đó là artifact không ai có thể detect?* Chỉ khi câu trả lời là "lỗi của sản phẩm" thì mới có signal để viết.
+
+Anchoring baseline vào host role (từ `summary.md` hoặc setup docs) thay vì assume là bước quan trọng — cùng một behavior có thể là intrinsic anomaly trên một web server nhưng là noise trên một developer workstation.
+
+---
+
+### Step 3 — Chọn format tier
+
+> *"Choose the format matching the anomaly tier."*
+
+**Nhiệm vụ**: quyết định Tier 1 hay Tier 2 dựa trên tính chất của anomaly.
+
+**Câu hỏi step này trả lời**: Artifact này hiếm gặp đơn độc (Tier 1), hay chỉ bất thường trong context/combination (Tier 2)?
+
+**Lý do thiết kế**: Hai tier không phải tuỳ chọn style — chúng phản ánh loại detection logic cần thiết:
+- Tier 1 → một rule đủ để fire → criteria viết như event filter
+- Tier 2 → phải correlate nhiều conditions → criteria viết như behavioral pattern cho risk engine
+
+Áp sai tier không gây lỗi syntax nhưng gây lỗi logic: viết Tier 1 format cho một artifact phổ biến tạo ra false-positive lớn; viết Tier 2 format cho một artifact intrinsic là over-engineering không cần thiết.
+
+---
+
+### Step 4 — Quyết định signal vs absence trên writability đơn thuần
+
+> *"Decide signal-vs-absence on writability only, not on the anticipated label."*
+
+**Nhiệm vụ**: viết signal nếu có thể viết được, viết `N/A — <Cx>` nếu không — bất kể kết quả labeling dự kiến là gì.
+
+**Câu hỏi step này trả lời**: Signal này có thể viết được không? (Không phải: label sẽ là gì?)
+
+**Lý do thiết kế**: Đây là điểm cốt lõi nhất của toàn bộ skill. Discipline này loại bỏ hai anti-pattern nguy hiểm nhất:
+
+1. *"Row này sẽ Not-Calibrated nên tôi viết N/A để tiết kiệm"* → N/A giờ có nghĩa hoàn toàn khác: *signal unwritable*, không phải *label sẽ là Not-Calibrated*. Một row có signal hoàn toàn writable nhưng bị demote vì redundancy vẫn phải giữ nguyên positive signal — `assign-category` ghi lý do demotion vào cột `Calibration Reason` (cột `Category` giữ là clean enum), không đẩy nó ngược lại thành fake N/A.
+
+2. *"Tôi biết Category rồi, viết criteria cho match"* → không được. Criteria phải phản ánh thực tế của signal, không phải mong muốn về label.
+
+---
+
+### Step 5 — Chạy Forward checklist / Reverse diagnostic
+
+> *"Run the Forward checklist (concrete signals) or the Reverse diagnostic (suspected absences)."*
+
+**Nhiệm vụ**: quality gate trước khi commit vào file.
+
+**Câu hỏi step này trả lời**:
+- Forward checklist: criteria này có thể paste vào SIEM/EDR và query được không? Có đủ specific không? Có phải positive pattern không?
+- Reverse diagnostic: nếu tôi đang ngả về N/A, tôi đang fail ở điều kiện nào (C1/C2/C3)?
+
+**Lý do thiết kế**: Hai chiều kiểm tra này tương ứng với hai trường hợp cần chất lượng khác nhau:
+- Signal row cần phải queryable, không phải chỉ đúng về mặt khái niệm
+- Absence row cần phải classify rõ lý do — "N/A" không có code là evidence kém, không thể audit sau
+
+Reverse diagnostic đặc biệt quan trọng vì nó bắt được pattern "viết signal bằng negative phrasing" (ví dụ: "CreateFile absent from import table") — về kỹ thuật là đúng nhưng không thể query, phải reframe thành positive anomalous pattern.
+
+---
+
+## Đánh giá khách quan
+
+### Điểm mạnh
+
+**Separation of concerns thực sự**
+Criteria và label là hai artifact độc lập. Label có thể thay đổi mà không cần rewrite criteria — không mất anchor khi context thay đổi.
+
+**N/A có semantics rõ ràng**
+Ba code (C1/C2/C3) biến N/A thành thông tin thay vì lỗ hổng. Reviewer biết chính xác lý do không có signal — và có thể dispute nếu disagree.
+
+**Writability làm tiêu chí duy nhất**
+Loại bỏ toàn bộ lớp bias từ anticipated label. Model phải đối mặt với signal trước khi được phép nghĩ đến label.
+
+**Coverage requirement (mọi row)**
+Ngăn không cho "setup rows" bị drop silently. Một row được skip là một blind spot không được document.
+
+**Format discipline (Tier 1 / Tier 2)**
+Buộc phải phân loại tính chất anomaly trước khi viết — ngăn viết surface-level description thay vì detection logic.
+
+---
+
+### Điểm yếu
+
+**Phụ thuộc vào baseline knowledge**
+Anomaly axis phụ thuộc vào người viết biết baseline của host role là gì. Nếu model không có thông tin đủ về host build (từ `summary.md` hoặc setup docs), anomaly claim sẽ yếu hoặc sai. Skill không có cơ chế validate baseline — nó chỉ yêu cầu "anchor to host role", không kiểm tra baseline đó có đúng không.
+
+**Tier 1 / Tier 2 phân loại có vùng xám**
+Nhiều behaviors nằm giữa hai tier: artifact không phải intrinsic rare nhưng cũng không cần full correlation. Model phải tự quyết định mà không có heuristic rõ ràng hơn "hiếm gặp đơn độc hay không". Dễ nhất quán kém giữa các session.
+
+**Surface Profile là dependency ngoài**
+Layer 0 table nằm trong `assign-category/references.md`. Nếu Surface Profile thay đổi, criteria đã viết trên Surface Profile cũ có thể không còn valid — nhưng skill không có mechanism để flag điều này. Người review phải manually reconcile.
+
+**Telemetry depth không được validate tự động**
+Khi hai rows chia sẻ một physical event (ví dụ: cùng netconn nhưng một row dùng raw IP, row kia dùng JA3 fingerprint), skill chỉ note rule trong references.md chứ không enforce. Model có thể viết identical criteria cho hai rows mà không bị detect — double-count chỉ được bắt khi `assign-category` chạy sau.
+
+**C1 / C2 / C3 yêu cầu judgment tốt**
+Model có thể misclassify — đặc biệt C1 vs "lazy" (signal writable nhưng cần thêm effort để reframe thành positive pattern). Reverse diagnostic giúp phần nào nhưng không prevent được misclassification hoàn toàn.

@@ -1,158 +1,281 @@
-# Phân tích thiết kế skill: `assign-category`
+# Phân tích skill: assign-category
 
-> Bài phân tích trong loạt tài liệu giải thích **lý do thiết kế** của từng skill trong `.claude/skills/`. Mục tiêu: làm rõ skill nằm ở đâu trong pipeline, chứng minh tính hợp lý của các lựa chọn, và nhìn nhận khách quan ưu/nhược điểm. Đây là tài liệu *mô tả lý do* — không phải bản sao của SKILL.md (xem trực tiếp `.claude/skills/assign-category/SKILL.md` để biết quy tắc thực thi, và `appendix/calibrated-assign-mindmap.md` cho sơ đồ quyết định).
-
----
-
-## 1. Skill này giải bài toán gì
-
-Một Phase file chứa nhiều dòng hành vi (Reference Table). Không phải dòng nào cũng là **cơ hội phát hiện công bằng** để tính vào tỷ lệ phát hiện của sản phẩm bảo mật. `assign-category` quyết định dòng nào được tính (`Calibrated`) và dòng nào không (`Not Calibrated`) — tức là **định nghĩa mẫu số của detection-rate**.
-
-Đây là một quyết định *đánh giá* (evaluation design), không phải quyết định *kỹ thuật tấn công*. Câu hỏi xuyên suốt: **"nếu sản phẩm bỏ sót tín hiệu này, lỗi đó có quy được cho nhà cung cấp không?"** Nếu không quy được (artifact nằm ngoài bề mặt telemetry, hoặc chỉ tồn tại trong bộ nhớ không kiểm chứng được) thì không công bằng để chấm điểm.
+Tài liệu này giải thích từ gốc rễ tại sao skill `assign-category` tồn tại, nó làm gì, mỗi bước thiết kế vì lý do gì, và đánh giá khách quan điểm mạnh/yếu.
 
 ---
 
-## 2. Vị trí trong pipeline
+## Terminology
 
-```
-... → map-technique → write-detection-criteria → [assign-category] → assign-acw
-                       (bằng chứng ổn định)       (verdict heuristic)   (trục độc lập)
-```
+**Calibrated / Not Calibrated**
+Hai label duy nhất trong scope. "Calibrated" = hành vi này được tính vào detection-rate denominator — đây là cơ hội detection fair, scored. "Not Calibrated" = không được tính. Label không phán xét xem hành vi có "quan trọng" hay không — chỉ phán xét xem nó có *fair để score vendor* hay không.
 
-- **Đầu vào:** một Phase file đã có cột `Detection Criteria` được điền **cho mọi dòng** (từ `write-detection-criteria`).
-- **Đầu ra:** điền hai cột — `Category` (enum sạch) và `Calibration Reason` (tag lý do).
-- **Bàn giao:** sang `assign-acw` để chấm trọng số chuỗi tấn công.
+**Surface Profile (Layer 0)**
+Khai báo telemetry surface của scenario: loại dữ liệu nào được thu thập, trên loại sensor nào. Phải được echo tường minh trước khi label bất kỳ row nào. Default là Scenario 1 (EDR). Quyết định này thiết lập denominator của detection rate — thay đổi profile = thay đổi toàn bộ kết quả scoring.
 
-Điểm cốt lõi về vị trí: skill này **chạy SAU `write-detection-criteria` và ĐỌC** cột bằng chứng đó, chứ không tự tưởng tượng ra. Đây là lựa chọn thiết kế quan trọng nhất, phân tích ở mục 3.1.
+**Layer 1 — Pre-filter (Q-A / Q-B)**
+Hai câu hỏi loại trừ sớm, chạy trước khi đánh giá signal quality:
+- **Q-A**: Artifact có nằm trong Surface Profile không? Không → NC ngay.
+- **Q-B**: Đây có phải implementation detail của một Calibrated row khác không? Có → NC ngay.
 
----
+**Q-B — Implementation detail**
+Một row là implementation detail của row khác khi: row downstream đã Calibrated và detecting row đó *trực tiếp chứng minh* row này đã xảy ra. Không phải mọi upstream step đều là implementation detail — chỉ khi row đó không mở ra cut-point detection độc lập nào. Q-B có ba sub-case (references.md): **same-level** (double-count, xem dưới), **downstream** (downstream row trực tiếp chứng minh row này), và **dead-end chain** (artifact chỉ bị các NC row tiêu thụ, không có path tới scored opportunity nào).
 
-## 3. Các lựa chọn thiết kế & lý do
+**Double-count**
+Trường hợp Q-B same-level: hai rows mô tả cùng physical event với cùng technique và cùng artifact/target, yêu cầu cùng detection capability. Một được Calibrated, cái kia NC với tag `redundant@<TechID>`. Match trên technique+artifact, không phải verbatim text.
 
-### 3.1. Tách "viết bằng chứng" khỏi "gán nhãn" — và xếp bằng chứng trước
+**Layer 2 — Conditions 1–3**
+Ba điều kiện eligibility đọc từ Detection Criteria đã viết:
+- **Condition 1**: Observable — artifact tồn tại trong telemetry channels đã khai báo (lưu ý: memory-only artifact chỉ fail C1 khi Basic EDR được declare; default EDR đã gồm memory scanning)
+- **Condition 2**: Reproducible — artifact xuất hiện ổn định qua nhiều runs (stable pattern)
+- **Condition 3**: Independently verifiable — evaluator xác nhận được mà không cần tin vào red team
 
-**Lựa chọn:** Detection Criteria được viết trước, ở một skill riêng. `assign-category` chỉ đọc nó.
+Conditions 1–3 chỉ cho *eligibility*, không phải verdict. Đa số rows fail ở C4, không phải ở đây.
 
-**Lý do:** Trước đây nếu một skill vừa gán nhãn vừa tự hỏi "có viết được tín hiệu phát hiện cho dòng này không?", nó phải *tưởng tượng* ra bằng chứng — đúng kiểu tình huống dễ sinh ảo giác (hallucination). Bằng cách bắt buộc bằng chứng phải **đã được viết ra** trước, quyết định gán nhãn trở thành thao tác *đọc* trên dữ liệu có thật.
+**C4 — Scoring gate (điều kiện thực sự)**
+Gate thực sự quyết định Calibrated. Ba sub-gate đều phải pass:
+- **4a**: Signal phân biệt phải là property của *hành vi/TTP* — generalize qua các instance, không phải một indicator cố định riêng của lần emulation này (command string, IP, file hash, filename). Không phán xét cơ chế detect của vendor; phán xét xem signal có generalize ngoài run cụ thể không
+- **4b**: Mở ra detection opportunity mới và độc lập — không phải cơ hội đã được guarantee bởi row khác
+- **4c**: Distinctive TTP (actor-signature behavior) — không phải connective tissue (transport, interpreter spawn, native recon, staging)
 
-**Lợi ích kép quan trọng:** logic phân loại là *heuristic* và được kỳ vọng sẽ thay đổi theo thời gian; còn Detection Criteria là *artifact ổn định*. Tách hai tầng cho phép **chạy lại việc gán nhãn** khi heuristic đổi mà **không phải viết lại bằng chứng**. Đây là dạng tách "dữ liệu ổn định" vs "phán đoán biến động" — một quyết định kiến trúc tốt.
+**Connective tissue**
+Class hành vi không được score vì missing chúng không phản ánh detection capability gap thực sự. Gồm: tool transfer, generic interpreter spawn, native recon commands (netstat/ipconfig), remote-exec plumbing (PsExec mechanism), pure staging. Đây là "rebuttable priors" — cùng technique có thể flip tùy vai trò trong step.
 
-> Đánh đổi (khách quan): cái giá là chuỗi pipeline dài hơn và hai skill phải được chạy đúng thứ tự. Nếu người dùng chạy `assign-category` khi cột criteria còn `TBD`, skill phải dừng — đó là lý do có Hard Gate #1. Sự an toàn này đổi bằng một chút ma sát vận hành.
+**Reason tags**
+Short tag ghi vào `Calibration Reason` cho mọi NC row. Lý do cần tag: khi heuristic thay đổi, label có thể re-derive từ tag mà không cần đọc lại toàn bộ criteria. Không được để NC row không có tag.
 
-### 3.2. "Tín hiệu sạch" KHÔNG đồng nghĩa "Calibrated"
+**Layer 3 — Structural signals**
+Checklist pattern-level sau khi label xong. Bắt các lỗi hệ thống như: Calibrated ratio bất thường, double-count ẩn, mâu thuẫn giữa positive criteria và NC label, hoặc ngược lại.
 
-**Lựa chọn:** Conditions 1–3 (Observable / Reproducible / Independently verifiable) chỉ là **bộ lọc loại trừ** (elimination filter) cho *tính đủ điều kiện*; quyết định thật nằm ở **Condition 4**.
+**Rebuttable priors**
+Connective tissue classification không phải blocklist theo TID. Cùng một technique (ví dụ `rar` compression) là NC khi staging nội bộ, nhưng là Calibrated khi kết hợp exfil qua alternate protocol thành objective chính. Prior "strong NC" có thể bác bỏ nếu documented rõ vai trò trong step.
 
-**Lý do:** Đây là chỗ trực giác hay sai nhất. `netstat`, `ipconfig`, tải tool, `PsExec` đều cho tín hiệu hoàn hảo (qua C1–C3) nhưng vẫn là **Not Calibrated**. Vì có tín hiệu ≠ có điểm. C4 mới hỏi đúng câu: tín hiệu này có phải **cơ hội phát hiện độc lập, mang chữ ký đặc trưng của actor**, hay chỉ là "mô liên kết" chung chung (delivery, transport, spawn interpreter, recon native)?
-
-C4 gồm ba điều kiện đồng thời phải đúng:
-- **4a** — chấm việc *phát hiện hành vi*, không phải khớp chuỗi lệnh / IOC.
-- **4b** — là cơ hội phát hiện *mới và độc lập*, không trùng với dòng đã được chấm (exfil qua kênh *mới* = Calibrated; exfil qua C2 *đã có* = Not Calibrated).
-- **4c** — là TTP *đặc trưng của actor*, không phải mô liên kết.
-
-**Vì sao thiết kế thành "prior có thể bác bỏ":** cùng một technique có thể lật nhãn tùy *vai trò trong bước*. Rar dùng để staging vs rar+exfil là mục tiêu — cùng kỹ thuật, khác nhãn. Việc tách C1–C3 (đủ điều kiện) khỏi C4 (chấm điểm) khiến quy tắc này diễn đạt được rõ ràng thay vì gói chung thành "có vẻ quan trọng".
-
-### 3.3. Output là HAI cột, không phải một
-
-**Lựa chọn:** `Category` giữ là enum sạch (lọc/đếm được); lý do được tách sang `Calibration Reason` dưới dạng tag từ vựng cố định (`out-of-surface` / `redundant@<TechID>` / `transport` / `interpreter-spawn` / `native-recon` / `staging` / `in-process` / `IOC-only` / `C1|C2|C3`).
-
-**Lý do:** "Lý do được ghi lại quan trọng hơn cái nhãn." Khi heuristic đổi, có thể **suy lại nhãn từ tag** mà không cần phân tích lại từ đầu. Một cú lật nhãn theo vai trò (staging vs objective) chỉ *hợp lệ khi tag giải thích được nó*. Giữ `Category` sạch cũng cho phép script chấm điểm hạ nguồn lọc nhanh mà không phải parse văn bản tự do.
-
-> Đánh đổi: thêm một cột nghĩa là thêm kỷ luật điền dữ liệu. Skill bù lại bằng "completeness check" — mọi dòng NC phải có tag, nếu thiếu coi như chưa xong.
-
-### 3.4. Không được sửa cột `Detection Criteria`; ACW là trục độc lập
-
-**Lựa chọn:** quyền ghi theo cột tách bạch — skill này chỉ sở hữu `Category` + `Calibration Reason`. Nếu thấy criteria "có vẻ sai", sửa **nhãn**, không sửa bằng chứng. Và độ quan trọng chuỗi (ACW) **không bao giờ** nâng/hạ nhãn calibration.
-
-**Lý do:** Đây là nguyên tắc "column-disjoint write ownership" của toàn pipeline — cho phép cùng một file đi qua nhiều skill mà không skill nào ghi đè cột của skill khác. Việc tách ACW khỏi Category ngăn lỗi phổ biến nhất: "bước này Critical nên phải Calibrated". Thực tế cả 4 tổ hợp đều hợp lệ (một pivot Critical nhưng chỉ tồn tại in-memory thì vẫn Critical-ACW *và* Not-Calibrated).
-
-### 3.5. Lớp tuning hành vi: Hard Gate + Anti-Pattern + Red Flags
-
-**Lựa chọn:** đầu SKILL.md có `<HARD-GATE>` liệt kê 5 bất biến; cuối có bảng "Anti-Patterns" (bác bỏ các lý do hợp lý hóa có tên) và "Red Flags" (dừng lại nếu đang nghĩ…).
-
-**Lý do:** Các lỗi của skill này không phải lỗi *kiến thức* mà là lỗi *tự thuyết phục* ("dòng này nhìn là biết Calibrated", "criteria yếu, để tôi sửa luôn"). Liệt kê thẳng các rationalization đó và phản bác từng cái sẽ chặn được lối tắt sai ngay tại thời điểm model định đi vào. Đây là pattern L1/L2/L4/L5 từ `skill-lesson-learn.md`.
+**Primary artifact (cơ chế lật prior)**
+Rebuttal của một strong-NC prior phải được trigger bởi **primary artifact** mà hành động *tạo ra*, không phải bởi metadata về *ai* thực hiện. Với T1105, primary artifact là file được transfer, không phải process ghi nó. Actor bất thường (IIS worker, browser, Office app ghi vào path lạ) chỉ là context — tự nó không lift transport prior. Câu hỏi đúng: *"file có anomaly quan sát độc lập không?"* (PE-class, YARA-matchable content). Có → test C4 fresh; không → giữ prior, check Q-B với downstream row bắt được property đó. Áp dụng cho mọi prior trong bảng C4c, không riêng T1105.
 
 ---
 
-## 3b. Trục thuộc tính & tiêu chí quyết định (đào sâu)
+## Tại sao skill này tồn tại
 
-Gán nhãn là một **chuỗi cổng `first-stop-wins`**: dừng ngay khi một cổng kết luận Not-Calibrated. Các trục, theo thứ tự áp dụng:
+### Vấn đề
 
-| Trục | Tầng | Giá trị | Vai trò |
+Không phải mọi hành vi detectable đều nên được score. Nếu tính tất cả behaviors vào denominator:
+
+1. **Denominator gồm behavior không generalize được**: với một số row, dấu hiệu phân biệt duy nhất là một indicator *riêng của lần emulation này* — đúng IP, đúng filename, đúng hash mà ta tình cờ chọn. Vấn đề **không phải** việc vendor bắt bằng signature/YARA — vendor được tự do detect bằng bất kỳ cơ chế nào, và bắt được vẫn là bắt được. Vấn đề nằm ở *denominator*: eval đo khả năng phát hiện **hành vi của adversary**, mà adversary thật sẽ xoay vòng IP/filename/hash. Nếu signal phân biệt duy nhất của một row chỉ là một IOC cố định như vậy, chấm điểm nó đo "vendor có match đúng artifact của ta không", không phải "vendor có phát hiện được TTP không" → phình denominator mà không đo capability.
+
+2. **Double-counting**: hai rows mô tả cùng physical event nhưng dưới hai góc nhìn → nếu cả hai đều Calibrated, một lần detect thực tế cho điểm hai lần.
+
+3. **Connective tissue làm loãng denominator**: tool download, interpreter spawn, native recon (`netstat`/`ipconfig`) xuất hiện trong gần như mọi workflow lành tính — chúng không distinctive với adversary. Vấn đề không phải "dễ string-match", mà là **missing chúng không fairly quy được thành capability gap**: mọi sản phẩm đều thấy `netstat` chạy mỗi ngày, không alert nó là quyết định FP-tuning hợp lý chứ không phải lỗ hổng. Để chúng trong denominator = không phân biệt được sản phẩm thực sự capable với sản phẩm yếu.
+
+4. **Denominator không ổn định**: nếu không có tiêu chí rõ ràng, denominator biến động theo người review — cùng phase, hai reviewer cho ra detection rate khác nhau.
+
+### Giải pháp
+
+`assign-category` thiết lập denominator chính xác bằng một quy trình có thể audit và re-derive:
+
+- Đọc Detection Criteria đã viết (evidence, không imagine) → Layer 1 pre-filter → Conditions 1–3 eligibility → C4 scoring gate
+- Mọi NC row có reason tag → label re-derivable khi heuristic thay đổi
+- Surface Profile echoed tường minh → denominator stable và traceable
+
+---
+
+## Các bước và lý do thiết kế
+
+### Step 1 — Xác định scope
+
+> *"Ask the user: which Phase file? which steps/rows? Default to all rows."*
+
+**Nhiệm vụ**: xác định coverage, tạo checklist one-task-per-row.
+
+**Câu hỏi step này trả lời**: Tôi cần label những row nào?
+
+**Lý do thiết kế**: Giống `write-detection-criteria` — default là all rows để không có row nào bị drop silently khỏi denominator consideration. Một row không được label = row không được quyết định có vào denominator hay không.
+
+---
+
+### Step 2 — Establish Surface Profile
+
+> *"Echo the active Surface Profile explicitly — never label on a silent default."*
+
+**Nhiệm vụ**: khai báo Surface Profile trước khi label bất kỳ row nào. Default là Scenario 1 (EDR).
+
+**Câu hỏi step này trả lời**: Telemetry surface nào đang active? Artifact off-surface trông như thế nào với profile này?
+
+**Lý do thiết kế**: Surface Profile quyết định Q-A của mọi row. Không echo nó = model có thể label dựa trên default ngầm không nhất quán giữa sessions. Tệ hơn: nếu `write-detection-criteria` dùng một profile và `assign-category` dùng profile khác, một signal được viết "on-surface" có thể bị Q-A reject — mâu thuẫn giữa hai skills. Cả hai skills phải đọc cùng Surface Profile table (trong references.md này).
+
+---
+
+### Step 3 — Sketch execution chain
+
+> *"List substeps in temporal order, note which artifact each produces and which downstream substep consumes it."*
+
+**Nhiệm vụ**: vẽ bản đồ execution flow của step đang review để dùng khi apply Q-B.
+
+**Câu hỏi step này trả lời**: Row nào là upstream/downstream của row nào? Row nào detect được row nào?
+
+**Lý do thiết kế**: Q-B (implementation detail) yêu cầu biết "detecting row X có *trực tiếp chứng minh* row Y đã xảy ra không?" — không thể trả lời câu này nếu không có map về flow. Không có bước này, Q-B degenerates thành "row này có vẻ là setup" → subjective.
+
+Việc sketch chain cũng ngăn false positive của Q-B: nhiều upstream step tưởng là implementation detail nhưng thực ra là independent cut-point (ví dụ: `mavinject.exe` spawn không chứng minh implant delivery đã thành công — hai opportunities độc lập).
+
+---
+
+### Step 4 — Label từng row qua 3-layer process
+
+> *"Read its Detection Criteria first, then run Layer 1, Layer 2, C4."*
+
+**Nhiệm vụ**: với mỗi row, đọc criteria đã viết và chạy qua toàn bộ gate sequence.
+
+**Câu hỏi step này trả lời**: Row này có fair để score vendor không? Nếu không, vì lý do nào trong số các lý do được define rõ?
+
+**Lý do thiết kế**: Thứ tự Layer 1 → Layer 2 → C4 không phải tuỳ ý:
+
+- **Layer 1 trước** (Q-A, Q-B): Loại trừ những rows không nên được đánh giá signal quality — surface miss và redundancy. Nếu artifact off-surface, không cần hỏi nó reproducible không; nếu là implementation detail, không cần hỏi về distinctive TTP.
+
+- **Conditions 1–3 đọc từ criteria**: Không re-derive. Nếu criteria là `N/A — C1`, Condition 1 hoặc 2 fail được đọc ra từ đó ngay — không cần model phán xét lại. Đây là lý do tại sao `write-detection-criteria` chạy trước.
+
+- **C4 là gate thực sự**: Đây là điểm thiết kế cốt lõi. Conditions 1–3 chỉ là eligibility — rất nhiều rows pass cả ba mà vẫn NC. C4 hỏi: "Nếu vendor detect được điều này, điều đó có nghĩa là vendor *có capability* không, hay chỉ là vendor có signature/string-match?" Không có C4, score sẽ thưởng cho mọi thứ có signal, bao gồm `ipconfig`, `netstat`, hay bất kỳ native command nào.
+
+**Quick labeling template** là shortcut 7 câu cho C4 — cho phép chạy toàn bộ quy trình trong một pass mà không mất bước.
+
+---
+
+### Step 5 — Write output in-place
+
+> *"Category (clean enum) and Calibration Reason (reason tag for NC rows, `-` for Calibrated)."*
+
+**Nhiệm vụ**: ghi kết quả vào hai cột — Category enum và Calibration Reason tag.
+
+**Câu hỏi step này trả lời**: Label là gì, và lý do cụ thể là gì?
+
+**Lý do thiết kế**: Tách `Category` (filterable enum) và `Calibration Reason` (human-readable reason tag) thay vì merge vào một cell là quyết định tooling:
+- `Category` cần filterable/queryable by downstream scripts → clean enum, không có free text
+- `Calibration Reason` cần human-auditable và re-derivable → tagged reason, không phải prose
+
+Calibrated rows có `-` trong Calibration Reason là intentional: không có "lý do Calibrated" cần document — evidence đã nằm trong Detection Criteria và label logic là "all gates passed".
+
+---
+
+### Step 6 — Completeness check
+
+> *"Every NC row carries a reason tag. Every step with 0 Calibrated rows needs one explicit justification sentence."*
+
+**Nhiệm vụ**: kiểm tra không có NC row nào thiếu tag, và không có step nào có 0 Calibrated rows mà không document lý do. Skill còn thêm một luật: không được có **các step liên tiếp** cùng 0 Calibrated rows mà không có justification.
+
+**Câu hỏi step này trả lời**: Mọi NC label đều có lý do traceable chưa? Có step nào không có detection opportunity không, và nếu có thì đó là intentional chưa?
+
+**Lý do thiết kế**: NC không có reason tag = label không re-derivable. Khi heuristic thay đổi (C4c rebuttable prior bị lật, Surface Profile thay đổi), không biết NC đó do lý do nào → phải review lại từ đầu.
+
+Điều kiện "0 Calibrated rows" là warning, không phải error — một step toàn setup/evasion/transport có thể hoàn toàn NC hợp lý. Nhưng phải documented tường minh vì nó ảnh hưởng trực tiếp đến denominator.
+
+---
+
+### Step 7 — Layer 3 structural signals check
+
+> *"Run Layer 3 to catch mislabeling patterns."*
+
+**Nhiệm vụ**: sau khi label xong, chạy checklist pattern-level để bắt các lỗi hệ thống.
+
+**Câu hỏi step này trả lời**: Nhìn toàn bộ kết quả labeling, có pattern nào bất thường gợi ý mislabeling hệ thống không?
+
+**Lý do thiết kế**: Row-by-row labeling có thể locally consistent nhưng globally wrong. Layer 3 bắt các pattern không visible từ single-row perspective:
+- Calibrated ratio ~100% với heavy custom implant use → suspiciously high (implant-heavy chains thường có nhiều in-process steps fail Condition 1 hoặc 3)
+- Positive Detection Criteria + NC label mà không có reason tag → contradiction ẩn
+- Hai rows cùng technique cùng process cùng destination không có criteria phân biệt → double-count chưa được bắt ở Q-B
+
+---
+
+## Đánh giá khách quan
+
+### Điểm mạnh
+
+**C4 giữ denominator chỉ gồm behavior generalize được và distinctive**
+Đây là contribution lớn nhất. Không có C4, denominator gồm cả những row mà dấu hiệu phân biệt chỉ là IOC riêng của run này, hoặc plumbing phổ biến (`netstat`, `ipconfig`) chạy trong mọi môi trường. C4a hỏi: signal có phải property của TTP generalize được, hay chỉ là indicator cố định của lần emulation này? — câu hỏi này (không liên quan tới việc vendor detect bằng cơ chế gì) giữ denominator chỉ gồm behavior thực sự đo được capability.
+
+**Reason tags làm NC labels auditable và re-derivable**
+Khi heuristic thay đổi, không cần chạy lại toàn bộ decision logic từ đầu — đọc reason tag là biết ngay row đó fail ở gate nào. Rebuttable priors kết hợp với reason tags cho phép systematic review theo từng gate thay vì row-by-row.
+
+**Rebuttable priors không phải blocklist theo TID**
+Connective tissue classification theo vai trò trong step, không theo Technique ID. Cùng `T1105` (Ingress Tool Transfer) là NC khi là pure download nhưng có thể Calibrated khi là phần của distinctive exfil objective. Điều này ngăn over-generalization làm mất detection opportunities thực.
+
+**Layer 3 là self-check hệ thống**
+Pattern-level check sau khi label xong bắt được các lỗi không visible từ single-row perspective. Đặc biệt: phát hiện double-count ẩn khi Q-B same-level chưa được apply đúng.
+
+**Đọc từ criteria đã viết thay vì imagine**
+Giống như `write-detection-criteria`, principle này loại bỏ hallucination: model phải đối mặt với concrete evidence trước khi label. NC vì criteria là `N/A — C2` khác hoàn toàn với NC vì "tôi nghĩ behavior này khó detect" — cái trước traceable, cái sau là guess.
+
+---
+
+### Điểm yếu
+
+**Q-B là gate khó nhất và dễ sai nhất**
+"Detecting row downstream *trực tiếp chứng minh* row upstream đã xảy ra" yêu cầu counterfactual reasoning khó: "nếu chỉ có row downstream được detect, liệu có suy ra được row upstream đã xảy ra không?" Model phải model execution semantics, không chỉ đọc criteria. Kết quả: Q-B hay bị over-applied (mọi upstream step bị gọi là implementation detail) hoặc under-applied (double-count không được bắt).
+
+**C4b yêu cầu counterfactual phức tạp**
+"Còn là independent opportunity nếu dependent rows đã bị catch" là câu hỏi về execution logic, không phải về signal quality. Model phải hỏi: "Nếu vendor đã catch row X, row Y có thêm information gì không?" — khó answer chính xác nếu không có deep understanding về attack chain.
+
+**Connective tissue priors có thể over-apply**
+"Strong NC" prior cho interpreter spawn và native recon là đúng trong đa số trường hợp, nhưng model có thể apply chúng mechanically không cần check vai trò. Lưu ý: rebuttal *không* được trigger bởi actor anomaly và *không bao giờ* chấm điểm bản thân cái spawn — skill nói rõ "score the distinctive action the interpreter performs, **never** the spawn". Ví dụ đúng: `powershell.exe` spawn là NC (interpreter-spawn), nhưng *hành động distinctive* mà nó thực hiện sau đó (ví dụ in-memory AMSI patch với pattern quan sát được) mới là Calibrated — và nó được score như một row riêng, không phải vì process cha bất thường. Prior không thay thế được việc xác định primary artifact của hành động.
+
+**Surface Profile là shared dependency với write-detection-criteria**
+Nếu Surface Profile không được echo tường minh ở cả hai skills, có thể xảy ra drift: criteria viết on-surface với một profile, label đọc từ criteria đó nhưng dùng profile khác → signal hợp lệ bị Q-A reject. Không có mechanism tự động detect drift này giữa hai sessions.
+
+**Layer 3 là checklist, không phải enforcement**
+Layer 3 structural signals gợi ý re-review nhưng không block labeling. Model có thể acknowledge pattern "Calibrated ratio ~100%" và tiếp tục mà không revisit. Human review là fallback cần thiết.
+
+**Double-count detection phụ thuộc vào criteria specificity**
+Q-B same-level match trên "technique + artifact/target + telemetry depth". Nếu Detection Criteria của hai rows quá vague (không specify process, không specify artifact đủ cụ thể), match có thể miss — double-count không được phát hiện. Điều này tạo dependency ngược lại về chất lượng của `write-detection-criteria` output.
+
+---
+
+## Ví dụ từ Phase 1 (iis-apppool-escalation-path)
+
+Các ví dụ dưới đây lấy từ Reference Tables thực tế của Phase 1 để minh hoạ các concept trừu tượng trong các mục trên. Source: `testlab-enterprise/windows-adversary-plan/Emulation_Plan/iis-apppool-escalation-path/Phase 1.md`.
+
+---
+
+### Q-B downstream + Primary artifact: cặp T1105 trong Step 1
+
+Cùng technique T1105, cùng actor (node.exe), cùng step — label khác nhau hoàn toàn:
+
+| Row | Category | Calibration Reason | Lý do |
 |---|---|---|---|
-| **Surface type** | L0 | `S1-EDR (default)` / `Basic EDR` / `XDR` / `Custom` | đặt nội dung C1 (kênh memory in/out) và C4 (kênh nào tính điểm) |
-| **Scope (Q-A)** | L1 | `on-surface` / `off` | first-stop → tag `out-of-surface` |
-| **Redundancy (Q-B)** | L1 | `independent` / `same-level dup` / `downstream-proven` / `dead-end` | first-stop → tag `redundant@<TID>` |
-| **C1–C3 eligibility** | L2 | pass/fail — *đọc từ criteria, không re-derive* | elimination filter (chỉ cho *đủ điều kiện*) |
-| **C4a** behavior-vs-IOC | L2 | `behavior` / `IOC-only` | scoring gate → tag `IOC-only` |
-| **C4b** independence | L2 | `new opportunity` / `folded` | scoring gate → `redundant`/`transport` |
-| **C4c** distinctive | L2 | `actor-signature` / `connective-tissue` | scoring gate → tag mô-liên-kết |
-| **Output: Category** | — | enum sạch | verdict lọc/đếm được |
-| **Output: Calibration Reason** | — | 8-tag vocab | lý do *suy-lại-được* |
-| **ACW** | (downstream) | trực giao | **không bao giờ** chi phối nhãn |
+| `dnscat2 XOR-encoded PE write to CertCA.enc` | NC | `redundant@T1027.013` | Primary artifact của write là file CertCA.enc; property distinctive duy nhất (first byte 0xEE, XOR-encoded PE structure) đã được T1027.013 capture — detecting T1027.013 trực tiếp chứng minh write này đã xảy ra → Q-B downstream |
+| `EfsPotato PE base64-stream write to CertEnrollSvc.bin` | Calibrated | `-` | Primary artifact là executable-class binary tại `C:\Windows\Temp\` viết bởi node.exe — không có downstream row nào capture anomaly này; node.exe viết PE vào Temp là detection opportunity độc lập trên IIS01 baseline |
 
-**Tiêu chí cốt lõi — tín hiệu sạch (C1–C3) chỉ mua *eligibility*; điểm thật quyết ở C4.** Phần lớn dòng Not-Calibrated *vượt* C1–C3 hoàn hảo (netstat, ipconfig, tool download, PsExec). Cây quyết định dồn trọng lượng vào C4, và trong C4 dồn tiếp vào **4c** (distinctive vs connective-tissue) — mắt xích chủ quan nhất.
-
-**Ba sub-test của C4 có bản chất nhận thức rất khác nhau** (điểm ít được nói tới, nhưng quyết định độ tin cậy của cả khung):
-- *4a* — gần **khách quan**: tín hiệu viết-được duy nhất có phải một chuỗi/hash/IP/filename cố định không? Gần như tra được.
-- *4b* — mang tính **cấu trúc**: phụ thuộc *sketch chuỗi*, tức phụ thuộc cách dòng đã được tách ở `write-phase`/`map-technique`. Đúng/sai theo cấu trúc bảng, không theo trực giác.
-- *4c* — là **phán đoán thẩm mỹ** "actor-signature aha" dựa trên prior bác-bỏ-được theo vai trò. Kém tái lập nhất.
-
-"Cả ba phải đúng" gộp ba thứ khác hẳn epistemic status thành một cổng — nên độ tái lập của *toàn bộ* nhãn bị kéo xuống bằng mắt xích yếu nhất là 4c. Đây là lý do tag `Calibration Reason` tồn tại: nó không làm 4c khách quan hơn, nhưng *ghi lại* cú phán đoán để suy-lại-được.
+**Bài học**: cùng TID, cùng actor, kết quả khác nhau vì primary artifact của từng action khác nhau về tính độc lập. Actor bất thường (node.exe viết file) là context, không phải basis của rebuttal — câu hỏi đúng là "file có anomaly quan sát độc lập không, hay property đó đã bị một Calibrated row khác own?"
 
 ---
 
-## 4. Luồng nội bộ (tóm tắt)
+### C4c interpreter-spawn prior và khi nào nó không apply: T1059.007 cluster trong Step 1–2
 
-1. **Layer 0** — xác lập bối cảnh: Detections/Protections, bề mặt telemetry (mặc định Scenario 1 EDR).
-2. **Sketch** chuỗi thực thi theo thứ tự thời gian (phục vụ kiểm tra trùng lặp ở Q-B).
-3. Với mỗi dòng: **đọc Detection Criteria trước** → Q-A (trên bề mặt khai báo?) → Q-B (chi tiết triển khai của dòng Calibrated khác?) → C1–C3 (đủ điều kiện) → **C4 (chấm điểm thật)**.
-4. Ghi `Category` + `Calibration Reason` tại chỗ.
-5. **Completeness check** — mọi dòng NC có tag; bước toàn-NC phải có lý do; không hai bước liên tiếp 0-Calibrated vô cớ.
-6. **Layer 3** — kiểm tra tín hiệu cấu trúc bắt lỗi gán nhãn phổ biến.
-7. Bàn giao `assign-acw`.
+Cùng T1059.007, nhưng 3 row NC vì C2, 1 row Calibrated:
 
-(Sơ đồ đầy đủ: `appendix/calibrated-assign-mindmap.md`.)
+| Row | Category | Reason | Primary artifact của action |
+|---|---|---|---|
+| `node.exe eval charcode chunk-stream dnscat2 to CertCA.enc` | NC | `C2` | Eval xảy ra trong V8 runtime — artifact ngoài duy nhất là CertCA.enc file-create, đã covered bởi T1105/T1027.013 |
+| `node.exe eval charcode chunk-stream EfsPotato to CertEnrollSvc.bin` | NC | `C2` | Eval trong V8 runtime — artifact ngoài duy nhất là CertEnrollSvc.bin file-create, covered bởi T1105 |
+| `node.exe eval fs.renameSync CertEnrollSvc .bin to .exe` | NC | `C2` | Eval trong V8 runtime — artifact ngoài duy nhất là file rename, covered bởi T1036.005 |
+| `node.exe spawnSync CertEnrollSvc.exe stdin PE delivery` | Calibrated | `-` | **Child process creation** — Sysmon EID 1 ghi node.exe spawning executable từ `C:\Windows\Temp\`; event này externally observable và độc lập với các row trên |
 
----
-
-## 5. Đánh giá khách quan
-
-### Ưu điểm
-
-- **Chống ảo giác bằng kiến trúc, không bằng lời nhắc.** Bắt đọc bằng chứng có thật thay vì tin vào "nhắc model cẩn thận" — đây là cách bền vững nhất.
-- **Tách ổn định/biến động đúng chỗ.** Criteria (ổn định) tách khỏi Category (heuristic) cho phép chạy lại nhãn mà không đụng bằng chứng — chịu được việc heuristic tiến hóa.
-- **Tag lý do làm nhãn có thể truy vết & suy lại.** Quyết định không còn là hộp đen; một cú lật nhãn theo vai trò luôn kèm lời giải thích.
-- **Các bất biến được phát biểu rõ** (C1–C3 vs C4, ACW độc lập, column-disjoint) nên ít bị diễn giải tùy tiện.
-
-### Nhược điểm / đánh đổi
-
-- **Phụ thuộc thứ tự chạy.** Nếu upstream chưa xong (criteria còn `TBD`), skill buộc phải dừng. Sức mạnh của thiết kế cũng là điểm cứng nhắc của nó — không "chạy tắt" được.
-- **C4 vẫn là phán đoán.** 4a/4b/4c là "prior có thể bác bỏ", nên hai người (hoặc hai lần chạy) có thể khác nhau ở ca biên. Thiết kế giảm thiểu bằng tag lý do, nhưng không loại bỏ hoàn toàn tính chủ quan — đây là giới hạn nội tại của bài toán calibration, không phải lỗi skill.
-- **Chi phí nhận thức cao.** Người vận hành phải nắm Layer 0–3, phân biệt C1–C3 vs C4, và bộ tag — đường học dốc hơn một skill gán nhãn ngây thơ. Bù lại bằng mindmap + guide, nhưng vẫn là chi phí thật.
-- **Nhiều bất biến trùng lặp giữa Hard Gate / Anti-Pattern / Red Flags / Notes.** Sự lặp lại này có chủ đích (chặn rationalization ở nhiều điểm), nhưng làm SKILL.md dài và cần đồng bộ khi sửa — rủi ro drift nội bộ nếu một chỗ được cập nhật mà chỗ khác quên.
-
-### Phản biện sâu (điểm căng trong chính khung)
-
-- **Khung nghiêm ngặt nhưng thừa kế trọn tính chủ quan của 4c.** Mọi scaffolding — Layer 0–3, C1–C3, 4a/4b — bao quanh một hạt nhân (4c) vốn là *prior bác-bỏ-được theo vai trò trong bước*. Hai lần chạy có thể khác nhau ở ca biên dù mọi bước khác giống hệt. Đây không phải lỗi skill mà là giới hạn nội tại của bài toán calibration; nhưng cần nói thẳng: độ chặt của khung *che* chứ không *xoá* điểm mềm này.
-- **Vocabulary tag từng có lỗ phủ — nay đã vá bằng tag `staging`.** Bộ tag cũ (`out-of-surface` / `redundant@<TID>` / `transport` / `interpreter-spawn` / `native-recon` / `in-process` / `IOC-only` / `C1|C2|C3`) **thiếu tag cho "pure staging / indicator removal"** dù chính bảng connective-tissue trong guide liệt kê chúng là một lớp NC riêng; một dòng rar-staging hợp lệ bị loại buộc phải nhét vào `transport`/`redundant@`, làm *mất* lý do thật. Vì thiết kế dựa trên tiền đề "lý do quan trọng hơn nhãn", lỗ phủ này không cosmetic — nó hỏng đúng tính năng suy-lại-được mà hai-cột-output dựng lên. Đã thêm tag `staging` (cả SKILL.md `.windsurf`, guide, emulation-plan-structure, mindmap) ánh xạ thẳng vào hàng "Indicator removal / pure staging". *Bài học còn lại:* bộ tag là enum đóng nằm rải ở ~6 file — mỗi lần mở rộng phải sửa đồng bộ, nếu không lại drift.
-- **Bộ dò double-count từng phụ thuộc *câu chữ* upstream — nay khoá theo ngữ nghĩa.** Trước đây Q-B same-level mô tả bắt trùng qua "criteria y hệt": nếu `write-detection-criteria` diễn đạt hai dòng *thực sự trùng* bằng hai câu hơi khác nhau thì bộ dò trượt; hai skill khớp nhau qua **độ chính xác verbatim** — ràng buộc ngầm dễ vỡ. → *Đã giảm thiểu:* bộ dò nay khoá theo **same technique + same artifact/target (cùng capability depth)**, nêu rõ "không dựa verbatim text", khớp với Q-B vốn đã ngữ nghĩa (`category-assignment.md` Same-level). *Residual:* "same artifact" vẫn cần đọc-hiểu của người vận hành, không phải so khớp máy móc tuyệt đối — chỉ chuyển từ phụ-thuộc-câu-chữ sang phụ-thuộc-phán-đoán-ngữ-nghĩa.
-- **Layer 0 default là cái núm tác động lớn nhất nhưng từng dễ bị bỏ qua nhất.** Default full-EDR (memory scan + ETW + YARA) khiến nhiều hành vi in-memory *vượt* C1 (thay vì rớt như trên Basic EDR), đẩy thêm dòng xuống C4 và **nới mẫu số detection-rate**; một dòng mặc định lặng lẽ dịch chuyển toàn bộ denominator. → *Đã giảm thiểu:* Layer 0 nay đặt tên **Surface Profile**, **buộc echo profile tường minh** ("never label on a silent default") và ghi rõ "lựa chọn này set detection-rate denominator", buộc xác nhận khớp sản phẩm đang đánh giá. *Residual:* vẫn là kỷ luật quy trình chứ chưa phải cổng cứng — người vận hành vẫn có thể echo cho-có rồi để nguyên default.
-- **"Đọc C1–C3, đừng re-derive" đổi rủi-ro-ảo-giác lấy rủi-ro-lan-truyền.** Nếu upstream lỡ viết một tín hiệu off-surface thành positive, skill này được *lệnh* đọc đó như "C1–C3 hold" và có thể Calibrate sai. Cái split chống hallucination cũng mở một đường propagation; chốt chặn duy nhất là vài tín hiệu Layer 3 (vd "Calibrated nhưng criteria là `N/A`") cộng quyền gửi-ngược dòng. Không Layer-3 nào khớp thì lỗi đi thẳng xuống điểm.
-- **ACW-độc-lập là *norm*, không phải *invariant* được tool đảm bảo.** Hai cột tách nhau nhưng cùng một người điền ở hai pass liền kề; lực kéo "Critical → phải Calibrated" là nhận thức. Skill chặn bằng Anti-Pattern/Red Flags (lời nhắc lặp lại), không bằng cơ chế cứng — nên đây là bất biến *được nhắc*, không phải *được cưỡng chế*.
-
-### Khi nào dễ sai nhất
-
-- Gán nhãn từ mô tả hành vi thay vì từ criteria đã viết (Hard Gate #2 tồn tại đúng vì lỗi này).
-- Dừng ở "có tín hiệu sạch → Calibrated" mà không tới C4.
-- Để ACW/độ quan trọng chuỗi kéo nhãn.
-- Quên tag `Calibration Reason` cho dòng NC.
+Ba row NC không phải vì interpreter-spawn prior (C4c) — chúng NC vì **C2** (in-process execution, không có externally verifiable artifact). Row Calibrated không bị NC interpreter-spawn prior vì primary artifact của `spawnSync` là một child process creation event (Sysmon EID 1), không phải spawn của interpreter — đây là event độc lập và distinctive trên IIS web worker baseline. Phân biệt: interpreter-spawn prior covers "interpreter được spawn để chạy commands" (cái spawn là generic transport); còn đây là interpreter spawning một target binary riêng, và cái process creation event chính là detection opportunity.
 
 ---
 
-## 6. Liên hệ
+### C4 là gate thực sự: T1070.004 temp PE delete trong Step 2
 
-- Quy tắc thực thi: `.claude/skills/assign-category/SKILL.md`
-- Phương pháp nền: `plan-for-agent/guides/category-assignment.md`, `plan-for-agent/attack-behavior-methodology.md`
-- Sơ đồ quyết định: `plan-for-agent/appendix/calibrated-assign-mindmap.md`
-- Skill liền kề: `write-detection-criteria` (upstream — viết bằng chứng), `assign-acw` (downstream — trục trọng số độc lập)
+Row `CertEnrollSvc.exe temp PE file delete after SYSTEM child exit` (T1070.004):
+- **Detection Criteria**: Sysmon EID 23 file-delete attributed to CertEnrollSvc.exe trên freshly-created executable trong temp directory; write-spawn-delete sequence là anomalous behavioral pattern.
+- **Category**: NC `staging`
+
+Signal hoàn toàn writable, pass C1/C2/C3 — nhưng NC vì C4c. Behavior là internal housekeeping (cleanup sau khi SYSTEM child exit): indicator removal thuộc connective-tissue class, missing nó không fairly quy được thành detection capability gap. Đây là case điển hình minh hoạ lý do thiết kế C4: "Conditions 1–3 chỉ là eligibility — rất nhiều rows pass cả ba mà vẫn NC."
+
+---
+
+### interpreter-spawn prior khi actor bất thường: T1059.003 cmd.exe spawn trong Step 4
+
+Row `RuntimeBroker.exe ghost process cmd.exe SYSTEM shell spawn` (T1059.003):
+- **Detection Criteria**: RuntimeBroker.exe spawns cmd.exe as NT AUTHORITY\SYSTEM — RuntimeBroker.exe is not a parent of interactive command interpreters in any Windows baseline; Sysmon EID 1 captures the parent-child relationship.
+- **Category**: NC `interpreter-spawn`
+
+Dù actor (RuntimeBroker.exe ghost process) cực kỳ bất thường, cmd.exe spawn vẫn NC vì interpreter-spawn prior. Actor anomaly là context, không phải rebuttal trigger. Câu hỏi đúng: "primary artifact của action (cmd.exe process creation) có property gì độc lập ngoài việc là một interpreter spawn không?" — không có. Behavior distinctive thực sự (ghost process, PPID spoof, image-content mismatch) đã được score trong các row T1055, T1134.004, T1036.005 của Step 3. cmd.exe spawn là connective tissue để operator tương tác tiếp.
+
+Đây cũng minh hoạ điểm yếu "connective tissue priors có thể over-apply": nếu không có execution chain sketch (Step 3 của skill), dễ flip label này sang Calibrated chỉ vì "RuntimeBroker.exe spawning cmd.exe looks suspicious" — nhưng suspicious actor không thay đổi classification của hành động spawn-interpreter.

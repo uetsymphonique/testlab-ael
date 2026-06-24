@@ -37,8 +37,8 @@
 
 ### Reference Tables
 
-| Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
-| - | - | - | - | - | - | - | - | - | - | - |
-| — | — | — | Windows | TBD | TBD | <Short description of red team behavior from external view> | <hostname> (<IP>) | <DOMAIN\user> | [link](<relative path to payload>) | [1] |
+| Summary | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
+| - | - | - | - | - | - | - | - | - | - | - | - |
+| <concise behavior name> | — | — | — | Windows | TBD | TBD | <Short description of red team behavior from external view> | <hostname> (<IP>) | <DOMAIN\user> | [link](<relative path to payload>) | [1] |
 
 ---

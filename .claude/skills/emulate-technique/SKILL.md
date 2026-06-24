@@ -1,7 +1,6 @@
 ---
 name: emulate-technique
 description: Explore implementation options for an ATT&CK technique and recommend the best-fit approach for the user's constraints. Not detection-oriented — focuses on understanding the technique and selecting a practical execution method.
-model: claude-sonnet-4-6
 effort: high
 allowed-tools: Read, Grep, Glob
 ---
@@ -35,9 +34,9 @@ If the user's message already answers some of these, skip those questions.
 
 ### Step 1 — Understand the technique
 
-If the input is a description (not an ID), look up `mitre-knowledge-base/techniques/<tactic>.md` to confirm the ID and sub-technique.
+If the input is a description (not an ID), confirm the ID and sub-technique from the knowledge base — but DO NOT `Read` the whole tactic file (they run to thousands of lines of Detection/Procedure noise this step never needs). `Grep pattern="^### " path="mitre-knowledge-base/techniques/<tactic>.md" output_mode="content"` to get the `TID - Name` menu with line numbers, then `Read` a 2-line range at the candidate's line number for its description.
 
-Read the technique entry to understand: what behavior it describes, what variants exist conceptually, and what the key technical mechanism is.
+Read only that technique entry to understand: what behavior it describes, what variants exist conceptually, and what the key technical mechanism is. Never read the whole tactic file or the Detection/Procedure blocks.
 
 ### Step 2 — Survey ART variants
 

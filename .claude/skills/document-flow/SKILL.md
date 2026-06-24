@@ -1,7 +1,6 @@
 ---
 name: document-flow
 description: Break a payload's source code into an ordered behavior list and persist it as a compact Flow.md beside the payload — the extraction half of the per-payload analysis; ATT&CK mapping is a separate map-technique pass after the user verifies
-model: claude-sonnet-4-6
 effort: high
 allowed-tools: Read, Write, Glob, Grep
 ---
@@ -24,9 +23,7 @@ This skill runs in **two steps with a user-verification gate between them**:
 
 This skill owns step 1 only. It does **not** map techniques (`map-technique`), decide Calibrated/Not Calibrated (`assign-category`), name the anomaly axis or write Detection Criteria (`write-detection-criteria`), or author Phase content (`write-phase`). It emits the neutral behavior skeleton and stops.
 
-## Before starting
-
-Read `plan-for-agent/guides/behavior-breakdown.md` — the atomic-unit contract, the **source-code adapter** (trace execution flow, stop at event level not per-API, fold pure computation, keep intent-bearing no-artifact links tagged), and the six-class observable filter. This is the same guide `extract-behaviors` defers to; `Flow.md` is its output persisted in the payload's compact format.
+**Before proceeding:** Read `references.md` in this skill folder — it contains the atomic-unit contract, the source-code adapter (trace execution flow, stop at event level not per-API, fold pure computation, keep intent-bearing no-artifact links tagged), the six-class observable filter, and the produces→consumes edge format.
 
 ## Steps
 

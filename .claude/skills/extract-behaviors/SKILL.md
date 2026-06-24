@@ -1,7 +1,6 @@
 ---
 name: extract-behaviors
 description: Break an unstructured input (attack-chain description, payload source code, or raw command sequence) into an ordered list of atomic observable behaviors — the ingest-path entry that feeds map-technique and write-detection-criteria
-model: claude-sonnet-4-6
 effort: medium
 allowed-tools: Read, Glob, Grep, Edit
 ---
@@ -21,15 +20,14 @@ Break an **unstructured input** into an ordered list of atomic, observable behav
 
 Input may be: an attack-chain description / CTI, payload source code, or a raw command sequence. Output is just the list — **do not write to any file unless asked.**
 
-## Before starting
-
-Read `plan-for-agent/guides/behavior-breakdown.md` — the atomic-unit contract (and why it is not 1:1 with rows), granularity rules, inclusive-extraction principle, the six-class observable filter (tag, not gate), and the three input adapters.
+**Before proceeding:** Read `references.md` in this skill folder — it contains the atomic-unit contract, granularity rules, inclusive-extraction principle, the six-class observable filter (tag, not gate), and the three input adapters.
 
 ## Steps
 
 **Track coverage explicitly.** As you walk the input, create a task (or tracked checklist entry) for each segment / function / command you must account for, and mark it done only once its behavior(s) are emitted. This makes inclusive extraction observable — a segment left untracked is the usual cause of a silently dropped behavior.
 
 1. Identify the **input type** (description / source code / command sequence) and read it from context or the path the user gives.
+   - **If input is source code**, check whether a `Flow.md` already exists in the payload directory (produced by `/document-flow`). If it does, use it as the behavior list input — it is already organized by behavior and artifact-class tagged. Skip to step 3 to verify granularity, then step 5 to emit. Only fall back to raw source extraction if no `Flow.md` is found.
 2. Extract intent-bearing actions using the matching adapter:
    - **Description** → segment at each intent shift; surface implied actions.
    - **Source code** → trace execution flow; pull artifact-producing API/syscalls. **Stop at event level, not per-API** — collapse a call sequence serving one artifact-outcome into one behavior. Fold pure computation.
@@ -69,6 +67,6 @@ Hand off to `/map-technique` next. Do NOT assign ATT&CK IDs, judge Category, nam
 
 ## Notes
 
-- This skill exists in parallel to `write-phase` (which has its own inline breakdown) — use it standalone when the input is unstructured or code, or when only the behavior list is needed. The granularity rules live once in `behavior-breakdown.md`; both skills defer to it.
+- This skill exists in parallel to `write-phase` — use it standalone when the input is unstructured or code, or when only the behavior list is needed. Granularity rules live in `references.md` in this folder.
 - Do not assign ATT&CK IDs (`map-technique`), judge Category (`assign-category`), name the anomaly axis or write Detection Criteria (`write-detection-criteria`), or author Procedures (`write-phase`).
 - The `(context: …)` note is a neutral observation about baseline, **not** an anomaly verdict — that naming belongs to `write-detection-criteria`.

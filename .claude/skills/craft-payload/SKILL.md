@@ -1,7 +1,6 @@
 ---
 name: craft-payload
 description: Build, compile, or script a payload for the emulation plan. Handles Go binaries, Python scripts, and PowerShell payloads within dev environment constraints.
-model: claude-sonnet-4-6
 effort: high
 allowed-tools: Read, Write, Edit, Glob, Grep, PowerShell, Bash
 ---
@@ -10,18 +9,27 @@ Build or modify a runnable payload for the emulation plan, then place it in `res
 
 <HARD-GATE>
 1. Do NOT run live attack behavior in the dev environment. Compile and dry-run (`--help` / benign arg) ONLY — this dev env composes payloads, it is not the lab/victim host.
-2. Use ONLY toolchains listed in `plan-for-agent/guides/cli-execution.md`. Do NOT assume a compiler/runtime exists. If the user asks for a language not listed, say so and propose the closest available alternative — do not silently substitute.
+2. Use ONLY toolchains listed in the Dev toolchain table in this skill. Do NOT assume a compiler/runtime exists. If the user asks for a language not listed, say so and propose the closest available alternative — do not silently substitute.
 3. This skill takes an ALREADY-DECIDED approach. If the technique variant is not yet chosen, run `emulate-technique` first — do not pick the approach here.
 4. Do NOT author `Flow.md` here (that is `document-flow`). Write `README.md` (always) and `Build.md` (when compiled / non-trivial build).
 </HARD-GATE>
 
 This skill takes an **already-decided approach** and produces the artifact. It does **not** choose which technique variant to emulate (`emulate-technique` surveys the options and recommends the approach), map ATT&CK techniques (`map-technique`), or author Phase content (`write-phase`). If the approach is not yet decided, run `emulate-technique` first.
 
-## Before starting
+## Dev toolchain (dev environment only — not the lab/victim host)
 
-Read `plan-for-agent/guides/cli-execution.md` — the **authoritative and only** source for what toolchains exist in the current dev environment. Do not assume a compiler or runtime is available unless it appears there, and do not restate its contents here (that creates a second source that drifts). If the user requests a language the guide does not list as available, say so and propose the closest available alternative.
+These are the compilers and runtimes available in the **current dev environment** where payloads are composed and dry-run-verified. Do not infer that a tool is available on the lab or victim host from this list — lab capabilities come from `resources/setup/` and plan setup docs.
 
-Note: `cli-execution.md` describes the **dev environment** used to compose payloads — not the lab/victim host. Do not infer target-host capabilities from it.
+**Available:**
+- Go — `go.exe`
+- Python — virtual environment at `D:\vcs\ael\venv\` (`D:\vcs\ael\venv\Scripts\python.exe`)
+- PowerShell, `cmd`
+- Visual Studio Build Tools — installed but **only usable inside the Visual Studio Developer Command Prompt** (`VsDevCmd.bat`); wrap `csc` / `msbuild` calls with it
+
+**Not available:**
+- `g++` — not installed
+
+If the user requests a language not in the Available list, say so and propose the closest available alternative — do not silently substitute or attempt a build that will fail.
 
 ## Gather requirements
 
@@ -37,7 +45,7 @@ If the user's message already answers some of these, skip those questions.
 ## Build steps
 
 1. **Write source**: create source file(s) under the target payload directory.
-2. **Compile** (if applicable) using the toolchain from `cli-execution.md`:
+2. **Compile** (if applicable) using the dev toolchain above:
    - Go: `go build -o <output.exe> .` from the payload directory
    - Python: no compile step; verify with `D:\vcs\ael\venv\Scripts\python.exe <script>.py --help` or equivalent
    - C# via VS Build Tools: wrap the build with the Visual Studio Developer Command Prompt (`& "...\VsDevCmd.bat"`) before invoking `csc` / `msbuild`
@@ -91,7 +99,7 @@ Always write `README.md`. Write `Build.md` when the payload is compiled or has n
 ```markdown
 # <tool-name> — Build
 
-**Toolchain:** <e.g. Go 1.x — see plan-for-agent/guides/cli-execution.md>
+**Toolchain:** <e.g. Go — see Dev toolchain table in craft-payload/SKILL.md>
 
 ## Build
 ```<exact build command from the payload directory>```
@@ -108,7 +116,7 @@ Always write `README.md`. Write `Build.md` when the payload is compiled or has n
 
 **"Let me just run it once to confirm it really works."** Dry-run only (`--help` / benign arg). Never trigger live attack behavior in the dev environment — it is not the lab host and running the payload there is the one irreversible mistake this skill exists to prevent.
 
-**"Go/C# probably isn't installed, but I'll try anyway."** Use only toolchains in `cli-execution.md`. Confirm availability there; if the requested language is absent, say so and propose the closest available alternative — do not silently substitute or assume.
+**"Go/C# probably isn't installed, but I'll try anyway."** Use only toolchains in the Dev toolchain table in this skill. If the requested language is absent, say so and propose the closest available alternative — do not silently substitute or assume.
 
 **"I'll decide the technique variant as I build."** Approach selection is `emulate-technique`'s job. If it is not decided, stop and run that first — building the wrong variant wastes the whole artifact.
 
@@ -119,7 +127,7 @@ Always write `README.md`. Write `Build.md` when the payload is compiled or has n
 | If you think… | The reality is… |
 |---|---|
 | "Run it once to be sure" | Dry-run only — never live attack behavior in the dev env |
-| "Probably installed, I'll try" | Only `cli-execution.md` toolchains — confirm, don't assume |
+| "Probably installed, I'll try" | Only toolchains in the Dev toolchain table above — confirm, don't assume |
 | "I'll pick the variant as I go" | Approach selection is `emulate-technique`'s — run it first if undecided |
 | "Document the mechanics in README" | `Flow.md` owns mechanics+mapping — keep README to what/why |
 | "Overwrite the existing payload here" | Check provenance first — if this session didn't create it, confirm before replacing |
