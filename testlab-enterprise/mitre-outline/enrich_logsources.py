@@ -42,9 +42,13 @@ _LOG_SOURCE_ENTRY_RE = re.compile(r"`([^`]+)`\s*\(([^)]*)\)\s*\[([^\]]+)\]")
 
 
 # ── Excel styling constants ──────────────────────────────────────────────────
-# Alternating behavior-group background fills
-BAND_FILL_A = "FFFFFF"  # white
-BAND_FILL_B = "DAEEF3"  # light blue
+# 4-color scheme: Calibrated × parity, Not Calibrated × parity
+# Calibrated — green family
+CAL_EVEN = "E2EFDA"   # light green
+CAL_ODD  = "C5E0B4"   # darker green
+# Not Calibrated — orange/peach family
+NCAL_EVEN = "FCE4D6"  # light orange
+NCAL_ODD  = "F8CBAD"  # darker orange
 HEADER_FILL = "2F5496"  # dark blue
 HEADER_FONT_COLOR = "FFFFFF"  # white
 BORDER_COLOR = "B0B0B0"  # light gray gridlines
@@ -267,8 +271,6 @@ def write_excel(
     # ── Styles ────────────────────────────────────────────────────────────────
     header_fill = PatternFill(start_color=HEADER_FILL, end_color=HEADER_FILL, fill_type="solid")
     header_font = Font(name="Calibri", size=11, bold=True, color=HEADER_FONT_COLOR)
-    band_fill_a = PatternFill(start_color=BAND_FILL_A, end_color=BAND_FILL_A, fill_type="solid")
-    band_fill_b = PatternFill(start_color=BAND_FILL_B, end_color=BAND_FILL_B, fill_type="solid")
     thin_border = Border(
         left=Side(style="thin", color=BORDER_COLOR),
         right=Side(style="thin", color=BORDER_COLOR),
@@ -276,6 +278,12 @@ def write_excel(
         bottom=Side(style="thin", color=BORDER_COLOR),
     )
     wrap_alignment = Alignment(wrap_text=True, vertical="top")
+
+    # Pre-build PatternFills for each of the 4 color bands
+    fill_cal_even = PatternFill(start_color=CAL_EVEN, end_color=CAL_EVEN, fill_type="solid")
+    fill_cal_odd  = PatternFill(start_color=CAL_ODD,  end_color=CAL_ODD,  fill_type="solid")
+    fill_ncal_even = PatternFill(start_color=NCAL_EVEN, end_color=NCAL_EVEN, fill_type="solid")
+    fill_ncal_odd  = PatternFill(start_color=NCAL_ODD,  end_color=NCAL_ODD,  fill_type="solid")
 
     # Find where original columns end and enrichment columns begin
     enrich_start_col = len(fieldnames) - len(ENRICH_HEADERS) + 1  # 1-based
@@ -290,15 +298,28 @@ def write_excel(
 
     ws.row_dimensions[1].height = 28
 
-    # ── Data rows with behavior-group color banding ──────────────────────────
-    # Map each unique group_id to a band color (alternating)
+    # ── Data rows: 4-color banding (Calibrated × parity, Not Calibrated × parity)
+    # Each unique group_id inherits the Category of its first output row.
+    # Within each Category class, groups alternate colors independently.
+    unique_gids = sorted(set(group_ids))
+    gid_category: dict[int, str] = {}
+    for gid in unique_gids:
+        # First output row for this group_id
+        first = next(r for r, g in zip(out_rows, group_ids) if g == gid)
+        gid_category[gid] = first.get("Category", "").strip()
+
+    # Counters per category to alternate within each class
+    cat_counter: dict[str, int] = {}
     group_band_map: dict[int, PatternFill] = {}
-    for row_idx, gid in enumerate(group_ids):
-        if gid not in group_band_map:
-            # Assign alternating band: even gid index → A, odd → B
-            unique_gids = sorted(set(group_ids))
-            band_index = unique_gids.index(gid)
-            group_band_map[gid] = band_fill_a if band_index % 2 == 0 else band_fill_b
+    for gid in unique_gids:
+        cat = gid_category[gid]
+        idx = cat_counter.get(cat, 0)
+        cat_counter[cat] = idx + 1
+        is_cal = cat.startswith("Calibrated")
+        if is_cal:
+            group_band_map[gid] = fill_cal_even if idx % 2 == 0 else fill_cal_odd
+        else:
+            group_band_map[gid] = fill_ncal_even if idx % 2 == 0 else fill_ncal_odd
 
     for row_idx, (row, gid) in enumerate(zip(out_rows, group_ids)):
         excel_row = row_idx + 2  # 1-based, row 1 is header
@@ -339,19 +360,28 @@ def write_excel(
 
     # ── Add a legend sheet ───────────────────────────────────────────────────
     ws2 = wb.create_sheet("Legend")
-    ws2.column_dimensions["A"].width = 22
-    ws2.column_dimensions["B"].width = 50
+    ws2.column_dimensions["A"].width = 26
+    ws2.column_dimensions["B"].width = 55
 
-    ws2.cell(row=1, column=1, value="Color Band").font = Font(bold=True)
+    ws2.cell(row=1, column=1, value="Color").font = Font(bold=True)
     ws2.cell(row=1, column=2, value="Meaning").font = Font(bold=True)
-    ws2.cell(row=2, column=1, value="White rows").fill = band_fill_a
-    ws2.cell(row=2, column=2, value="One original behavior (input row) and its associated detection log sources")
-    ws2.cell(row=3, column=1, value="Blue rows").fill = band_fill_b
-    ws2.cell(row=3, column=2, value="Next original behavior (input row) — alternating to separate adjacent behaviors")
-    ws2.cell(row=5, column=1, value="Bold columns").font = Font(bold=True)
+
+    ws2.cell(row=2, column=1, value="Calibrated — Even group").fill = fill_cal_even
+    ws2.cell(row=2, column=2, value="Calibrated behavior, even-numbered group within Calibrated class → counts toward detection-rate denominator")
+
+    ws2.cell(row=3, column=1, value="Calibrated — Odd group").fill = fill_cal_odd
+    ws2.cell(row=3, column=2, value="Calibrated behavior, odd-numbered group within Calibrated class — same semantic, alternating shade to separate adjacent groups")
+
+    ws2.cell(row=4, column=1, value="Not Calibrated — Even group").fill = fill_ncal_even
+    ws2.cell(row=4, column=2, value="Not Calibrated behavior, even-numbered group within Not Calibrated class → excluded from detection-rate denominator")
+
+    ws2.cell(row=5, column=1, value="Not Calibrated — Odd group").fill = fill_ncal_odd
+    ws2.cell(row=5, column=2, value="Not Calibrated behavior, odd-numbered group within Not Calibrated class — same semantic, alternating shade")
+
+    ws2.cell(row=7, column=1, value="Bold columns").font = Font(bold=True)
     ws2.cell(
-        row=5, column=2,
-        value=f"Enrichment columns (Detection ID through Data Component) — added by enrich_logsources.py",
+        row=7, column=2,
+        value="Enrichment columns (Detection ID through Data Component) — added by enrich_logsources.py",
     )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
