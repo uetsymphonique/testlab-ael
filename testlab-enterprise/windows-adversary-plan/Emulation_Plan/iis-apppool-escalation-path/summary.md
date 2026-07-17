@@ -23,13 +23,13 @@ Server-side initial access via `react.testlab.local` on IIS01. The attacker expl
 
 ```mermaid
 flowchart LR
-    ATTACKER["**Attacker**\n192.168.56.2\n─────────────────\ndnscat2 server\nreact2shell exploit tool\noffline parsers\n(pypykatz / impacket)"]
+    ATTACKER["Attacker\n192.168.56.2\n─────────────────\ndnscat2 server\nreact2shell exploit tool\noffline parsers\n(pypykatz / impacket)"]
 
     subgraph DOMAIN["testlab.local"]
         direction TB
-        DC01["**DC01**\n10.12.10.10\n─────────────────\nAD DS · DNS\nSYSVOL / NETLOGON\nConditional forwarder:\ncrl.ms-cert.net → 192.168.56.2"]
-        IIS01["**IIS01**\n10.12.10.20\n─────────────────\nreact.testlab.local\n(IISNode / Next.js)\nupload.testlab.local\nMSSQL$SQLEXPRESS\nUploadPortalDB"]
-        WS01["**WS01**\n10.12.10.30\n─────────────────\nDomain workstation\nSYSVOL logon script\ntarget (Phase 3-2 Step 6)"]
+        DC01["DC01\n10.12.10.10\n─────────────────\nAD DS · DNS\nSYSVOL / NETLOGON\n"]
+        IIS01["IIS01\n10.12.10.20\n─────────────────\nreact.testlab.local\n(IISNode / Next.js)\nupload.testlab.local\nMSSQL$SQLEXPRESS\nUploadPortalDB"]
+        WS01["WS01\n10.12.10.30\n─────────────────\nDomain workstation\nSYSVOL logon script\ntarget (Phase 3-2 Step 6)"]
     end
 
     ATTACKER  -->|"HTTP — CVE-2025-55182 exploit\nreact2shell: stage · rename · pipestage\ndownload (LSASS dump, certstore.cmd)"| IIS01

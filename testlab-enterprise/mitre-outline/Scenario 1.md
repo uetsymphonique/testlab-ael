@@ -38,7 +38,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1053.005 - Scheduled Task/Job: Scheduled Task
 - [x] T1059 - Command and Scripting Interpreter
 - [x] T1059.001 - Command and Scripting Interpreter: PowerShell
-- [ ] T1059.003 - Command and Scripting Interpreter: Windows Command Shell
+- [x] T1059.003 - Command and Scripting Interpreter: Windows Command Shell
 - [ ] T1059.005 - Command and Scripting Interpreter: Visual Basic
 - [x] T1059.007 - Command and Scripting Interpreter: JavaScript
 - [ ] T1059.010 - Command and Scripting Interpreter: AutoHotKey & AutoIT
@@ -209,7 +209,7 @@ Sự thương mại hóa này đã làm cho các vụ xâm nhập mạng diễn 
 - [ ] T1132.002 - Data Encoding: Non-Standard Encoding
 - [ ] ~~T1571 - Non-Standard Port~~
 - [ ] T1573.001 - Encrypted Channel: Symmetric Cryptography
-- [ ] T1573.002 - Encrypted Channel: Asymmetric Cryptography
+- [x] T1573.002 - Encrypted Channel: Asymmetric Cryptography
 ## Exfiltration
 - [ ] T1020 - Automated Exfiltration
 - [x] T1030 - Data Transfer Size Limits

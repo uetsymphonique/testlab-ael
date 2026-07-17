@@ -40,6 +40,12 @@ Tiêu chí duy nhất để quyết định viết signal hay `N/A`. Không ph�
 **Stable pattern**
 Pattern hành vi tồn tại ổn định qua các lần chạy. GUID/nonce là random value — nhưng hành vi "non-COM process generates GUID and writes to non-standard path" là stable. Criteria phải bám vào pattern, không phải vào giá trị cụ thể.
 
+**Technique-witness binding**
+Điều kiện trong Forward checklist: quan sát được signal phải cho phép kết luận *đúng technique của row này* đã xảy ra, không phải một technique sibling/downstream tình cờ để lại cùng physical artifact. Nếu signal duy nhất viết được thực chất witness một technique khác trên cùng event, để nguyên cho row sibling đó và ghi `N/A — C3` ở đây — vì tín hiệu này nằm ngoài phạm vi technique đang được score, dù bản thân nó vẫn on-surface.
+
+**Stability under adversary control**
+Điều kiện trong Forward checklist, khác với "random value → stable pattern": pattern phải sống sót qua những gì *operator chủ động thay đổi* giữa các engagement (encoding key, build-time constant, hardcoded path/name) — không chỉ qua randomness lúc runtime. Phép thử: "nếu attacker xoay giá trị này vào lần triển khai sau, signal có còn fire không?" Nếu không, phải viết lại theo structure-invariant pattern hoặc `N/A — C1`. Reverse diagnostic gọi trường hợp fail này là *config-derived*: pattern trông có vẻ cố định nhưng giá trị cố định đó lại do một input operator-controlled sinh ra — khác về bản chất với trường hợp "chỉ đúng cho một lần chạy cụ thể" (pure runtime randomness).
+
 ---
 
 ## Tại sao skill này tồn tại
@@ -136,12 +142,14 @@ Anchoring baseline vào host role (từ `summary.md` hoặc setup docs) thay vì
 **Nhiệm vụ**: quality gate trước khi commit vào file.
 
 **Câu hỏi step này trả lời**:
-- Forward checklist: criteria này có thể paste vào SIEM/EDR và query được không? Có đủ specific không? Có phải positive pattern không?
-- Reverse diagnostic: nếu tôi đang ngả về N/A, tôi đang fail ở điều kiện nào (C1/C2/C3)?
+- Forward checklist: criteria này có thể paste vào SIEM/EDR và query được không? Có đủ specific không? Có phải positive pattern không? Signal có technique-witness binding đúng row này không, hay đang witness một technique sibling/downstream? Signal có sống sót nếu operator xoay encoding key/build constant/hardcoded path ở lần triển khai sau không?
+- Reverse diagnostic: nếu tôi đang ngả về N/A, tôi đang fail ở điều kiện nào (C1/C2/C3)? Nếu pattern trông cố định nhưng giá trị đó do operator chọn (config-derived), đó vẫn là C1 chứ không phải một signal hợp lệ.
 
 **Lý do thiết kế**: Hai chiều kiểm tra này tương ứng với hai trường hợp cần chất lượng khác nhau:
-- Signal row cần phải queryable, không phải chỉ đúng về mặt khái niệm
+- Signal row cần phải queryable, không phải chỉ đúng về mặt khái niệm — và phải buộc chặt vào đúng technique đang được score (technique-witness binding), không chỉ đúng vào physical event
 - Absence row cần phải classify rõ lý do — "N/A" không có code là evidence kém, không thể audit sau
+
+Technique-witness binding và stability-under-adversary-control là hai probe bổ sung vào Forward checklist để bắt hai lỗi tinh vi mà "criteria đọc có vẻ hợp lệ" không tự lộ ra: (1) signal thật ra chứng minh một technique khác đang chạy song song trên cùng event, không phải technique của row này; (2) signal chỉ ổn định vì đang nhìn đúng một lần build/config cụ thể của red team, chứ không sống sót qua lần adversary rotate giá trị đó. Cả hai đều không phải "runtime randomness" (đã có random-value handling xử lý riêng) mà là adversary có thể chủ động thay đổi giữa các engagement.
 
 Reverse diagnostic đặc biệt quan trọng vì nó bắt được pattern "viết signal bằng negative phrasing" (ví dụ: "CreateFile absent from import table") — về kỹ thuật là đúng nhưng không thể query, phải reframe thành positive anomalous pattern.
 
@@ -166,6 +174,9 @@ Ngăn không cho "setup rows" bị drop silently. Một row được skip là m�
 **Format discipline (Tier 1 / Tier 2)**
 Buộc phải phân loại tính chất anomaly trước khi viết — ngăn viết surface-level description thay vì detection logic.
 
+**Technique-witness binding + stability under adversary control**
+Hai probe này bắt hai lỗi mà "criteria đọc có vẻ hợp lệ" không tự lộ: signal thật ra witness một technique khác cùng physical event (misattribution), và signal chỉ đứng vững vì đang nhìn đúng một build/config cụ thể mà adversary thật sẽ xoay ở lần triển khai sau (config-derived, khác pure runtime randomness). Không có hai probe này, một criteria pass hết C1/C2/C3 vẫn có thể là false-positive evidence khi đưa sang `assign-category`.
+
 ---
 
 ### Điểm yếu
@@ -184,3 +195,6 @@ Khi hai rows chia sẻ một physical event (ví dụ: cùng netconn nhưng mộ
 
 **C1 / C2 / C3 yêu cầu judgment tốt**
 Model có thể misclassify — đặc biệt C1 vs "lazy" (signal writable nhưng cần thêm effort để reframe thành positive pattern). Reverse diagnostic giúp phần nào nhưng không prevent được misclassification hoàn toàn.
+
+**Technique-witness binding yêu cầu biết execution semantics của các technique lân cận**
+Để trả lời "signal này witness đúng technique của row này hay một sibling/downstream technique", model phải hiểu quan hệ produces→consumes giữa các technique trên cùng event — kiến thức này không nằm trong criteria đang viết, tương tự khó khăn của Q-B ở `assign-category`. Probe "operator rotate giá trị này thì signal còn fire không?" cũng là một counterfactual, không phải fact có thể đọc trực tiếp từ payload.
