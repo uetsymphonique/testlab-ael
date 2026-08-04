@@ -56,7 +56,7 @@ Keep it to a header plus one table. **One line per behavior. No multi-sentence c
 - **`#`** — temporal order; reference these numbers in the consumed-by column.
 - **Artifact [class]** — the six observable classes from behavior-breakdown.md (`file`, `process`, `registry`, `netconn`, `memory`, …) or `[no-artifact]` for intent-bearing links that leave no trace.
 - **→ consumed by** — the later `#` that reads this artifact; omit if it is a chain terminal.
-- **Tactic / TID — Technique Name** — leave as `—`; filled by the `map-technique` pass. Format: `<Tactic> / <TID> — <Technique Name>`. For sub-techniques, use the full `Parent: Sub-technique` name (e.g. `Defense Evasion / T1027.007 — Obfuscated Files or Information: Dynamic API Resolution`). For parent techniques with no sub, the name alone suffices (e.g. `Execution / T1106 — Native API`). Sub-technique preferred over parent when one fits.
+- **Tactic / TID — Technique Name** — leave as `—`; filled by the `map-technique` pass. Format: `<Tactic> / <TID> — <Technique Name>`. For sub-techniques, use the full `Parent: Sub-technique` name (e.g. `Stealth / T1027.007 — Obfuscated Files or Information: Dynamic API Resolution`). For parent techniques with no sub, the name alone suffices (e.g. `Execution / T1106 — Native API`). Sub-technique preferred over parent when one fits.
 - **Context (baseline)** — neutral one-liner; leave blank if none is obvious. Never an anomaly verdict.
 
 ## Anti-Patterns — named rationalizations to reject

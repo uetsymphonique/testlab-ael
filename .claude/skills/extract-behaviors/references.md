@@ -8,7 +8,7 @@ Atomic-unit contract, granularity rules, observable filter, and three input adap
 
 > **One behavior = one adversary intent = one observable system action.**
 
-A behavior is **not** the same as a Reference Table row. A single observable action can map to more than one tactic — DLL side-loading is Execution **and** Defense Evasion — so `map-technique` may fan one behavior into ≥1 rows. Keep the breakdown strictly at the *action* level; do not try to pre-split by technique.
+A behavior is **not** the same as a Reference Table row. A single observable action can map to more than one tactic — DLL side-loading is Execution **and** Stealth — so `map-technique` may fan one behavior into ≥1 rows. Keep the breakdown strictly at the *action* level; do not try to pre-split by technique.
 
 Write each behavior as a neutral observation: `<actor> <action> <target/artifact>` — no technique ID, no Calibrated/Not judgment.
 

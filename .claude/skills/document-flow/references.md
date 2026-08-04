@@ -8,7 +8,7 @@ Atomic-unit contract, source-code adapter, and observable filter. Read this file
 
 > **One behavior = one adversary intent = one observable system action.**
 
-A behavior is **not** the same as a Reference Table row. `map-technique` may fan one behavior into ≥1 rows (e.g. DLL side-loading is Execution **and** Defense Evasion). Keep the breakdown at the *action* level; do not pre-split by technique.
+A behavior is **not** the same as a Reference Table row. `map-technique` may fan one behavior into ≥1 rows (e.g. DLL side-loading is Execution **and** Stealth). Keep the breakdown at the *action* level; do not pre-split by technique.
 
 Write each behavior as: `<actor> <action> <target/artifact>` — no technique ID, no Calibrated/Not judgment, no anomaly verdict.
 

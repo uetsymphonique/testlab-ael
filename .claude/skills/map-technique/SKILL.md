@@ -25,8 +25,8 @@ Map a described adversary behavior to the correct ATT&CK tactic, technique, and 
 3. **Grep the slim technique menu** for the identified tactic file (references.md → KB lookup: `Grep` `^### ` for headings, never `Read` the whole file). This returns every technique and sub-technique as `TID - Name` with its line number — the menu to pick from. Narrow to candidates by name, then `Read` a 2-line range at the candidate's line number to get its description and confirm the mechanism/sub-technique. Prefer sub-technique over parent when the behavior is specific enough. Never read the whole file or the Detection/Procedure blocks.
 4. Report:
    - Tactic, Technique ID (with sub-technique if applicable), Technique Name, Platform
-   - If multiple tactics apply (e.g. DLL Side-Loading = Execution + Defense Evasion), list all rows
-   - Check references.md → Common pitfalls for Execution/Lateral Movement, PE/Persistence, and Defense Evasion cross-list cases
+   - If multiple tactics apply (e.g. DLL Side-Loading = Execution + Stealth), list all rows
+   - Check references.md → Common pitfalls for Execution/Lateral Movement, PE/Persistence, and Stealth/Defense Impairment cross-list cases
 5. **Write back** (when the behaviors came from a file with a mapping column to fill):
    - `Flow.md` (from `document-flow`): fill the `Tactic / TID` column on each behavior row. When one behavior maps to multiple tactics, split it into one row per tactic, keeping the same `#`/edge/context (e.g. `#3` → `#3a`, `#3b`).
    - Phase Reference Table (from `write-phase`): fill the `Tactic`, `Technique ID`, `Technique Name` columns, replacing the `—` placeholders.
