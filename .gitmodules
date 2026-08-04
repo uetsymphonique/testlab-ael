@@ -34,3 +34,21 @@
 [submodule "ael"]
 	path = ael
 	url = https://github.com/attackevals/ael
+[submodule "testlab-enterprise/q3-plan/resources/payloads/cred-access"]
+	path = testlab-enterprise/q3-plan/resources/payloads/cred-access
+	url = https://github.com/uetsymphonique/cred-access
+[submodule "testlab-enterprise/q3-plan/resources/payloads/discovery"]
+	path = testlab-enterprise/q3-plan/resources/payloads/discovery
+	url = https://github.com/uetsymphonique/discovery
+[submodule "testlab-enterprise/q3-plan/resources/payloads/rce-and-c2"]
+	path = testlab-enterprise/q3-plan/resources/payloads/rce-and-c2
+	url = https://github.com/uetsymphonique/rce-and-c2
+[submodule "testlab-enterprise/q3-plan/resources/payloads/persistence"]
+	path = testlab-enterprise/q3-plan/resources/payloads/persistence
+	url = https://github.com/uetsymphonique/persistence
+[submodule "testlab-enterprise/q3-plan/resources/payloads/priv-escalation"]
+	path = testlab-enterprise/q3-plan/resources/payloads/priv-escalation
+	url = https://github.com/uetsymphonique/priv-escalation
+[submodule "donut"]
+	path = donut
+	url = https://github.com/thewover/donut
