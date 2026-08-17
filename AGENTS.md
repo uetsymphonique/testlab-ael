@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to OpenCode when working with code in this repository.
 
 ## Project Goal
 
@@ -156,8 +156,8 @@ python check.py --reset --scope "Scenario 1.md"
 
 1. Identify whether the task is **Detections** or **Protections**; read `plan-for-agent/detections-overview.md` or `plan-for-agent/protections-overview.md`.
 2. If building or restructuring a large flow, consult `plan-for-agent/chain-breakdown.md`.
-3. **Select techniques** from Scenario 1 / Scenario 2 scope; use the `/extract-behaviors`, `/map-technique`, and `/write-phase` skills to process unstructured input into a Phase file.
+3. **Select techniques** from Scenario 1 / Scenario 2 scope; use the `extract-behaviors`, `map-technique`, and `write-phase` skills to process unstructured input into a Phase file.
 4. **Look up theory** in `mitre-knowledge-base/techniques/` and **consult ART** in `atomic-red-team/atomics/` to understand real behavior.
 5. **Build payload** — place in `resources/payloads/<tool-or-technique>/` with a `README.md`.
-6. **Write / update Phase file** using the `/write-phase` skill; reference payloads with relative paths to `../resources/payloads/`.
-7. Before finalizing the Reference Table: run `/write-detection-criteria` to write Detection Criteria for **every** row first, then run `/assign-category` to label rows.
+6. **Write / update Phase file** using the `write-phase` skill; reference payloads with relative paths to `../resources/payloads/`.
+7. Before finalizing the Reference Table: run `write-detection-criteria` to write Detection Criteria for **every** row first, then run `assign-category` to label rows.

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "shell": "powershell",
+  "permission": {
+    "edit": "ask",
+    "bash": "ask"
+  }
+}

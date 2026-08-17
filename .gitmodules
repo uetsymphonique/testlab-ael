@@ -49,6 +49,3 @@
 [submodule "testlab-enterprise/q3-plan/resources/payloads/priv-escalation"]
 	path = testlab-enterprise/q3-plan/resources/payloads/priv-escalation
 	url = https://github.com/uetsymphonique/priv-escalation
-[submodule "donut"]
-	path = donut
-	url = https://github.com/thewover/donut
