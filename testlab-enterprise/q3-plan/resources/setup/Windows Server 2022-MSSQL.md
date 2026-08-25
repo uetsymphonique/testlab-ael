@@ -289,3 +289,63 @@ Take a VM snapshot of `IIS01` now that the baseline above is verified. This
 is the only reliable recovery path if a later phase run (on this or another
 path sharing the host) corrupts state again — see the `UploadPortalDB`
 incident this doc opened with.
+
+---
+
+## Step 9 — Disable TermService and enable WinRM access
+
+Phase 3 uses PhantomRPC TERM variant, which registers a fake RPC server on
+the `TermSrvApi` ALPC endpoint. This requires TermService (Remote Desktop
+Services) to be **stopped and disabled** on IIS01 so the endpoint is
+unoccupied.
+
+### Enable WinRM on IIS01 (before disabling RDP)
+
+WinRM should already be enabled on a domain-joined Server 2022. Verify:
+
+```powershell
+Get-Service WinRM | Select-Object Name, Status, StartType
+# Expected: WinRM, Running, Automatic
+```
+
+If not running:
+
+```powershell
+Enable-PSRemoting -Force
+```
+
+### Configure host machine for WinRM access
+
+The host machine is not domain-joined, so it needs TrustedHosts configured.
+Run on the host (PowerShell as Admin):
+
+```powershell
+Start-Service WinRM
+Set-Item WSMan:\localhost\Client\TrustedHosts -Value "192.168.56.4" -Force
+```
+
+Verify connectivity before disabling RDP:
+
+```powershell
+Enter-PSSession -ComputerName 192.168.56.4 -Credential TESTLAB\administrator
+# Expected: prompt changes to [192.168.56.4]: PS C:\Users\administrator.TESTLAB\Documents>
+Exit-PSSession
+```
+
+### Disable TermService
+
+Run on IIS01 (via the WinRM session just verified, or via RDP one last time):
+
+```powershell
+Stop-Service TermService -Force
+Set-Service TermService -StartupType Disabled
+Get-Service TermService | Select-Object Name, Status, StartType
+# Expected: TermService, Stopped, Disabled
+```
+
+### Re-enable (after testing, or to restore RDP access)
+
+```powershell
+Set-Service TermService -StartupType Manual
+Start-Service TermService
+```
