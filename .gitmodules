@@ -49,3 +49,9 @@
 [submodule "testlab-enterprise/q3-plan/resources/payloads/priv-escalation"]
 	path = testlab-enterprise/q3-plan/resources/payloads/priv-escalation
 	url = https://github.com/uetsymphonique/priv-escalation
+[submodule "testlab-enterprise/q3-plan/resources/payloads/lateral-movement"]
+	path = testlab-enterprise/q3-plan/resources/payloads/lateral-movement
+	url = https://github.com/uetsymphonique/lateral-movement
+[submodule "sliver"]
+	path = sliver
+	url = https://github.com/uetsymphonique/sliver

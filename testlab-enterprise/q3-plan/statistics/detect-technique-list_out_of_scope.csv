@@ -1,0 +1,32 @@
+tactic,tech_id,tech_name
+Collection,T1005,Data from Local System
+Collection,T1074.001,Data Staged: Local Data Staging
+Collection,T1560.002,Archive Collected Data: Archive via Library
+Collection,T1560.003,Archive Collected Data: Archive via Custom Method
+Command And Control,T1071,Application Layer Protocol
+Command And Control,T1095,Non-Application Layer Protocol
+Command And Control,T1571,Non-Standard Port
+Command And Control,T1573.001,Encrypted Channel: Symmetric Cryptography
+Credential Access,T1550.002,Use Alternate Authentication Material: Pass the Hash
+Credential Access,T1555.004,Credentials from Password Stores: Windows Credential Manager
+Defense Impairment,T1553.002,Subvert Trust Controls: Code Signing
+Execution,T1106,Native API
+Execution,T1204.001,User Execution: Malicious Link
+Execution,T1559.001,Inter-Process Communication: Component Object Model
+Execution,T1574.001,Hijack Execution Flow: DLL
+Lateral Movement,T1021,Remote Services
+Privilege Escalation,T1134,Access Token Manipulation
+Privilege Escalation,T1134.001,Access Token Manipulation: Token Impersonation/Theft
+Privilege Escalation,T1134.002,Access Token Manipulation: Create Process with Token
+Stealth,T1027.007,Obfuscated Files or Information: Dynamic API Resolution
+Stealth,T1027.009,Obfuscated Files or Information: Embedded Payloads
+Stealth,T1027.013,Obfuscated Files or Information: Encrypted/Encoded File
+Stealth,T1036.003,Masquerading: Rename Legitimate Utilities
+Stealth,T1036.005,Masquerading: Match Legitimate Resource Name or Location
+Stealth,T1036.008,Masquerading: Masquerade File Type
+Stealth,T1055.004,Process Injection: Asynchronous Procedure Call
+Stealth,T1070,Indicator Removal
+Stealth,T1140,Deobfuscate/Decode Files or Information
+Stealth,T1497.001,Virtualization/Sandbox Evasion: System Checks
+Stealth,T1497.002,Virtualization/Sandbox Evasion: User Activity Based Checks
+Stealth,T1622,Debugger Evasion
