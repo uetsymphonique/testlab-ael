@@ -1,11 +1,11 @@
-# Phase N — <Tactic Chain Title>
+# Phase N - <Tactic Chain Title>
 
 <!-- CTI references used in this phase. Number them here; cite with [N] in the Reference Tables below. -->
 [1]: <url>
 
 ---
 
-## Step 0 — Setup
+## Step 0 - Setup
 
 ### Procedures
 
@@ -14,7 +14,7 @@
 
 ---
 
-## Step N — <Tactic: Short Description>
+## Step N - <Tactic: Short Description>
 
 ### Voice Track
 
@@ -22,7 +22,7 @@
 
 ### Procedures
 
-- ☣️ <Dangerous/destructive step — changes system state, runs payload, or executes attack behavior>
+- ☣️ <Dangerous/destructive step - changes system state, runs payload, or executes attack behavior>
 
   ```powershell
   <exact command>
@@ -33,12 +33,12 @@
     <expected output confirming success>
     ```
 
-- <Non-dangerous step — navigation, reading output, setup>
+- <Non-dangerous step - navigation, reading output, setup>
 
 ### Reference Tables
 
 | Summary | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - | - |
-| <concise behavior name> | — | — | — | Windows | TBD | TBD | <Short description of red team behavior from external view> | <hostname> (<IP>) | <DOMAIN\user> | [link](<relative path to payload>) | [1] |
+| <concise behavior name> | - | - | - | Windows | TBD | TBD | <Short description of red team behavior from external view> | <hostname> (<IP>) | <DOMAIN\user> | [link](<relative path to payload>) | [1] |
 
 ---
