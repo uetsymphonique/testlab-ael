@@ -55,3 +55,6 @@
 [submodule "sliver"]
 	path = sliver
 	url = https://github.com/uetsymphonique/sliver
+[submodule "testlab-enterprise/q3-plan/resources/payloads/file-servers"]
+	path = testlab-enterprise/q3-plan/resources/payloads/file-servers
+	url = https://github.com/uetsymphonique/file-servers

