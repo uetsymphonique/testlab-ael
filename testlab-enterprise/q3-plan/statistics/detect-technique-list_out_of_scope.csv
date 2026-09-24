@@ -8,8 +8,10 @@ Command And Control,T1571,Non-Standard Port
 Command And Control,T1573.001,Encrypted Channel: Symmetric Cryptography
 Credential Access,T1555.004,Credentials from Password Stores: Windows Credential Manager
 Defense Impairment,T1553.002,Subvert Trust Controls: Code Signing
+Execution,T1059.005,Command and Scripting Interpreter: Visual Basic
 Execution,T1106,Native API
 Execution,T1204.001,User Execution: Malicious Link
+Execution,T1204.004,User Execution: Malicious Copy and Paste
 Execution,T1559.001,Inter-Process Communication: Component Object Model
 Execution,T1574.001,Hijack Execution Flow: DLL
 Lateral Movement,T1021,Remote Services
@@ -20,6 +22,7 @@ Persistence,T1546,Event Triggered Execution
 Privilege Escalation,T1134,Access Token Manipulation
 Privilege Escalation,T1134.001,Access Token Manipulation: Token Impersonation/Theft
 Privilege Escalation,T1134.002,Access Token Manipulation: Create Process with Token
+Stealth,T1027.006,Obfuscated Files or Information: HTML Smuggling
 Stealth,T1027.007,Obfuscated Files or Information: Dynamic API Resolution
 Stealth,T1027.009,Obfuscated Files or Information: Embedded Payloads
 Stealth,T1027.013,Obfuscated Files or Information: Encrypted/Encoded File
@@ -32,7 +35,9 @@ Stealth,T1070,Indicator Removal
 Stealth,T1134.001,Access Token Manipulation: Token Impersonation/Theft
 Stealth,T1140,Deobfuscate/Decode Files or Information
 Stealth,T1197,BITS Jobs
+Stealth,T1218.005,System Binary Proxy Execution: Mshta
 Stealth,T1497.001,Virtualization/Sandbox Evasion: System Checks
 Stealth,T1497.002,Virtualization/Sandbox Evasion: User Activity Based Checks
+Stealth,T1564.003,Hide Artifacts: Hidden Window
 Stealth,T1620,Reflective Code Loading
 Stealth,T1622,Debugger Evasion

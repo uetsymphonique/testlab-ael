@@ -224,10 +224,6 @@ Test-NetConnection -ComputerName 192.168.56.2 -Port 8443
 - `xp_cmdshell` **disabled** (SQL Server default — enabling it is the attack step)
 - VM snapshot taken after Step 8 of the MSSQL setup doc
 
-#### TermService disabled (required for Phase 3 — PhantomRPC)
-
-Phase 3 uses PhantomRPC TERM variant — requires TermService stopped on IIS01. See [Windows Server 2022-MSSQL.md](../resources/setup/Windows%20Server%202022-MSSQL.md) Step 9 for setup and WinRM alternative access.
-
 ---
 
 ## Cleanup Reminder
