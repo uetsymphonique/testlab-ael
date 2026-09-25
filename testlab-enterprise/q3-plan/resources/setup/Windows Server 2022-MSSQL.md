@@ -12,6 +12,88 @@ realistic path from low-privilege SQL credentials to `NT AUTHORITY\SYSTEM` on
 against real-world MSSQL pentest methodology (NetSPI, PowerUpSQL
 `Invoke-SQLAuditPrivImpersonateLogin`) — not a fabricated chain.
 
+## Pre-flight — inherited base-lab checks (before any Step below)
+
+The lab baseline is inherited from
+[`../../../windows-adversary-plan/resources/setup/`](../../../windows-adversary-plan/resources/setup/)
+(`Windows Server 2022-DC.md`, `Windows Server 2022-IIS.md`). Run these checks
+first to confirm the shared environment is intact before this doc's setup
+touches it. Any failure → fix in the base setup docs, not here.
+
+### DC01 (10.12.10.10)
+
+```powershell
+# Domain responding
+Get-ADDomain | Select-Object Name, DomainMode, PDCEmulator
+
+# Base accounts present (svc-admin is the optional privileged service account)
+Get-ADUser -Filter * | Select-Object SamAccountName, Enabled     # labuser (+svc-admin if created)
+Get-ADComputer -Filter * | Select-Object Name, Enabled           # DC01, IIS01, WS01
+
+# DNS zones + dnscat2 conditional forwarder
+Get-DnsServerZone
+Get-DnsServerZone | Where-Object ZoneType -eq "Forwarder"        # crl.ms-cert.net
+
+# A records — iis01 record is REQUIRED by Step 7b (Kerberos SPN); add if missing:
+#   Add-DnsServerResourceRecordA -ZoneName testlab.local -Name iis01 -IPv4Address 10.12.10.20
+Resolve-DnsName upload.testlab.local    # 10.12.10.20
+Resolve-DnsName react.testlab.local     # 10.12.10.20
+Resolve-DnsName ws01.testlab.local      # 10.12.10.30
+Resolve-DnsName iis01.testlab.local     # 10.12.10.20
+```
+
+### IIS01 (10.12.10.20)
+
+```powershell
+# Domain join + IP
+ipconfig /all                                                    # DNS = 10.12.10.10
+
+# IIS sites / app pools from the base setup still healthy
+Import-Module WebAdministration
+Get-Website    | Select-Object Name, State, PhysicalPath          # upload + react, Started
+Get-WebAppPool | Select-Object Name, State
+
+# SQL Server Express service (provisioned by base setup)
+Get-Service -Name "MSSQL`$SQLEXPRESS" | Select-Object Name, Status, StartType
+# Expected: Running, Automatic
+
+# Current listen port — base install uses a DYNAMIC port; Step 1 below fixes it to 1433.
+# Record the value here so Step 1's change is traceable.
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQLServer\SuperSocketNetLib\Tcp\IPAll" `
+    -Name TcpPort, TcpDynamicPorts
+
+# TCP 1433 NOT exposed externally yet (expect: no output = no inbound rule).
+# Step 2 below creates the Domain-profile rule.
+Get-NetFirewallRule -DisplayName "*SQL*" | Where-Object { $_.Direction -eq "Inbound" }
+
+# DATA directory ACL — see "Service account correction" note below for the
+# per-service SID behavior this relies on
+(Get-Acl "C:\Program Files\Microsoft SQL Server\MSSQL17.SQLEXPRESS\MSSQL\DATA").Access |
+    Select-Object IdentityReference, FileSystemRights, IsInherited
+
+# Databases — UploadPortalDB must be ABSENT (dropped, see Prerequisite below);
+# DevPortalDB must be ABSENT (created by Step 3)
+& "C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\180\Tools\Binn\SQLCMD.EXE" `
+    -S "localhost\SQLEXPRESS" -E -C -Q "SELECT name FROM sys.databases"
+```
+
+### WS01 (10.12.10.30)
+
+```powershell
+ipconfig /all                                                    # DNS = 10.12.10.10
+whoami                                                           # TESTLAB\labuser
+
+# Reachability used later by Step 7 / Step 7b
+Test-NetConnection 10.12.10.10 -Port 53
+Test-NetConnection 10.12.10.10 -Port 88
+Test-NetConnection 10.12.10.10 -Port 389
+Test-NetConnection iis01.testlab.local -Port 80
+```
+
+All checks pass → continue to Step 1. All checks green before Step 1 = the
+baseline this doc's detection criteria assumes.
+
+
 ## Prerequisite — clean baseline required
 
 `IIS01\SQLEXPRESS` previously carried `UploadPortalDB` for the
