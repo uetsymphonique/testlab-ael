@@ -232,6 +232,14 @@ xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\DF*.tmp" ls
 xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\rdump_out.txt" lsarpc
 ```
 
+### 3b-alt. Delete fallback dump artifacts (Phase 3 [ALT] Step 2B, only if the fallback ran)
+
+> `g.dmp` (plaintext MDMP dump) and `pid_out.txt` (tasklist CSV) are SYSTEM-owned.
+
+```
+xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\g.dmp C:\ProgramData\pid_out.txt" lsarpc
+```
+
 ### 3c. Drop tempdb..exfil table (if not already dropped)
 
 ```python
@@ -478,7 +486,7 @@ After cleanup, verify no artifacts remain:
 | DC01 | smbpipe-agent-svc not running (detached SYSTEM agent) | `tasklist /FI "IMAGENAME eq smbpipe-agent-svc.exe"` |
 | DC01 | No transient SCM service registration left | `reg query HKLM\SYSTEM\CurrentControlSet\Services` then scan for a 12-char random key with `ImagePath=C:\Windows\Temp\smbpipe-agent-svc.exe` → none |
 | IIS01 | No tool binaries in `C:\ProgramData\` | `dir C:\ProgramData\*.exe` |
-| IIS01 | No dump/temp files | `dir C:\ProgramData\DF*.tmp C:\ProgramData\*.cmd C:\ProgramData\rdump_out.txt C:\ProgramData\sys_out.txt C:\ProgramData\fwp_out.txt C:\ProgramData\fwp_rev.txt C:\ProgramData\*.stl` |
+| IIS01 | No dump/temp files | `dir C:\ProgramData\DF*.tmp C:\ProgramData\g.dmp C:\ProgramData\pid_out.txt C:\ProgramData\*.cmd C:\ProgramData\rdump_out.txt C:\ProgramData\sys_out.txt C:\ProgramData\fwp_out.txt C:\ProgramData\fwp_rev.txt C:\ProgramData\*.stl` |
 | IIS01 | `SQL Server (TCP 1433)` rule back to Domain-only | `netsh advfirewall firewall show rule name="SQL Server (TCP 1433)"` → `Profiles: Domain` |
 | IIS01 | xpagent database gone | `SELECT name FROM sys.databases WHERE name='xpagent'` → empty |
 | IIS01 | xp_cmdshell disabled | `EXEC sp_configure 'xp_cmdshell'` → run_value = 0 |

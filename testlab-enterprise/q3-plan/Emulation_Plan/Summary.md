@@ -41,7 +41,7 @@ flowchart TD
 
     subgraph P3["Phase 3 - LSASS Dump (IIS01)"]
         Q[xpstage-hex: stage ReflectDump.exe] --> R[Reflection dump as SYSTEM<br/>XOR-encrypted DFxxxx.tmp]
-        R --> S[Exfil via MSSQL channel<br/>hex chunks to controlServer]
+        R -.fallback: rundll32 comsvcs MiniDump<br/>plaintext g.dmp.-> S[Exfil via MSSQL channel<br/>hex chunks to controlServer]
         S --> T[Offline XOR decode → pypykatz<br/>Domain Admin NTLM hash]
     end
 
@@ -104,6 +104,8 @@ With the database channel proven for tool delivery in Phase 2, the adversary use
 The EfsPotato escalation chain is re-used to spawn `ReflectDump.exe` as `NT AUTHORITY\SYSTEM` - again with no `cmd.exe` in the chain, going directly `CertEnrollSvc.exe → ReflectDump.exe`. Running as SYSTEM, the tool locates LSASS by process ID scan (avoiding the common Toolhelp32 API path), opens a handle using a reflection-specific access mask distinct from standard Mimikatz patterns, and forks a suspended reflection clone via `RtlCreateProcessReflection`. The full minidump is captured entirely into a 75 MB heap buffer via a memory-only I/O callback - no disk write at dump time. The heap buffer is XOR-encrypted in-place and flushed to a `DFxxxx.tmp` file in `C:\ProgramData\` - the MDMP signature is deliberately stripped by the first byte of the XOR key.
 
 The encrypted dump cannot leave `IIS01` directly. The adversary routes it out through the MSSQL channel: `OPENROWSET(BULK)` reads the file into `tempdb`, T-SQL chunks and hex-encodes it row by row, WS01 PowerShell reads each chunk via `SqlClient` and writes hex staging files, and TONESHELL carries each piece back to the controlServer over the C2 session. After all chunks arrive, the dump and all staging artifacts are deleted - the `DFxxxx.tmp` file requires a second EfsPotato escalation to delete under SYSTEM ownership.
+
+As a fallback ([ALT] Step 2B), when the reflection fork is blocked or crashes mid-dump - `RtlCreateProcessReflection` is undocumented and the clone can abort inside the `MiniDumpWriteDump` callback, leaving a truncated `DFxxxx.tmp` - the adversary re-uses the EfsPotato chain a third time but switches to a native proxy-execution path: `CertEnrollSvc.exe` spawns `rundll32.exe` directly (no `cmd.exe`) to invoke `comsvcs.dll`'s `MiniDump` export against the live `lsass.exe` PID (resolved first via a SYSTEM `tasklist /fi "IMAGENAME eq lsass.exe"` through the same chain). The result is a plaintext intact-MDMP minidump in `C:\ProgramData\g.dmp` - parseable without offline decryption, but deliberately higher-signal: the `PROCESS_ALL_ACCESS` handle-open on the real LSASS is the most widely detected dump pattern.
 
 On the attacker machine, the XOR encoding is reversed offline and `pypykatz` or Mimikatz parses the restored minidump to extract NTLM hashes and Kerberos material for the Domain Administrator account. The dump files are deleted from the attacker machine after extraction.
 
