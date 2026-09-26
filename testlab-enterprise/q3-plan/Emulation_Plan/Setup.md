@@ -181,7 +181,7 @@ Confirm the following files are prepared and in place:
 > powershell -w h -ep bypass -c "iex(gc -Raw '%USERPROFILE%\Downloads\Essos_Compliance_Update.cer')"
 > ```
 >
-> PowerShell decodes the polyglot `.cer` into `%TEMP%\Essos_Compliance_Update.hta` and hands it to `mshta.exe`. Rebuild `staging.html` with [`../resources/payloads/user-trigger/html-smuggling-hta/build.py`](../resources/payloads/user-trigger/html-smuggling-hta/build.py) after changing the loader, then re-copy it into `/media/sf_share`.
+> PowerShell decodes the polyglot `.cer` into `%TEMP%\hpsolutionsportal.hta` and hands it to `mshta.exe`. Rebuild `staging.html` with [`../resources/payloads/user-trigger/html-smuggling-hta/build.py`](../resources/payloads/user-trigger/html-smuggling-hta/build.py) after changing the loader, then re-copy it into `/media/sf_share`.
 
 If the package needs to be rebuilt, see:
 [`../resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/README.md`](../resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/README.md)

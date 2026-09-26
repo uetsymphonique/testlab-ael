@@ -95,7 +95,7 @@ del /f /q "C:\Users\labuser\Desktop\Essos_Compliance_Update.docx" 2>nul
 :: Delete HTML smuggling artifacts (Step 1C variant)
 del /f /q "C:\Users\labuser\Downloads\Essos_Compliance_Update.cer" 2>nul
 del /f /q "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.bin" 2>nul
-del /f /q "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.hta" 2>nul
+del /f /q "C:\Users\labuser\AppData\Local\Temp\hpsolutionsportal.hta" 2>nul
 del /f /q "C:\Users\labuser\AppData\Local\Temp\EssosUpdate.exe" 2>nul
 del /f /q "C:\Users\labuser\AppData\Local\Temp\wsdapi.dll" 2>nul
 
@@ -363,7 +363,7 @@ Only applies if the HTML smuggling variant was run — the polyglot `.txt` is sm
 ```
 del /f "C:\Users\labuser\Downloads\Essos_Compliance_Update.cer"
 del /f "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.bin"
-del /f "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.hta"
+del /f "C:\Users\labuser\AppData\Local\Temp\hpsolutionsportal.hta"
 del /f "C:\Users\labuser\AppData\Local\Temp\EssosUpdate.exe"
 del /f "C:\Users\labuser\AppData\Local\Temp\wsdapi.dll"
 ```
@@ -489,6 +489,6 @@ After cleanup, verify no artifacts remain:
 | WS01 | No GUID persistence file | `dir "%USERPROFILE%\AppData\Roaming\Microsoft\Web.CompressShaders.config"` |
 | WS01 | No temp staging files | `dir C:\Windows\Temp\WNetHelper.exe C:\Windows\Temp\credvault.exe C:\Windows\Temp\*.stl C:\Windows\Temp\*.sql C:\Windows\Temp\*.hex*` → should error |
 | WS01 | No BITS downloader binary | `dir "C:\Users\labuser\Downloads\BitsDownloader.exe"` → should error |
-| WS01 | No Step 1C smuggling artifacts | `dir "C:\Users\labuser\Downloads\Essos_Compliance_Update.cer" "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.bin" "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.hta" "C:\Users\labuser\AppData\Local\Temp\EssosUpdate.exe" "C:\Users\labuser\AppData\Local\Temp\wsdapi.dll"` → should error |
+| WS01 | No Step 1C smuggling artifacts | `dir "C:\Users\labuser\Downloads\Essos_Compliance_Update.cer" "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.bin" "C:\Users\labuser\AppData\Local\Temp\hpsolutionsportal.hta" "C:\Users\labuser\AppData\Local\Temp\EssosUpdate.exe" "C:\Users\labuser\AppData\Local\Temp\wsdapi.dll"` → should error |
 | WS01 | No lure docx files | `dir "C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx" "C:\Users\labuser\Desktop\Essos_Compliance_Update.docx"` → should error |
 | WS01 | No residual BITS jobs | `bitsadmin /list /allusers /verbose` → no jobs listed |
