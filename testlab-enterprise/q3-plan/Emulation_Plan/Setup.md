@@ -82,7 +82,7 @@ Phase 1 delivery variants are served by two servers. Which one must be running d
 | - | - | - | - | - |
 | Step 1 (browser download) | `simplefileserver` handler inside controlServer | TCP 80 — `http://192.168.56.2/files/` | `250325_Pentos_Board_Minutes.zip` | `Braavos_Competitiveness_Brief.docx` → link to `/files/...zip` |
 | Step 1B (BITS download) | standalone `server.py` (shared, see below) | TCP 8080 | `250325_Pentos_Board_Minutes.zip` (Range-capable copy) | same `Braavos_Competitiveness_Brief.docx` + `BitsDownloader.exe` |
-| Step 1C (HTML smuggling) | standalone `server.py` (shared, see below) | TCP 8080 | `staging.html` (smuggles a polyglot `.txt`; neither the `.txt` nor the `.hta` is ever served) | `Essos_Compliance_Update.docx` → link to `:8080/staging.html` |
+| Step 1C (HTML smuggling) | standalone `server.py` (shared, see below) | TCP 8080 | `staging.html` (smuggles a polyglot `.cer`; neither the `.cer` nor the `.hta` is ever served) | `Essos_Compliance_Update.docx` → link to `:8080/staging.html` |
 
 Steps 1B and 1C share the same `server.py` instance on TCP 8080; Step 1 always uses the controlServer handler on TCP 80. Both can run side by side.
 
@@ -166,7 +166,7 @@ Confirm the following files are prepared and in place:
 
 **On attacker host — served by `server.py` (TCP 8080, `/media/sf_share`), used by Steps 1B + 1C:**
 - `250325_Pentos_Board_Minutes.zip` — second copy of the same ZIP, downloaded by the Step 1B BITS job (server must advertise `Accept-Ranges` or BITS will not transfer)
-- `staging.html` — HTML smuggling lure page (Step 1C); embeds a base64 blob the browser reassembles into a polyglot `Essos_Compliance_Update.cer` (PEM header + base64 of `hpsolutionsportal.hta`); the `.hta` is then built locally by the Win+R PowerShell launcher — **no `.txt` or `.hta` file is ever hosted**
+- `staging.html` — HTML smuggling lure page (Step 1C); embeds a base64 blob the browser reassembles into a polyglot `Essos_Compliance_Update.cer` (PEM header + base64 of `hpsolutionsportal.hta`); the `.hta` is then built locally by the Win+R PowerShell launcher — **no `.cer` or `.hta` file is ever hosted**
 
 **On WS01** — staged by operator via RDP before running Phase 1:
 - `C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx` — Word lure document for **Steps 1 / 1B** with embedded hyperlink pointing to `http://192.168.56.2/files/250325_Pentos_Board_Minutes.zip` (source template: `resources/payloads/toneshell_spearphishing.docx`)
@@ -181,7 +181,7 @@ Confirm the following files are prepared and in place:
 > powershell -w h -ep bypass -c "iex(gc -Raw '%USERPROFILE%\Downloads\Essos_Compliance_Update.cer')"
 > ```
 >
-> PowerShell decodes the polyglot `.txt` into `%TEMP%\Essos_Compliance_Update.hta` and hands it to `mshta.exe`. Rebuild `staging.html` with [`../resources/payloads/user-trigger/html-smuggling-hta/build.py`](../resources/payloads/user-trigger/html-smuggling-hta/build.py) after changing the loader, then re-copy it into `/media/sf_share`.
+> PowerShell decodes the polyglot `.cer` into `%TEMP%\Essos_Compliance_Update.hta` and hands it to `mshta.exe`. Rebuild `staging.html` with [`../resources/payloads/user-trigger/html-smuggling-hta/build.py`](../resources/payloads/user-trigger/html-smuggling-hta/build.py) after changing the loader, then re-copy it into `/media/sf_share`.
 
 If the package needs to be rebuilt, see:
 [`../resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/README.md`](../resources/payloads/rce-and-c2/mustang-panda-emulation/toneshell-v2/README.md)

