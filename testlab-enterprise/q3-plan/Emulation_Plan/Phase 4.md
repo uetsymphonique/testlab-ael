@@ -119,7 +119,7 @@ With the Domain Administrator's NTLM hash in hand from the Phase 3 LSASS dump, t
 
 ### Reference Tables
 
-<!-- xpstage-hex mechanism behaviors (TONESHELL FILE_DOWNLOAD → sqlcmd INSERT → T-SQL ADODB.Stream decode → cleanup) are identical to Phase 2 Step 4 and are not re-scored here. Five xpstage-hex cycles - go-thehash.exe, smbpipe-agent.exe, PolicySyncSvc.exe, NtServiceInstaller.exe, smbpipe-agent-svc.exe. -->
+<!-- xpstage-hex mechanism behaviors (TONESHELL FILE_DOWNLOAD → sqlcmd INSERT → T-SQL ADODB.Stream decode → cleanup) are identical to Phase 2 Step 4 and are not re-scored here. Five xpstage-hex cycles - go-thehash.exe, smbpipe-agent.exe, PolicySyncSvc.exe, NtServiceInstaller.exe, smbpipe-agent-svc.exe. Each cycle includes the .stl masquerade: SQL file staged on WS01 as stage_<id>.stl and the binary written to C:\ProgramData\ as <stem>.stl then renamed in-batch via sp_OA FSO MoveFile. -->
 
 ---
 

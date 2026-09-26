@@ -49,9 +49,9 @@ With SYSTEM execution confirmed on IIS01, the adversary moves to the next object
 
    Same mechanism as Phase 2 Step 4A (hex variant):
    - controlServer hex-encodes `ReflectDump.exe`, generates INSERT SQL
-   - SQL file pushed to `C:\Windows\Temp\` on WS01 via TONESHELL FILE_DOWNLOAD
-   - WS01 `sqlcmd -i` bulk-INSERTs hex chunks into `tempdb..stg` on IIS01
-   - T-SQL batch: hex concatenate → `CONVERT` to binary → `sp_OA` ADODB.Stream writes to `C:\ProgramData\` - no PowerShell or `cmd.exe` spawn on IIS01
+   - SQL file pushed to `C:\Windows\Temp\` on WS01 as `stage_<id>.stl` (masquerade) via TONESHELL FILE_DOWNLOAD
+   - WS01 `sqlcmd -i C:\Windows\Temp\stage_<id>.stl` bulk-INSERTs hex chunks into `tempdb..stg` on IIS01
+   - T-SQL batch: hex concatenate → `CONVERT` to binary → `sp_OA` ADODB.Stream writes `ReflectDump.stl` to `C:\ProgramData\` → `sp_OA` FSO `MoveFile` renames it to `ReflectDump.exe` in the same batch - no PowerShell or `cmd.exe` spawn on IIS01
    - SQL file deleted from WS01; `tempdb..stg` dropped
 
    - ***Expected Output***
