@@ -58,3 +58,6 @@
 [submodule "testlab-enterprise/q3-plan/resources/payloads/file-servers"]
 	path = testlab-enterprise/q3-plan/resources/payloads/file-servers
 	url = https://github.com/uetsymphonique/file-servers
+[submodule "testlab-enterprise/q3-plan/resources/payloads/go-sqlcmd"]
+	path = testlab-enterprise/q3-plan/resources/payloads/go-sqlcmd
+	url = https://github.com/microsoft/go-sqlcmd
