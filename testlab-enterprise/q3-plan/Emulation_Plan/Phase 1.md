@@ -206,22 +206,33 @@ Running that command has `powershell.exe` read the `.cer` back, extract the base
 
 ### Voice Track
 
-Having established a foothold on WS01, the adversary first profiles the local host before mapping the subnet. They push WNetHelper - a lightweight multi-module discovery tool - to the victim host via the existing C2 file-upload capability. Running in local mode, the tool collects the host profile (hostname, domain, OS version), session identity and group memberships, running processes via the performance counter registry, installed services via direct registry read, local group membership via WinNT ADSI, and top-level filesystem entries across four target paths - all in-process with no child process spawned. The adversary then pivots to network discovery, executing WNetHelper in NBNS scan mode against the local /24 subnet. The scan returns a table of NetBIOS hostnames, workgroup memberships, DC service flags, and VM platform indicators derived from MAC OUI lookup. DC01 is identified at 10.12.10.10 as the domain controller (DC flag set); IIS01 is identified at 10.12.10.20 as a domain-joined server with no DC flag - a high-value lateral movement target for the next phase. The tool binary is deleted immediately after output collection to limit artifact exposure.
+Having established a foothold on WS01, the adversary first profiles the local host before mapping the subnet. They push WNetHelper - a lightweight multi-module discovery tool - to the victim host via the existing C2 file-upload capability, staging the binary under the benign `.stl` 3D-model extension (`WNetHelper.stl`) and renaming it to `.exe` only at the moment of execution, so the tool at rest in the system temp directory does not present as an executable. Running in local mode, the tool collects the host profile (hostname, domain, OS version), session identity and group memberships, running processes via the performance counter registry, installed services via direct registry read, local group membership via WinNT ADSI, and top-level filesystem entries across four target paths - all in-process with no child process spawned. The adversary then pivots to network discovery, executing WNetHelper in NBNS scan mode against the local /24 subnet. The scan returns a table of NetBIOS hostnames, workgroup memberships, DC service flags, and VM platform indicators derived from MAC OUI lookup. DC01 is identified at 10.12.10.10 as the domain controller (DC flag set); IIS01 is identified at 10.12.10.20 as a domain-joined server with no DC flag - a high-value lateral movement target for the next phase. The tool binary is deleted immediately after output collection to limit artifact exposure.
 
 ### Procedures
 
-1. ☣️ In `toneshell_shell.py`, with WS01 session active - push `WNetHelper.exe` to the target:
+1. ☣️ In `toneshell_shell.py`, with WS01 session active - push `WNetHelper.exe` to the target under the masquerading `.stl` extension:
 
    ```
-   put WNetHelper.exe C:\Windows\Temp\WNetHelper.exe
+   put WNetHelper.exe C:\Windows\Temp\WNetHelper.stl
    ```
 
    - ***Expected Output***
      ```text
-     [+] File uploaded: WNetHelper.exe → C:\Windows\Temp\WNetHelper.exe
+     [+] File uploaded: WNetHelper.exe → C:\Windows\Temp\WNetHelper.stl
      ```
 
-2. ☣️ Execute combined local discovery and subnet scan:
+2. ☣️ Rename the staged tool to its original extension just before execution:
+
+   ```
+   cmd /c ren C:\Windows\Temp\WNetHelper.stl WNetHelper.exe
+   ```
+
+   - ***Expected Output***
+     ```text
+     [+] exec complete (exit 0)
+     ```
+
+3. ☣️ Execute combined local discovery and subnet scan:
 
    ```
    shell C:\Windows\Temp\WNetHelper.exe all 10.12.10.0/24
@@ -277,7 +288,7 @@ Having established a foothold on WS01, the adversary first profiles the local ho
      10.12.10.20    TESTLAB\IIS01                           VirtualBox
      ```
 
-3. ☣️ Delete the tool binary:
+4. ☣️ Delete the tool binary:
 
    ```
    shell del /f C:\Windows\Temp\WNetHelper.exe
@@ -287,7 +298,8 @@ Having established a foothold on WS01, the adversary first profiles the local ho
 
 | Summary | Tactic | Technique ID | Technique Name | Platform | Detection Criteria | Category | Calibration Reason | Red Team Activity | Hosts | Users | Source Code Links | Relevant CTI Reports |
 | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| TONESHELL FILE_UPLOAD WNetHelper.exe to WS01 disk | Command and Control | T1105 | Ingress Tool Transfer | Windows | `waitfor.exe` (shellcode-injected process with unbacked private RX memory) writes PE-format binary `WNetHelper.exe` to `C:\Windows\Temp\` - file write from an injected non-system process to a world-writable directory; `WNetHelper.exe` is an unsigned .NET PE without Authenticode signature, YARA-detectable at write time on the capability-scan surface | Calibrated - Not Benign | - | Red team uses TONESHELL `put` task to write `WNetHelper.exe` to `C:\Windows\Temp\` on WS01 | WS01 (10.12.10.30) | TESTLAB\labuser | [WNetHelper](../resources/payloads/discovery/discovery-toolkit) | - |
+| TONESHELL FILE_UPLOAD WNetHelper.stl to WS01 disk | Command and Control | T1105 | Ingress Tool Transfer | Windows | `waitfor.exe` (shellcode-injected process with unbacked private RX memory) writes PE-format binary `WNetHelper.stl` to `C:\Windows\Temp\` - file write from an injected non-system process to a world-writable directory; the binary is staged with a benign stereolithography (`.stl`) 3D-model extension, and content inspection of the on-disk file shows an MZ header under the `.stl` extension; `WNetHelper.exe` is an unsigned .NET PE without Authenticode signature, YARA-detectable at write time on the capability-scan surface | Calibrated - Not Benign | - | Red team uses TONESHELL `put` task to write `WNetHelper.stl` (payload `WNetHelper.exe` staged under masquerading extension) to `C:\Windows\Temp\` on WS01 | WS01 (10.12.10.30) | TESTLAB\labuser | [WNetHelper](../resources/payloads/discovery/discovery-toolkit) | - |
+| TONESHELL EXEC ren renames staged WNetHelper.stl to WNetHelper.exe on WS01 | Stealth | T1036.008 | Masquerading: Masquerade File Type | Windows | `waitfor.exe` (shellcode-injected implant process) on WS01 spawns `cmd.exe /c ren C:\Windows\Temp\WNetHelper.stl WNetHelper.exe` (Sysmon EC=1, parent `waitfor.exe`) - a `cmd.exe` child of the implant re-extensioning a `.stl` file in the system temp directory to an executable `.exe` immediately before execution; baseline: no process on WS01 renames 3D-model files to executables in `C:\Windows\Temp\`, and `cmd.exe` children of `waitfor.exe` are absent (Microsoft `Waitfor.exe` never spawns command shells) | Calibrated - Not Benign | - | WS01 implant runs EXEC task `cmd /c ren C:\Windows\Temp\WNetHelper.stl WNetHelper.exe` restoring the executable extension at the moment of use - masquerade window ends | WS01 (10.12.10.30) | TESTLAB\labuser | [WNetHelper](../resources/payloads/discovery/discovery-toolkit) | - |
 | WNetHelper reads hostname, domain, and OS version via Environment properties and WMI Win32_OperatingSystem | Discovery | T1082 | System Information Discovery | Windows | `WNetHelper.exe` (unsigned binary from `C:\Windows\Temp\`) issues a WMI query against `Win32_OperatingSystem` - ETW `Microsoft-Windows-WMI-Activity` provider records an anomalous WMI consumer from a non-system binary in a world-writable path performing OS information retrieval | Not Calibrated - Not Benign | native-recon | `WNetHelper.exe local` reads `Environment.MachineName`, `UserDomainName`, `OSVersion` and issues a single WMI query against `Win32_OperatingSystem` on WS01; no child process spawned | WS01 (10.12.10.30) | TESTLAB\labuser | [WNetHelper](../resources/payloads/discovery/discovery-toolkit) | - |
 | WNetHelper reads Windows identity, checks admin role, and translates group SIDs via WindowsIdentity | Discovery | T1033 | System Owner/User Discovery | Windows | N/A - C1: `WindowsIdentity.GetCurrent()`, `IsInRole()`, and `LookupAccountSid` are called by virtually all Windows processes; no stable API pattern distinguishes malicious identity enumeration from benign token inspection - only discriminating factor is process origin, already captured under T1105 | Not Calibrated - Not Benign | C1 | `WNetHelper.exe local` calls `WindowsIdentity.GetCurrent()`, `IsInRole(Administrator)`, and translates identity group SIDs to NTAccount names in-process; no child process | WS01 (10.12.10.30) | TESTLAB\labuser | [WNetHelper](../resources/payloads/discovery/discovery-toolkit) | - |
 | WNetHelper enumerates running processes via HKEY_PERFORMANCE_DATA performance counter registry | Discovery | T1057 | Process Discovery | Windows | `WNetHelper.exe` reads `HKEY_PERFORMANCE_DATA` with value `"230"` (Process performance counter index) to enumerate running processes - registry monitoring observes an unsigned binary from `C:\Windows\Temp\` querying the performance counter virtual hive via an indirect path that bypasses `NtQuerySystemInformation`; HKEY_PERFORMANCE_DATA\230 access is atypical outside monitoring-agent contexts | Calibrated - Not Benign | - | `WNetHelper.exe local` calls `RegQueryValueEx(HKEY_PERFORMANCE_DATA, "230")` to enumerate processes via the performance counter API; avoids `NtQuerySystemInformation` and `OpenProcess`; no child process | WS01 (10.12.10.30) | TESTLAB\labuser | [WNetHelper](../resources/payloads/discovery/discovery-toolkit) | - |

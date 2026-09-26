@@ -75,7 +75,7 @@ The DLL performs a series of environment checks before proceeding: it validates 
 
 The shellcode - running inside `waitfor.exe` - collects the victim hostname, generates a per-implant GUID written to a masquerading config path in the user profile, and opens a raw TCP connection to the TONESHELL controller. A registration handshake is sent and the session enters an adaptive beacon loop.
 
-With an active C2 session, the adversary profiles `WS01`: hostname, domain, OS version, session identity, running processes, installed services, local group memberships, and filesystem entries - all collected in-process by a dropped reconnaissance tool (`WNetHelper.exe`) with no child process spawned. The tool then sweeps the local `/24` subnet via NBNS, identifying `DC01` (10.12.10.10) as the domain controller and `IIS01` (10.12.10.20) as a domain-joined server. The scanner is deleted after output collection.
+With an active C2 session, the adversary profiles `WS01`: hostname, domain, OS version, session identity, running processes, installed services, local group memberships, and filesystem entries - all collected in-process by a dropped reconnaissance tool (`WNetHelper.exe`, staged as `WNetHelper.stl` and renamed to `.exe` at execution) with no child process spawned. The tool then sweeps the local `/24` subnet via NBNS, identifying `DC01` (10.12.10.10) as the domain controller and `IIS01` (10.12.10.20) as a domain-joined server. The scanner is deleted after output collection.
 
 ---
 
